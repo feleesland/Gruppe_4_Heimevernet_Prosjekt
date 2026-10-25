@@ -1,0 +1,50 @@
+﻿
+@model Heimevernet_Prosjekt.Models.PositionModel
+
+<!-- 
+	<h2>Legg til en heading her?</h2>
+
+	Skjema på kartsiden kan bli lagt til her.
+-->
+
+<!-- Juster kartets størrelse her.-->
+<div id="map" style="width: 100%; height: 80vh; margin-left: auto; margin-right: 0;"></div>  <!--Hvordan gjøre at den tilpasser seg skjerm automatisk?-->
+
+
+
+@section Scripts {
+	<script>
+		// Initialize the map and set its view to a specific location and zoom level
+		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
+
+		// Add a tile layer to the map (OpenStreetMap tiles)
+		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+		}).addTo(map);
+
+
+		map.on('click', function(e) {
+
+			var marker = L.marker(e.latlng, {
+				draggable: true
+			}).addTo(map);
+
+			marker.on('click', function() {
+				map.removeLayer(marker);
+			});
+
+			marker.on('dragend', function() {
+				var position = marker.getLatLng();
+
+				console.log(
+					"Marker moved to:",
+					position.lat,
+					position.lng
+				);
+			});
+
+		});
+		
+
+	</script>
+}
