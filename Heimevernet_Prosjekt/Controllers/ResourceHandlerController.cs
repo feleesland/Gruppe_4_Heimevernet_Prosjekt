@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 
 namespace Heimevernet_Prosjekt.Controllers
 {
-    [Authorize(Roles = RoleNames.Admin)]
+    //[Authorize(Roles = RoleNames.Admin)]
     public class ResourceHandlerController : Controller
     {
         private readonly IResourceRepository _resourceRepository;
@@ -43,7 +43,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return View();
         }
 
-        [HttpGet]
+        [HttpPost]
         public ActionResult Create(ResourceViewModel model)
         {
             if (!ModelState.IsValid)
@@ -53,7 +53,7 @@ namespace Heimevernet_Prosjekt.Controllers
 
             var resource = _resourceRepository.Create(model);
 
-            return RedirectToAction("index", "Resource", new { id = resource.Id });
+            return RedirectToAction("List", "Resource", new { id = resource.Id });
         }
 
         [HttpGet]
@@ -90,9 +90,9 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            return RedirectToAction("Index");
+            return RedirectToAction("List","Resource");
         }
-        [HttpGet]
+        [HttpPost]
         public ActionResult Delete(int id)
         {
             var success = _resourceRepository.Delete(id);
@@ -101,7 +101,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 return NotFound();
             }
 
-            return RedirectToAction("Index");
+            return RedirectToAction("List","Resource");
         }
     }
 }

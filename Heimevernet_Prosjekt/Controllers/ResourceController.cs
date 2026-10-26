@@ -14,7 +14,7 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             _resourceRepository = resourceRepository;
         }
-        [Authorize]
+        //[Authorize]
         public IActionResult Index(int? id)
         {
             var resource = id.HasValue ? _resourceRepository.GetById(id.Value) : null;
@@ -31,6 +31,19 @@ namespace Heimevernet_Prosjekt.Controllers
                 Type = resource.Type
             };
             return View(viewModel);
+        }
+        //help with AI
+        public IActionResult List()
+        {
+            var model = _resourceRepository.GetAll().Select(r => new ResourceViewModel
+            {
+                Id = r.Id,
+                Name = r.Name,
+                Description = r.Description,
+                Type = r.Type
+            }).ToList();
+
+            return View(model);
         }
     }
 }

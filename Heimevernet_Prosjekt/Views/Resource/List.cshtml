@@ -1,0 +1,45 @@
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@model List<ResourceViewModel>
+@{
+    ViewData["Title"] = "Ressurser";
+}
+
+<h1>Ressurser</h1>
+
+<a class="btn btn-primary mb-3" asp-controller="ResourceHandler" asp-action="Create">+ Opprett ny ressurs</a>
+
+@if (!Model.Any())
+{
+    <p>Ingen ressurser funnet.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+                <th>Handlinger</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model)
+            {
+                <tr>
+                    <td><a asp-action="Index" asp-route-id="@r.Id">@r.Name</a></td>
+                    <td>@r.Type</td>
+                    <td>@r.Description</td>
+                    <td>
+                        <a class="btn btn-sm btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
+
+                        <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
+                            <button type="submit" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">Slett</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
