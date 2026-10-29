@@ -14,5 +14,6 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
 
         [MaxLength(100)]
         public string Type { get; set; } = string.Empty;
+        public string? OwnerId { get; set; }
     }
 }
