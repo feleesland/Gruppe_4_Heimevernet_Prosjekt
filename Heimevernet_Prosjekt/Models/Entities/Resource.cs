@@ -10,5 +10,6 @@
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
         public string OwnerTelephoneNumber { get; set; } = string.Empty;
+        public string OwnerId {  get; set; } = string.Empty;
     }
 }

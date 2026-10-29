@@ -4,6 +4,7 @@ using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
+using System.Security.Claims;
 
 
 
@@ -11,6 +12,7 @@ using Microsoft.AspNetCore.Mvc.ApiExplorer;
 namespace Heimevernet_Prosjekt.Controllers
 {
     //[Authorize(Roles = RoleNames.Admin)]
+    [Authorize]
     public class ResourceHandlerController : Controller
     {
         private readonly IResourceRepository _resourceRepository;
@@ -21,22 +23,13 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
 
+        // The list is on the Resources page, which is filtered by owner (help with AI)
         [HttpGet]
-        public IActionResult index()
+        public IActionResult Index()
         {
-            var all = _resourceRepository.GetAll();
-            //map the resources to view models
-            var model = all.Select(r => new ResourceViewModel
-            {
-                Id = r.Id,
-                Name = r.Name,
-                Description = r.Description,
-                Type = r.Type
-            }).ToList();
-
-            return View(model);
-
+            return RedirectToAction("List", "Resource");
         }
+
         [HttpGet]
         public IActionResult Create()
         {
@@ -44,12 +37,15 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Create(ResourceViewModel model)
         {
             if (!ModelState.IsValid)
             {
                 return View(model);
             }
+            // The logged-in user owns the new resource (help with AI)
+            model.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var resource = _resourceRepository.Create(model);
 
@@ -64,6 +60,10 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
+            if (!CanAccess(resource.OwnerId))
+            {
+                return Forbid();
+            }
             var model = new ResourceViewModel
             {
                 Id = resource.Id,
@@ -74,6 +74,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return View(model);
         }
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Edit(ResourceViewModel model)
         {
             if(!ModelState.IsValid)
@@ -84,6 +85,15 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return BadRequest();
             }
+            var existing = _resourceRepository.GetById(model.Id.Value);
+            if (existing == null)
+            {
+                return NotFound();
+            }
+            if (!CanAccess(existing.OwnerId))
+            {
+                return Forbid();
+            }
             var success = _resourceRepository.Update(model.Id.Value, model);
 
             if(!success)
@@ -93,8 +103,18 @@ namespace Heimevernet_Prosjekt.Controllers
             return RedirectToAction("List","Resource");
         }
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Delete(int id)
         {
+            var resource = _resourceRepository.GetById(id);
+            if (resource == null)
+            {
+                return NotFound();
+            }
+            if (!CanAccess(resource.OwnerId))
+            {
+                return Forbid();
+            }
             var success = _resourceRepository.Delete(id);
             if (!success)
                     {
@@ -102,6 +122,13 @@ namespace Heimevernet_Prosjekt.Controllers
             }
 
             return RedirectToAction("List","Resource");
+        }
+
+        // Admin can access everything, others only their own (help with AI)
+        private bool CanAccess(string ownerId)
+        {
+            return User.IsInRole(RoleNames.Admin)
+                || ownerId == User.FindFirstValue(ClaimTypes.NameIdentifier);
         }
     }
 }

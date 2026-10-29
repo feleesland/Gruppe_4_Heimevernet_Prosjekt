@@ -16,8 +16,9 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         {
             Name = model.Name,
             Description = model.Description,
-            Type = model.Type
-        };
+            Type = model.Type,
+            OwnerId = model.OwnerId ?? string.Empty
+        }; 
 
         dbContext.Resources.Add(resource);
         dbContext.SaveChanges();

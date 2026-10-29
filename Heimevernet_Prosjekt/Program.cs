@@ -1,6 +1,9 @@
 using Heimevernet_Prosjekt.DataAccess;
 using Microsoft.EntityFrameworkCore;
 using Heimevernet_Prosjekt.Models.Entities;
+using Microsoft.AspNetCore.Identity;
+using Heimevernet_Prosjekt.Services;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +18,32 @@ builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
+
+// "Sends" emails by writing them to the log (development only)
+builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+
+// Login system (Identity) - help with AI
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+{
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+
+    // From the teacher's code
+    options.SignIn.RequireConfirmedAccount = false;
+    options.User.RequireUniqueEmail = true;
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 10;
+})
+.AddEntityFrameworkStores<HeimevernetDbContext>()
+.AddDefaultTokenProviders();
+
+// Where to send people who aren't logged in / don't have access
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+});
 
 var app = builder.Build();
 
@@ -36,6 +65,19 @@ using (var scope = app.Services.CreateScope())
         );
         db.SaveChanges();
     }
+
+    // Create roles (always) - help with AI
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    await IdentitySeeder.SeedRolesAsync(roleManager);
+
+    // Create test accounts (only when running locally)
+    if (app.Environment.IsDevelopment())
+    {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        await IdentitySeeder.SeedDevelopmentAdminAsync(userManager);
+        await IdentitySeeder.SeedDevelopmentUserAsync(userManager);
+    }
+
 }
 
 app.MapDefaultEndpoints();
@@ -51,6 +93,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();
