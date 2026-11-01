@@ -15,6 +15,10 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     {
         base.OnModelCreating(modelBuilder);
 
+        // Deleted resources are hidden everywhere, but kept in the database - Docs: Global Query Filters
+        // https://learn.microsoft.com/ef/core/querying/filters
+        modelBuilder.Entity<Resource>().HasQueryFilter(r => !r.IsDeleted);
+
         modelBuilder.Entity<Resource>(entity =>
         {
             entity.ToTable("Resources");

@@ -9,6 +9,9 @@ using System.Text;
 using System.Text.Encodings.Web;
 
 namespace Heimevernet_Prosjekt.Controllers;
+// Login, register, logout and password reset - Teacher: AccountController.cs
+// [ValidateAntiForgeryToken] on all POST methods - Docs: Prevent Cross-Site Request Forgery (XSRF/CSRF) attacks
+// https://learn.microsoft.com/aspnet/core/security/anti-request-forgery
 
 public sealed class AccountController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager,
     IEmailSender emailSender) : Controller
