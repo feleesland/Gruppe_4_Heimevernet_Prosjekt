@@ -1,0 +1,65 @@
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@model List<ResourceViewModel>
+@{
+    ViewData["Title"] = "Ressurser for bruker";
+    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+}
+
+<h1>Ressurser for @ViewData["Email"]</h1>
+
+<a asp-action="Index" class="btn btn-secondary btn-sm mb-3">← Tilbake til brukere</a>
+
+@if (!Model.Any())
+{
+    <p>Denne brukeren har ikke registrert noen ressurser.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Navn</th>
+                <th>Type</th>
+                <th>Beskrivelse</th>
+                <th>Registrert</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Model)
+            {
+                <tr>
+                    <td><a asp-controller="Resource" asp-action="Index" asp-route-id="@r.Id">@r.Name</a></td>
+                    <td>@r.Type</td>
+                    <td>@r.Description</td>
+                    <td>@(r.CreatedAt != null ? TimeZoneInfo.ConvertTimeFromUtc(r.CreatedAt.Value, oslo).ToString("dd.MM.yyyy HH:mm") : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<!-- Delete user: keep resources (owner removed) or soft delete them too -->
+<div class="card border-danger mt-4">
+    <div class="card-body">
+        <h5 class="card-title text-danger">Slett bruker</h5>
+        <p>Velg hva som skal skje med ressursene over. Ressurser blir aldri fjernet helt, så de kan fortsatt brukes i etterkant av en krise.</p>
+
+        <form asp-action="DeleteUser" method="post" class="d-inline">
+            <input type="hidden" name="userId" value="@ViewData["UserId"]" />
+            <input type="hidden" name="deleteResources" value="false" />
+            <button type="submit" class="btn btn-outline-danger"
+                    onclick="return confirm('Slette brukeren, men beholde ressursene?');">
+                Slett bruker, behold ressursene
+            </button>
+        </form>
+
+        <form asp-action="DeleteUser" method="post" class="d-inline">
+            <input type="hidden" name="userId" value="@ViewData["UserId"]" />
+            <input type="hidden" name="deleteResources" value="true" />
+            <button type="submit" class="btn btn-danger"
+                    onclick="return confirm('Slette brukeren og skjule alle ressursene deres?');">
+                Slett bruker og ressursene
+            </button>
+        </form>
+    </div>
+</div>

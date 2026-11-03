@@ -1,9 +1,13 @@
 using Heimevernet_Prosjekt.DataAccess;
-using Microsoft.EntityFrameworkCore;
 using Heimevernet_Prosjekt.Models.Entities;
-using Microsoft.AspNetCore.Identity;
 using Heimevernet_Prosjekt.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.EntityFrameworkCore;
+using Heimevernet_Prosjekt.Models.Authorization;
+using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,23 +17,22 @@ builder.AddServiceDefaults();
 builder.Services.AddControllersWithViews();
 //builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 
+// Database, repository, email and login (Identity) - Teacher: Program.cs
 var connectionString = builder.Configuration.GetConnectionString("heimevernetdb");
 builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
-
-// "Sends" emails by writing them to the log (development only)
 builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
 
-// Login system (Identity) - help with AI
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 {
+    // Simpler password rules while testing - Docs: Identity on ASP.NET Core
+    // https://learn.microsoft.com/aspnet/core/security/authentication/identity
     options.Password.RequiredLength = 6;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
 
-    // From the teacher's code
     options.SignIn.RequireConfirmedAccount = false;
     options.User.RequireUniqueEmail = true;
     options.Lockout.AllowedForNewUsers = true;
@@ -38,24 +41,27 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<HeimevernetDbContext>()
 .AddDefaultTokenProviders();
 
-// Where to send people who aren't logged in / don't have access
+// Login and access denied pages - Docs: Identity on ASP.NET Core 
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
     options.AccessDeniedPath = "/Account/AccessDenied";
 });
 
+// Handler that checks who can read, edit and delete a resource - Docs: Resource-based authorization
+// https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased
+builder.Services.AddSingleton<IAuthorizationHandler, ResourceAuthorizationHandler>();
+
 var app = builder.Build();
 
-// Create the database table and add test data (help with AI)
+// Migrations, roles and test users - Teacher: Program.cs
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimevernetDbContext>();
+    db.Database.Migrate();
 
-    // Creates the Resources table if it doesn't exist
-    db.Database.EnsureCreated();
-
-    // Add some test resources if the table is empty
+    // Test resources if the table is empty (help with AI) - Docs: Data Seeding
+    // https://learn.microsoft.com/ef/core/modeling/data-seeding
     if (!db.Resources.Any())
     {
         db.Resources.AddRange(
@@ -66,11 +72,11 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
-    // Create roles (always) - help with AI
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentitySeeder.SeedRolesAsync(roleManager);
 
-    // Create test accounts (only when running locally)
+    // Test accounts only when running locally - Docs: Use multiple environments in ASP.NET Core
+    // https://learn.microsoft.com/aspnet/core/fundamentals/environments
     if (app.Environment.IsDevelopment())
     {
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
@@ -91,6 +97,18 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Norwegian, but with dot as decimal separator for map coordinates (help with AI) - Docs: Globalization and localization
+// https://learn.microsoft.com/aspnet/core/fundamentals/localization
+var culture = new CultureInfo("nb-NO");
+culture.NumberFormat.NumberDecimalSeparator = ".";
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new Microsoft.AspNetCore.Localization.RequestCulture(culture),
+    SupportedCultures = new List<CultureInfo> { culture },
+    SupportedUICultures = new List<CultureInfo> { culture }
+});
+
 app.UseRouting();
 
 app.UseAuthentication();

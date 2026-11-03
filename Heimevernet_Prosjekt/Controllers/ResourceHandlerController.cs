@@ -11,19 +11,25 @@ using System.Security.Claims;
 
 namespace Heimevernet_Prosjekt.Controllers
 {
+    // Must be logged in; who can edit and delete is checked by ResourceAuthorizationHandler - Docs: Introduction to authorization
+    // https://learn.microsoft.com/aspnet/core/security/authorization/introduction
+    // [ValidateAntiForgeryToken] on all POST methods - Docs: Prevent Cross-Site Request Forgery (XSRF/CSRF) attacks
+    // https://learn.microsoft.com/aspnet/core/security/anti-request-forgery
     //[Authorize(Roles = RoleNames.Admin)]
     [Authorize]
     public class ResourceHandlerController : Controller
     {
         private readonly IResourceRepository _resourceRepository;
+        private readonly IAuthorizationService _authorizationService;
 
-        public ResourceHandlerController(IResourceRepository resourceRepository)
+        public ResourceHandlerController(IResourceRepository resourceRepository, IAuthorizationService authorizationService)
         {
             _resourceRepository = resourceRepository;
+            _authorizationService = authorizationService;
         }
 
 
-        // The list is on the Resources page, which is filtered by owner (help with AI)
+        // The list is on the Resources page, which only shows what the user is allowed to see
         [HttpGet]
         public IActionResult Index()
         {
@@ -44,7 +50,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return View(model);
             }
-            // The logged-in user owns the new resource (help with AI)
+            // The logged-in user owns the new resource - Docs: Claims-based authorization
             model.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var resource = _resourceRepository.Create(model);
@@ -53,14 +59,16 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpGet]
-        public ActionResult Edit(int id)
+        public async Task<ActionResult> Edit(int id)
         {
             var resource = _resourceRepository.GetById(id);
             if (resource == null)
             {
                 return NotFound();
             }
-            if (!CanAccess(resource.OwnerId))
+            // Only the owner or admin can edit (not operator) - Docs: Resource-based authorization
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceOperations.Update);
+            if (!authorizationResult.Succeeded)
             {
                 return Forbid();
             }
@@ -69,15 +77,23 @@ namespace Heimevernet_Prosjekt.Controllers
                 Id = resource.Id,
                 Name = resource.Name,
                 Description = resource.Description,
-                Type = resource.Type
+                Type = resource.Type,
+
+                // Address and position on the map
+                Address = resource.Address,
+                City = resource.City,
+                ZipCode = resource.ZipCode,
+                Latitude = resource.Latitude,
+                Longitude = resource.Longitude,
+                CreatedAt = resource.CreatedAt
             };
             return View(model);
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(ResourceViewModel model)
+        public async Task<ActionResult> Edit(ResourceViewModel model)
         {
-            if(!ModelState.IsValid)
+            if (!ModelState.IsValid)
             {
                 return View(model);
             }
@@ -90,45 +106,42 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            if (!CanAccess(existing.OwnerId))
+            // Only the owner or admin can save changes - Docs: Resource-based authorization
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, existing, ResourceOperations.Update);
+            if (!authorizationResult.Succeeded)
             {
                 return Forbid();
             }
             var success = _resourceRepository.Update(model.Id.Value, model);
 
-            if(!success)
+            if (!success)
             {
                 return NotFound();
             }
-            return RedirectToAction("List","Resource");
+            return RedirectToAction("List", "Resource");
         }
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Delete(int id)
+        public async Task<ActionResult> Delete(int id)
         {
             var resource = _resourceRepository.GetById(id);
             if (resource == null)
             {
                 return NotFound();
             }
-            if (!CanAccess(resource.OwnerId))
+            // Only the owner or admin can delete - Docs: Resource-based authorization
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceOperations.Delete);
+            if (!authorizationResult.Succeeded)
             {
                 return Forbid();
             }
             var success = _resourceRepository.Delete(id);
             if (!success)
-                    {
+            {
                 return NotFound();
             }
 
-            return RedirectToAction("List","Resource");
-        }
-
-        // Admin can access everything, others only their own (help with AI)
-        private bool CanAccess(string ownerId)
-        {
-            return User.IsInRole(RoleNames.Admin)
-                || ownerId == User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return RedirectToAction("List", "Resource");
         }
     }
 }

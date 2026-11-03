@@ -1,24 +1,53 @@
-﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Endre Ressurs";
 }
-    <form asp-controller="ResourceHandler" asp-action="Edit" method="post">
-        <div>
-            <label asp-for="Name"></label>
-            <input asp-for="Name" value="@Model.Name" />
-            <span asp-validation-for="Name"></span>
-        </div>
-        <div>
-            <label asp-for="Description"></label>
-            <input asp-for="Description" value="@Model.Description" />
-            <span asp-validation-for="Description"></span>
-        </div>
-        <div>
-            <label asp-for="Type"></label>
-            <input asp-for="Type" value="@Model.Type" />
-            <span asp-validation-for="Type"></span>
-        </div>
+<form asp-controller="ResourceHandler" asp-action="Edit" method="post">
+    <div>
+        <label asp-for="Name"></label>
+        <input asp-for="Name" value="@Model.Name" />
+        <span asp-validation-for="Name"></span>
+    </div>
+    <div>
+        <label asp-for="Description"></label>
+        <input asp-for="Description" value="@Model.Description" />
+        <span asp-validation-for="Description"></span>
+    </div>
+    <div>
+        <label asp-for="Type"></label>
+        <input asp-for="Type" value="@Model.Type" />
+        <span asp-validation-for="Type"></span>
+    </div>
+
+    <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
+    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
+    <div>
+        <label asp-for="Address"></label>
+        <input asp-for="Address" />
+    </div>
+    <div>
+        <label asp-for="ZipCode"></label>
+        <input asp-for="ZipCode" />
+    </div>
+    <div>
+        <label asp-for="City"></label>
+        <input asp-for="City" />
+    </div>
+    <button type="button" id="findOnMap">Finn på kartet</button>
+    <button type="button" id="useMyLocation">Bruk min posisjon</button>
+    <span id="geoStatus"></span>
+    <p>Du kan også klikke på kartet eller dra markøren.</p>
+    <div id="pickMap" style="height: 300px;"></div>
+    <input type="hidden" asp-for="Latitude" />
+    <input type="hidden" asp-for="Longitude" />
+
     <input type="hidden" asp-for="Id" value="@Model.Id" />
-        <button type="submit">Save</button>
-    </form>
+    <button type="submit">Save</button>
+</form>
+
+@section Scripts {
+    <!-- Loads the map script only on this page - Docs: Layout in ASP.NET Core (Sections) -->
+    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/layout -->
+    <script src="~/js/location-picker.js" asp-append-version="true"></script>
+}

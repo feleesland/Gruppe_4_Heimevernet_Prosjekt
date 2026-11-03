@@ -13,7 +13,7 @@ public static class IdentitySeeder
     // CHANGED: creates all roles, not just Admin (help with AI)
     public static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
     {
-        string[] roles = [RoleNames.Admin, RoleNames.User, RoleNames.Partner];
+        string[] roles = [RoleNames.Admin, RoleNames.Operator, RoleNames.User, RoleNames.Partner];
 
         foreach (var roleName in roles)
         {

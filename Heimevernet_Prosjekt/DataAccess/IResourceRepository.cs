@@ -11,6 +11,8 @@ namespace Heimevernet_Prosjekt.DataAccess
         IReadOnlyCollection<Resource> GetAll();
         Resource? GetById(int id);
         bool Update(int id, ResourceViewModel model);
+        int RemoveOwner(string ownerId);
+        int DeleteAllByOwner(string ownerId);
 
     }
 }
