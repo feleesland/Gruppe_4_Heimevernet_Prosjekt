@@ -25,7 +25,7 @@ namespace Heimevernet_Prosjekt.DataAccess
             {
                 Id = _nextId++,
                 Name = model.Name,
-                Description = model.Description,
+                Description = model.Description ?? string.Empty, // Stores empty text if no description being entered
                 Type = model.Type
             };
 
@@ -53,7 +53,7 @@ namespace Heimevernet_Prosjekt.DataAccess
             }
 
             resource.Name = model.Name;
-            resource.Description = model.Description;
+            resource.Description = model.Description ?? string.Empty;  // Stores empty text if no description being entered 
             resource.Type = model.Type;
             return true;
         }

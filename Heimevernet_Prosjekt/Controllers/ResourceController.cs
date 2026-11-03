@@ -1,13 +1,13 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
+using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
-using Heimevernet_Prosjekt.Models.Authorization;
-
 
 namespace Heimevernet_Prosjekt.Controllers
 {
+    // Users must log in before accessing these pages.
     [Authorize]
     public class ResourceController : Controller
     {
@@ -15,36 +15,51 @@ namespace Heimevernet_Prosjekt.Controllers
 
         public ResourceController(IResourceRepository resourceRepository)
         {
+            // Keep the repository so we can find resources.
             _resourceRepository = resourceRepository;
         }
-        
+
+        [HttpGet]
         public IActionResult Index(int? id)
         {
-            var resource = id.HasValue ? _resourceRepository.GetById(id.Value) : null;
-            var viewModel = new ResourceViewModel();
+            // A resource ID is needed to open this page.
+            if (!id.HasValue)
+            {
+                return NotFound();
+            }
+
+            var resource = _resourceRepository.GetById(id.Value);
+
+            // Return 404 if the resource does not exist.
             if (resource == null)
             {
-                return View(viewModel);
+                return NotFound();
             }
+
+            // Only the owner or an administrator can view this resource.
             if (!CanAccess(resource.OwnerId))
             {
                 return Forbid();
             }
-            viewModel = new ResourceViewModel
+
+            // Copy the information needed by the page.
+            var viewModel = new ResourceViewModel
             {
                 Id = resource.Id,
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type
             };
+
             return View(viewModel);
         }
-        //help with AI
+
+        [HttpGet]
         public IActionResult List()
         {
             var resources = _resourceRepository.GetAll();
 
-            // Admin sees all resources, everyone else only their own
+            // Administrators see all resources; other users see their own.
             if (!User.IsInRole(RoleNames.Admin))
             {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -62,7 +77,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return View(model);
         }
 
-        // Admin can access everything, others only their own (help with AI)
+        // Allow access for administrators and the resource owner.
         private bool CanAccess(string ownerId)
         {
             return User.IsInRole(RoleNames.Admin)
