@@ -14,7 +14,7 @@ Prosjektet følger MVC-arkitekturen (Model-View-Controller) med en webapplikasjo
 Databasen...
 #
 ### Testing scenarioer og resultater
-Unit tester...
+Unit tester er lagt til flere på vei, startet på med KI og gjennomgått før oppdatering av branch
 
 #
 ### Vår bruk av KI i prosjektet
