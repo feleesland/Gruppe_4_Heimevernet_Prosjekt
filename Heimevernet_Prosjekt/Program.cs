@@ -23,6 +23,7 @@ builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
+builder.Services.AddScoped<IResourceNeedRepository, EfResourceNeedRepository>();
 builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
 
 builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>

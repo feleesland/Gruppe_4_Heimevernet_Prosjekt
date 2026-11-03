@@ -37,6 +37,9 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Resource" asp-action="List">Resources</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+                        </li>
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
