@@ -30,7 +30,7 @@ jobs:
         run: dotnet restore Heimevernet_Prosjekt.slnx 
 
       - name: Build
-        run: dotnet build Heimevernet_Prosjekt.slnx
+        run: dotnet build Heimevernet_Prosjekt.slnx --configuration Release
 
       - name: Test
         run: dotnet test Heimevernet_Prosjekt.slnx --configuration Release --no-build --no-restore --verbosity normal
