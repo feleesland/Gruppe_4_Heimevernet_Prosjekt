@@ -78,5 +78,34 @@ namespace Heimevernet_Prosjekt.Controllers
 
             return View(model);
         }
+
+        [HttpGet]   //Kart relatert metode for at kartet skal kunne hente ressurser fra databasen og vise de som markører på kartet.
+        public async Task<IActionResult> MapResources()
+        {
+            var resources = new List<object>();
+
+            foreach (var r in _resourceRepository.GetAll())
+            {
+                var authorizationResult = await _authorizationService
+                    .AuthorizeAsync(User, r, ResourceOperations.Read);
+
+                if (authorizationResult.Succeeded &&
+                    r.Latitude != null &&
+                    r.Longitude != null)
+                {
+                    resources.Add(new
+                    {
+                        id = r.Id,
+                        name = r.Name,
+                        description = r.Description,
+                        type = r.Type,
+                        latitude = r.Latitude,
+                        longitude = r.Longitude
+                    });
+                }
+            }
+
+            return Json(resources);
+        }
     }
 }
