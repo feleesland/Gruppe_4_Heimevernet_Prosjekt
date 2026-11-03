@@ -63,5 +63,28 @@ namespace Heimevernet_Prosjekt.DataAccess
             return _resources.Remove(id);
         }
 
+        public int RemoveOwner(string ownerId)
+        {
+            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
+            foreach (var resource in resources)
+            {
+                resource.OwnerId = string.Empty;
+                resource.OwnerTelephoneNumber = string.Empty;
+                resource.OwnerRemoved = true;
+            }
+            return resources.Count;
+        }
+
+        public int DeleteAllByOwner(string ownerId)
+        {
+            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
+            foreach (var resource in resources)
+            {
+                resource.IsDeleted = true;
+                resource.DeletedAt = DateTime.UtcNow;
+            }
+            return resources.Count;
+        }
+
     }
 }

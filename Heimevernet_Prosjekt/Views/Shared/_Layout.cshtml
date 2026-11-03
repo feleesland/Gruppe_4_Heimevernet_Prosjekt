@@ -1,4 +1,5 @@
 ﻿@using Microsoft.AspNetCore.Identity
+@using Heimevernet_Prosjekt.Models.Authorization
 @inject SignInManager<IdentityUser> SignInManager
 
 <!DOCTYPE html>
@@ -27,7 +28,7 @@
                    asp-controller="Home"
                    asp-action="Index">Heimevernet_Prosjekt</a>
 
-                <!-- Open or close the navigation menu on small screens. -->
+                <!-- Open or close the menu on small screens. -->
                 <button class="navbar-toggler"
                         type="button"
                         data-bs-toggle="collapse"
@@ -61,21 +62,40 @@
                                asp-action="Privacy">Privacy</a>
                         </li>
                         <li class="nav-item">
-                            @* The controller filters resources by owner and role. *@
+                            @* The controller checks which resources the user can see. *@
                             <a class="nav-link text-dark"
                                asp-area=""
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
+
+                        @* Show the user management link to administrators. *@
+                        @if (User.IsInRole(RoleNames.Admin))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark"
+                                   asp-area=""
+                                   asp-controller="Admin"
+                                   asp-action="Index">Brukere</a>
+                            </li>
+                        }
                     </ul>
 
-                    @* Show account controls based on the user's login status. *@
+                    @* Show account controls based on login status. *@
                     <ul class="navbar-nav">
                         @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
-                                <span class="nav-link text-dark">
-                                    @User.Identity?.Name
+                                @* Display the user's name and role. *@
+                                <span class="nav-link text-dark text-end lh-sm">
+                                    @User.Identity?.Name<br />
+                                    <small class="text-muted">
+                                        @RoleNames.DisplayName(
+                                            User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
+                                            : User.IsInRole(RoleNames.Operator) ? RoleNames.Operator
+                                            : User.IsInRole(RoleNames.Partner) ? RoleNames.Partner
+                                            : RoleNames.User)
+                                    </small>
                                 </span>
                             </li>
                             <li class="nav-item">
@@ -110,31 +130,9 @@
         </nav>
     </header>
 
-                        <a class="nav-link text-dark" asp-area="" asp-controller="Resource" asp-action="List">Resources</a>
-                       </li> 
-                    </ul>
-                    <!-- Login/logout on the right side (help with AI) -->
-                    <ul class="navbar-nav">
-                        @if (SignInManager.IsSignedIn(User))
-                        {
-                            <li class="nav-item">
-                                <span class="nav-link text-dark">@User.Identity?.Name</span>
-                            </li>
-                            <li class="nav-item">
-                                <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                                    <button type="submit" class="nav-link btn btn-link text-dark">Logg ut</button>
-                                </form>
-                            </li>
-                        }
-                        else
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Account" asp-action="Login">Logg inn</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Account" asp-action="Register">Registrer</a>
-                            </li>
-                        }
+    <!-- Display the content of the current page. -->
+    <div class="container">
+        <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>

@@ -14,7 +14,7 @@ Prosjektet følger MVC-arkitekturen (Model-View-Controller) med en webapplikasjo
 Databasen...
 #
 ### Testing scenarioer og resultater
-Unit tester...
+Unit tester er lagt til flere på vei, startet på med KI og gjennomgått før oppdatering av branch
 
 #
 ### Vår bruk av KI i prosjektet
@@ -23,7 +23,7 @@ KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, Chat
 
 Disse har blitt brukt på følgende måter:
 
-- GitHub Copilot Chat har vært til hjelp med å debugge og finne løsninger på problemer som har oppstått underveis.
+- GitHub Copilot Chat har vært til hjelp med å debugge og finne løsninger på problemer som har oppstått underveis. Inklusivt brukt for å raskt lage unit-tester før de ble sjekket av gruppe medlem.
 - ChatGPT har blitt brukt for å få rask hjelp med småting som "Hvordan å endre at kartstørrelsen tilpasser seg skjermer automatisk". Den har da kommet med forslag til måter dette kunne gjøres på.
 - I Anara har tutoriels fra IS-202 som er brukt i dette prosjektet blitt lagt inn for å få bedre forståelse av hvordan koden fungerer ved å snakke med filene.
 

@@ -1,0 +1,58 @@
+﻿@using Heimevernet_Prosjekt.Controllers
+@using Heimevernet_Prosjekt.Models.ViewModels.Admin
+@using Heimevernet_Prosjekt.Models.Authorization
+
+@model List<UserRoleViewModel>
+@{
+    ViewData["Title"] = "Brukere";
+}
+
+<h1>Brukere</h1>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info">@TempData["Message"]</div>
+}
+
+<!-- Search on email and change role per user - Docs: Tag Helpers in forms -->
+<!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
+<form asp-action="Index" method="get" class="mb-3">
+    <input name="search" value="@ViewData["Search"]" placeholder="Søk på e-post" />
+    <button type="submit" class="btn btn-secondary btn-sm">Søk</button>
+</form>
+
+@if (!Model.Any())
+{
+    <p>Ingen brukere funnet.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>E-post</th>
+                <th>Rolle</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in Model)
+            {
+                <tr>
+                    <td><a asp-action="UserResources" asp-route-id="@u.UserId">@u.Email</a></td>
+                    <td>
+                        <form asp-action="SetRole" method="post" class="d-flex gap-2">
+                            <input type="hidden" name="userId" value="@u.UserId" />
+                            <select name="role" class="form-select form-select-sm w-auto">
+                                @foreach (var role in AdminController.Roles)
+                                {
+                                    <option value="@role" selected="@(role == u.Role)">@RoleNames.DisplayName(role)</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">Lagre</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

@@ -8,7 +8,19 @@
 -->
 
 <!-- Juster kartets størrelse her.-->
-<div id="map" style="width: 100%; height: 80vh; margin-left: auto; margin-right: 0;"></div>  <!--Hvordan gjøre at den tilpasser seg skjerm automatisk?-->
+	<div id="map"></div>
+	<style>
+	#map {
+		width: 100vw;
+		margin-left: calc(50% - 50vw);
+		height: 100dvh; /* reserve, før JavaScript har regnet ut riktig høyde */
+		min-height: 300px;
+	}
+
+	html, body {
+	overflow: hidden;
+	}
+</style>
 
 
 
@@ -21,29 +33,38 @@
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
+	
+		//Ressurser hentes fra databasen og legges til på kartet som markører.
+				fetch('@Url.Action("MapResources", "Resource")')
+			.then(response => response.json())
+			.then(resources => {
 
+				console.log("Ressurser hentet:", resources);
 
-		map.on('click', function(e) {
+				resources.forEach(resource => {
 
-			var marker = L.marker(e.latlng, {
-				draggable: true
-			}).addTo(map);
+					var lat = parseFloat(resource.latitude);
+					var lng = parseFloat(resource.longitude);
 
-			marker.on('click', function() {
-				map.removeLayer(marker);
+					// Kontroller at koordinatene er gyldige
+					if (isNaN(lat) || isNaN(lng)) {
+						console.warn("Ugyldige koordinater:", resource);
+						return;
+					}
+
+					var marker = L.marker([lat, lng]).addTo(map);
+
+					marker.bindPopup(`
+						<strong>${resource.name}</strong><br>
+						${resource.description || ""}
+						<br>
+						Type: ${resource.type || "Ukjent"}
+					`);
+				});
+			})
+			.catch(error => {
+				console.error("Feil ved henting av ressurser:", error);
 			});
-
-			marker.on('dragend', function() {
-				var position = marker.getLatLng();
-
-				console.log(
-					"Marker moved to:",
-					position.lat,
-					position.lng
-				);
-			});
-
-		});
 		
 
 	</script>

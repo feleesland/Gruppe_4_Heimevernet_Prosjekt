@@ -23,6 +23,28 @@
             <input asp-for="Type" />
             <span asp-validation-for="Type"></span>
         </div>
+
+        <!-- Address and position on the map (help with AI) -->
+        <div>
+            <label asp-for="Address"></label>
+            <input asp-for="Address" />
+        </div>
+        <div>
+            <label asp-for="ZipCode"></label>
+            <input asp-for="ZipCode" />
+        </div>
+        <div>
+            <label asp-for="City"></label>
+            <input asp-for="City" />
+        </div>
+        <button type="button" id="findOnMap">Finn på kartet</button>
+        <button type="button" id="useMyLocation">Bruk min posisjon</button>
+        <span id="geoStatus"></span>
+        <p>Du kan også klikke på kartet eller dra markøren.</p>
+        <div id="pickMap" style="height: 300px;"></div>
+        <input type="hidden" asp-for="Latitude" />
+        <input type="hidden" asp-for="Longitude" />
+
         <button type="submit">Create</button>
     </form>
 }
@@ -35,4 +57,11 @@ else
         <p>@Model.Description</p>
         <p>Type: @Model.Type</p>
     </div>
+}
+
+@section Scripts {
+    @if (Model == null || !ViewData.ModelState.IsValid)
+    {
+        <script src="~/js/location-picker.js" asp-append-version="true"></script>
+    }
 }
