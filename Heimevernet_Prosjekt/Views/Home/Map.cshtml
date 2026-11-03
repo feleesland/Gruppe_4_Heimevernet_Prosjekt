@@ -8,7 +8,19 @@
 -->
 
 <!-- Juster kartets størrelse her.-->
-<div id="map" style="width: 100%; height: 80vh; margin-left: auto; margin-right: 0;"></div>  <!--Hvordan gjøre at den tilpasser seg skjerm automatisk?-->
+	<div id="map"></div>
+	<style>
+	#map {
+		width: 100vw;
+		margin-left: calc(50% - 50vw);
+		height: 100dvh; /* reserve, før JavaScript har regnet ut riktig høyde */
+		min-height: 300px;
+	}
+
+	html, body {
+	overflow: hidden;
+	}
+</style>
 
 
 

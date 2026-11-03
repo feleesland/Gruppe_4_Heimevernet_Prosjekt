@@ -1,4 +1,4 @@
-﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Ressurs";
@@ -7,3 +7,42 @@
 <h1>@Model.Name</h1>
 <p>@Model.Description</p>
 <p>Type: @Model.Type</p>
+@if (Model.OwnerRemoved)
+{
+    <p class="text-warning">Eieren er fjernet fra systemet.</p>
+}
+
+
+<!-- Address, date and position - Docs: Converting times between time zones -->
+<!-- https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones -->
+<p>Adresse: @(string.IsNullOrEmpty(Model.Address) ? "Ikke oppgitt" : $"{Model.Address}, {Model.ZipCode} {Model.City}")</p>
+
+@if (Model.CreatedAt != null)
+{
+    var osloTime = TimeZoneInfo.ConvertTimeFromUtc(Model.CreatedAt.Value, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
+    <p>Registrert: @osloTime.ToString("dd.MM.yyyy HH:mm")</p>
+}
+
+@if (Model.Latitude != null && Model.Longitude != null)
+{
+    <div id="detailMap" style="height: 300px;"
+         data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+         data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+}
+
+@section Scripts {
+    <script>
+        // Show the resource's position on a small map - Docs: Leaflet API reference
+        // https://leafletjs.com/reference.html
+        const mapDiv = document.getElementById('detailMap');
+        if (mapDiv) {
+            const lat = parseFloat(mapDiv.dataset.lat);
+            const lng = parseFloat(mapDiv.dataset.lng);
+            const detailMap = L.map('detailMap').setView([lat, lng], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(detailMap);
+            L.marker([lat, lng]).addTo(detailMap);
+        }
+    </script>
+}
