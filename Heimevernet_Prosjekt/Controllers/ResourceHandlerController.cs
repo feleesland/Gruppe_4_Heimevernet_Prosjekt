@@ -43,7 +43,9 @@ namespace Heimevernet_Prosjekt.Controllers
             return View();
         }
 
-        [HttpGet]
+        // Save the resource when the user submits the form.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Create(ResourceViewModel model)
         {
             if (!ModelState.IsValid)
@@ -73,7 +75,9 @@ namespace Heimevernet_Prosjekt.Controllers
             };
             return View(model);
         }
+        // Check the form token before saving changes.
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Edit(ResourceViewModel model)
         {
             if(!ModelState.IsValid)
@@ -92,7 +96,9 @@ namespace Heimevernet_Prosjekt.Controllers
             }
             return RedirectToAction("Index");
         }
-        [HttpGet]
+        // Can only delete after the user submits the delete form. 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public ActionResult Delete(int id)
         {
             var success = _resourceRepository.Delete(id);

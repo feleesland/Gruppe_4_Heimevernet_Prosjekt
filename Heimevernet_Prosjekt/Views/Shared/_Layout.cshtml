@@ -15,11 +15,24 @@
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
                 <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Heimevernet_Prosjekt</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <!-- This button opens or closes the menu on small screens. -->
+                <!-- data-bs-target and aria-controls point to the menu below. -->
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#mainNavigation"
+                        aria-controls="mainNavigation"
+                        aria-expanded="false"
+                        aria-label="Åpne eller lukk meny">
+
+                    <!-- Show the menu icon inside the button. -->
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+
+                <!-- This section contains the navigation links. -->
+                <!-- Its ID must match the menu name used by the button. -->
+                <div id="mainNavigation"
+                     class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Hjem</a>
@@ -31,7 +44,17 @@
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
                         <li class="nav-item">
-                         <a class="nav-link text-dark" asp-area="" asp-controller="Resource" asp-action="Index">Resources</a>
+                            @* Show the resource overview link only to administrators. *@
+                            @if (User.IsInRole(
+                                Heimevernet_Prosjekt.Models.Authorization.RoleNames.Admin))
+                            {
+                                <a class="nav-link text-dark"
+                                   asp-area=""
+                                   asp-controller="ResourceHandler"
+                                   asp-action="Index">
+                                    Ressursoversikt
+                                </a>
+                            }
                      </li>
                     </ul>
                 </div>

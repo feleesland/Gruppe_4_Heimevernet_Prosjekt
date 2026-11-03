@@ -1,9 +1,18 @@
+
+// This tells the file where to find resource repository classes
+using Heimevernet_Prosjekt.DataAccess;
+
 var builder = WebApplication.CreateBuilder(args);
+
 
 builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Use the same temporary resource store for all requests.
+builder.Services.AddSingleton<IResourceRepository, ResourceRepository>();
+
 
 var app = builder.Build();
 
