@@ -96,38 +96,26 @@ var redIcon = new L.Icon({
 							return;
 						}
 
-					var icon = greenIcon;
+						// Marker colour from status: green = Ledig (or no status), yellow = Opptatt, red = Ugyldig
+						var icon = greenIcon;
+						switch (resource.status) {
+							case "Opptatt":
+								icon = yellowIcon;
+								break;
+							case "Ugyldig":
+								icon = redIcon;
+								break;
+						}
 
-					switch (resource.status) {
-						case "Opptatt":
-							icon = yellowIcon;
-							break;
-						case "Ugyldig":
-							icon = redIcon;
-							break;
-						default:
-							icon = greenIcon;
-							break;
-					}
-
-					var marker = L.marker([lat, lng], {
-						icon: icon					
-					}).addTo(map);
-
-					marker.bindPopup(`
-						<strong>${resource.name}</strong><br>
-						${resource.description || ""}
-						<br>
-						Type: ${resource.type || "Ukjent"}
-						<br> Status: ${resource.status || "Ukjent"}
-					`);
-						var marker = L.marker([lat, lng]).addTo(markerLayer);
+						var marker = L.marker([lat, lng], { icon: icon }).addTo(markerLayer);
 
 						marker.bindPopup(`
 							<strong>${escapeHtml(resource.name)}</strong><br>
 							${escapeHtml(resource.description)}
 							<br>
 							Type: ${escapeHtml(resource.type) || "Ukjent"}
+							<br>
+							Status: ${escapeHtml(resource.status) || "Ukjent"}
 							<br>
 							<a href="${detailUrl}${resource.id}">Vis ressurs</a>
 						`);
