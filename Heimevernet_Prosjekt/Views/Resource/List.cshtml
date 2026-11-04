@@ -31,12 +31,20 @@ else
                     <td>@r.Type</td>
                     <td>@r.Description</td>
                     <td>
-                        <a class="btn btn-sm btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
-
-                        <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
-                            <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">Slett</button>
-                        </form>
+                        @* Buttons only show if the user is allowed (CanEdit/CanDelete set in ResourceController) *@
+                        @if (r.CanEdit)
+                        {
+                            <a class="btn btn-sm btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
+                        }
+                        @if (r.CanDelete)
+                        {
+                            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                        onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
+                                    Slett
+                                </button>
+                            </form>
+                        }
                     </td>
                 </tr>
             }

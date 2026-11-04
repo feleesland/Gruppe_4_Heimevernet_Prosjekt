@@ -3,6 +3,8 @@ using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Heimevernet_Prosjekt.Models.Authorization;
+using Heimevernet_Prosjekt.Models.Entities;
+using Microsoft.AspNetCore.Identity;
 
 
 namespace Heimevernet_Prosjekt.Controllers
@@ -14,11 +16,13 @@ namespace Heimevernet_Prosjekt.Controllers
     {
         private readonly IResourceRepository _resourceRepository;
         private readonly IAuthorizationService _authorizationService;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public ResourceController(IResourceRepository resourceRepository, IAuthorizationService authorizationService)
+        public ResourceController(IResourceRepository resourceRepository, IAuthorizationService authorizationService, UserManager<ApplicationUser> userManager)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
+            _userManager = userManager;
         }
 
         public async Task<IActionResult> Index(int? id)
@@ -43,6 +47,8 @@ namespace Heimevernet_Prosjekt.Controllers
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type,
+                Notes = resource.Notes,
+                HasImage = resource.ImageData != null,
 
                 // Address, position and date
                 Address = resource.Address,
@@ -53,7 +59,41 @@ namespace Heimevernet_Prosjekt.Controllers
                 CreatedAt = resource.CreatedAt,
                 OwnerRemoved = resource.OwnerRemoved
             };
+
+            // Owner's name, email and phone come from the account, so they are always up to date - Docs: Introduction to Identity on ASP.NET Core
+            // https://learn.microsoft.com/aspnet/core/security/authentication/identity
+            if (!string.IsNullOrEmpty(resource.OwnerId))
+            {
+                var owner = await _userManager.FindByIdAsync(resource.OwnerId);
+                if (owner != null)
+                {
+                    viewModel.OwnerName = $"{owner.FirstName} {owner.LastName}".Trim();
+                    viewModel.OwnerEmail = owner.Email;
+                    viewModel.OwnerPhone = owner.PhoneNumber;
+                }
+            }
+
             return View(viewModel);
+        }
+
+        // Returns the resource's picture from the database, same access as the detail page - Docs: Upload files in ASP.NET Core
+        // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
+        [HttpGet]
+        public async Task<IActionResult> Image(int id)
+        {
+            var resource = _resourceRepository.GetById(id);
+            if (resource == null || resource.ImageData == null || resource.ImageContentType == null)
+            {
+                return NotFound();
+            }
+
+            var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceOperations.Read);
+            if (!authorizationResult.Succeeded)
+            {
+                return Forbid();
+            }
+
+            return File(resource.ImageData, resource.ImageContentType);
         }
 
         // List of resources: only those the user is allowed to see - Docs: Resource-based authorization
@@ -66,12 +106,18 @@ namespace Heimevernet_Prosjekt.Controllers
                 var authorizationResult = await _authorizationService.AuthorizeAsync(User, r, ResourceOperations.Read);
                 if (authorizationResult.Succeeded)
                 {
+                    // Same checks as in ResourceHandlerController, so the buttons only show when they work
+                    var canEdit = await _authorizationService.AuthorizeAsync(User, r, ResourceOperations.Update);
+                    var canDelete = await _authorizationService.AuthorizeAsync(User, r, ResourceOperations.Delete);
+
                     model.Add(new ResourceViewModel
                     {
                         Id = r.Id,
                         Name = r.Name,
                         Description = r.Description,
-                        Type = r.Type
+                        Type = r.Type,
+                        CanEdit = canEdit.Succeeded,
+                        CanDelete = canDelete.Succeeded
                     });
                 }
             }

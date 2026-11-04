@@ -22,6 +22,10 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IResourceRepository _resourceRepository;
         private readonly IAuthorizationService _authorizationService;
 
+        // Allowed picture types and max size (5 MB)
+        private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
+        private const long MaxImageSize = 5 * 1024 * 1024;
+
         public ResourceHandlerController(IResourceRepository resourceRepository, IAuthorizationService authorizationService)
         {
             _resourceRepository = resourceRepository;
@@ -46,6 +50,7 @@ namespace Heimevernet_Prosjekt.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult Create(ResourceViewModel model)
         {
+            ValidateImage(model.Image);
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -78,6 +83,8 @@ namespace Heimevernet_Prosjekt.Controllers
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type,
+                Notes = resource.Notes,
+                HasImage = resource.ImageData != null,
 
                 // Address and position on the map
                 Address = resource.Address,
@@ -93,6 +100,7 @@ namespace Heimevernet_Prosjekt.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Edit(ResourceViewModel model)
         {
+            ValidateImage(model.Image);
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -129,7 +137,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            // Only the owner or admin can delete - Docs: Resource-based authorization
+            // Only the owner or admin can delete (soft delete, the resource is kept) - Docs: Resource-based authorization
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceOperations.Delete);
             if (!authorizationResult.Succeeded)
             {
@@ -142,6 +150,24 @@ namespace Heimevernet_Prosjekt.Controllers
             }
 
             return RedirectToAction("List", "Resource");
+        }
+
+        // Checks the uploaded picture before it is saved: only images, max 5 MB - Docs: Upload files in ASP.NET Core (security considerations)
+        // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
+        private void ValidateImage(IFormFile? image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+            if (!AllowedImageTypes.Contains(image.ContentType))
+            {
+                ModelState.AddModelError(nameof(ResourceViewModel.Image), "Bildet må være JPG, PNG eller WebP.");
+            }
+            if (image.Length > MaxImageSize)
+            {
+                ModelState.AddModelError(nameof(ResourceViewModel.Image), "Bildet kan ikke være større enn 5 MB.");
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using Heimevernet_Prosjekt.Models.Authorization
-@inject SignInManager<IdentityUser> SignInManager
+@using Heimevernet_Prosjekt.Models.Entities
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
 
 <!DOCTYPE html>
 <html lang="en">
@@ -49,9 +51,13 @@
                     <ul class="navbar-nav">
                         @if (SignInManager.IsSignedIn(User))
                         {
+                            // Show first and last name; fall back to email for users without a name
+                            var currentUser = await UserManager.GetUserAsync(User);
+                            var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
+
                             <li class="nav-item">
                                 <span class="nav-link text-dark text-end lh-sm">
-                                    @User.Identity?.Name<br />
+                                    @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-muted">
                                         @RoleNames.DisplayName(
                                             User.IsInRole(RoleNames.Admin) ? RoleNames.Admin

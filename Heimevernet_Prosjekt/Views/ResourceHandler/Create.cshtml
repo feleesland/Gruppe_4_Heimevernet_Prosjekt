@@ -1,4 +1,4 @@
-﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Ny Ressurs";
@@ -7,7 +7,9 @@
 
 @if (Model == null || !ViewData.ModelState.IsValid)
 {
-    <form asp-controller="ResourceHandler" asp-action="Create" method="post">
+    <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
+    <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
+    <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
         <div>
             <label asp-for="Name"></label>
             <input asp-for="Name" />
@@ -22,6 +24,20 @@
             <label asp-for="Type"></label>
             <input asp-for="Type" />
             <span asp-validation-for="Type"></span>
+        </div>
+
+        <!-- Free text, e.g. where the keys are -->
+        <div>
+            <label asp-for="Notes"></label>
+            <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
+            <span asp-validation-for="Notes"></span>
+        </div>
+
+        <!-- Picture: on a phone, capture="environment" opens the back camera -->
+        <div>
+            <label asp-for="Image"></label>
+            <input asp-for="Image" type="file" accept="image/*" capture="environment" />
+            <span asp-validation-for="Image"></span>
         </div>
 
         <!-- Address and position on the map (help with AI) -->

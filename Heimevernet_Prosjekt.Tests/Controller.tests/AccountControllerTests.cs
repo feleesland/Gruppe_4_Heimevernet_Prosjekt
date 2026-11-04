@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -43,7 +44,7 @@ public sealed class AccountControllerTests
     [Fact]
     public async Task LoginPost_WhenCredentialsAreValid_RedirectsToLocalReturnUrl()
     {
-        var user = new IdentityUser { Email = "user@example.com" };
+        var user = new ApplicationUser { Email = "user@example.com" };
         var userManager = CreateUserManager();
         var signInManager = CreateSignInManager(userManager);
         userManager.Setup(manager => manager.FindByEmailAsync(user.Email!)).ReturnsAsync(user);
@@ -72,7 +73,7 @@ public sealed class AccountControllerTests
     [Fact]
     public async Task LoginPost_WhenCredentialsAreInvalid_ReturnsViewWithModelError()
     {
-        var user = new IdentityUser { Email = "user@example.com" };
+        var user = new ApplicationUser { Email = "user@example.com" };
         var userManager = CreateUserManager();
         var signInManager = CreateSignInManager(userManager);
         userManager.Setup(manager => manager.FindByEmailAsync(user.Email!)).ReturnsAsync(user);
@@ -106,39 +107,39 @@ public sealed class AccountControllerTests
     }
 
     private static AccountController CreateController(
-        Mock<UserManager<IdentityUser>>? userManager = null,
-        Mock<SignInManager<IdentityUser>>? signInManager = null)
+        Mock<UserManager<ApplicationUser>>? userManager = null,
+        Mock<SignInManager<ApplicationUser>>? signInManager = null)
     {
         userManager ??= CreateUserManager();
         signInManager ??= CreateSignInManager(userManager);
         return new AccountController(userManager.Object, signInManager.Object, Mock.Of<IEmailSender>());
     }
 
-    private static Mock<UserManager<IdentityUser>> CreateUserManager()
+    private static Mock<UserManager<ApplicationUser>> CreateUserManager()
     {
-        var store = new Mock<IUserStore<IdentityUser>>();
-        return new Mock<UserManager<IdentityUser>>(
+        var store = new Mock<IUserStore<ApplicationUser>>();
+        return new Mock<UserManager<ApplicationUser>>(
             store.Object,
             Mock.Of<IOptions<IdentityOptions>>(),
-            Mock.Of<IPasswordHasher<IdentityUser>>(),
-            Array.Empty<IUserValidator<IdentityUser>>(),
-            Array.Empty<IPasswordValidator<IdentityUser>>(),
+            Mock.Of<IPasswordHasher<ApplicationUser>>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
             Mock.Of<ILookupNormalizer>(),
             Mock.Of<IdentityErrorDescriber>(),
             Mock.Of<IServiceProvider>(),
-            Mock.Of<ILogger<UserManager<IdentityUser>>>());
+            Mock.Of<ILogger<UserManager<ApplicationUser>>>());
     }
 
-    private static Mock<SignInManager<IdentityUser>> CreateSignInManager(
-        Mock<UserManager<IdentityUser>> userManager)
+    private static Mock<SignInManager<ApplicationUser>> CreateSignInManager(
+        Mock<UserManager<ApplicationUser>> userManager)
     {
-        return new Mock<SignInManager<IdentityUser>>(
+        return new Mock<SignInManager<ApplicationUser>>(
             userManager.Object,
             Mock.Of<IHttpContextAccessor>(),
-            Mock.Of<IUserClaimsPrincipalFactory<IdentityUser>>(),
+            Mock.Of<IUserClaimsPrincipalFactory<ApplicationUser>>(),
             Mock.Of<IOptions<IdentityOptions>>(),
-            Mock.Of<ILogger<SignInManager<IdentityUser>>>(),
+            Mock.Of<ILogger<SignInManager<ApplicationUser>>>(),
             Mock.Of<IAuthenticationSchemeProvider>(),
-            Mock.Of<IUserConfirmation<IdentityUser>>());
+            Mock.Of<IUserConfirmation<ApplicationUser>>());
     }
 }

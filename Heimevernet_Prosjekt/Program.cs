@@ -23,9 +23,19 @@ builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
-builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+// Development: emails go to the log; otherwise real email with SendGrid (help with AI) - Docs: Account confirmation and password recovery
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+}
+else
+{
+    builder.Services.AddTransient<IEmailSender, EmailSender>();
+    builder.Services.Configure<AuthenticationMessageSenderOptions>(options =>
+        options.SendGridKey = builder.Configuration["SendGridKey"]);
+}
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     // Simpler password rules while testing - Docs: Identity on ASP.NET Core
     // https://learn.microsoft.com/aspnet/core/security/authentication/identity
@@ -33,7 +43,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
 
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedAccount = true;
     options.User.RequireUniqueEmail = true;
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 10;
@@ -79,7 +89,7 @@ using (var scope = app.Services.CreateScope())
     // https://learn.microsoft.com/aspnet/core/fundamentals/environments
     if (app.Environment.IsDevelopment())
     {
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         await IdentitySeeder.SeedDevelopmentAdminAsync(userManager);
         await IdentitySeeder.SeedDevelopmentUserAsync(userManager);
     }

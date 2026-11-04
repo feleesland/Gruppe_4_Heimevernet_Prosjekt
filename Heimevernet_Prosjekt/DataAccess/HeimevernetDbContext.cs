@@ -1,13 +1,13 @@
 ﻿using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore; //er for login
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore; 
 using Microsoft.EntityFrameworkCore;
 
 namespace Heimevernet_Prosjekt.DataAccess;
 
+// Database tables for resources and login (Identity) - Teacher: HeimevernetDbContext.cs
 public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options)
-        : IdentityDbContext<IdentityUser, IdentityRole, string>(options) // er for login 
-       //: DbContext(options) // midlertidig for å se at det virker uten login
+        : IdentityDbContext<ApplicationUser, IdentityRole, string>(options) 
 {
     public DbSet<Resource> Resources => Set<Resource>();
 

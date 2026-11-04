@@ -7,9 +7,37 @@
 <h1>@Model.Name</h1>
 <p>@Model.Description</p>
 <p>Type: @Model.Type</p>
+@* Picture and notes from the owner *@
+@if (Model.HasImage)
+{
+    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="img-fluid mb-3" style="max-height: 300px;" />
+}
+@if (!string.IsNullOrEmpty(Model.Notes))
+{
+    <p><strong>Merknader:</strong> @Model.Notes</p>
+}
 @if (Model.OwnerRemoved)
 {
     <p class="text-warning">Eieren er fjernet fra systemet.</p>
+}
+else if (Model.OwnerEmail != null)
+{
+    @* Owner's contact info; mailto/tel links open email or the phone app *@
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Eier</h5>
+            <p class="mb-1">@(string.IsNullOrEmpty(Model.OwnerName) ? "Navn ikke oppgitt" : Model.OwnerName)</p>
+            <p class="mb-1">E-post: <a href="mailto:@Model.OwnerEmail">@Model.OwnerEmail</a></p>
+            <p class="mb-0">Telefon: @if (string.IsNullOrEmpty(Model.OwnerPhone)) {
+                <span>Ikke oppgitt</span>
+            } else
+            {
+
+                <a href="tel:@Model.OwnerPhone">@Model.OwnerPhone</a>
+            }
+        </p>
+    </div>
+</div>
 }
 
 
