@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -88,7 +89,7 @@ public sealed class SecurityTests
     public async Task Login_Success_WithExternalReturnUrl_RedirectsToHomeInstead(string badUrl)
     {
         var (controller, userManager, signInManager) = CreateController();
-        var user = new IdentityUser { Email = "a@test.no", UserName = "a@test.no" };
+        var user = new ApplicationUser { Email = "a@test.no", UserName = "a@test.no" };
 
         userManager.Setup(m => m.FindByEmailAsync("a@test.no")).ReturnsAsync(user);
         signInManager
@@ -111,7 +112,7 @@ public sealed class SecurityTests
     public async Task Login_Success_WithLocalReturnUrl_RedirectsToThatUrl()
     {
         var (controller, userManager, signInManager) = CreateController();
-        var user = new IdentityUser { Email = "a@test.no", UserName = "a@test.no" };
+        var user = new ApplicationUser { Email = "a@test.no", UserName = "a@test.no" };
 
         userManager.Setup(m => m.FindByEmailAsync("a@test.no")).ReturnsAsync(user);
         signInManager
@@ -133,14 +134,14 @@ public sealed class SecurityTests
     {
         // Case 1: user does not exist
         var (controller1, userManager1, _) = CreateController();
-        userManager1.Setup(m => m.FindByEmailAsync(It.IsAny<string>())).ReturnsAsync((IdentityUser?)null);
+        userManager1.Setup(m => m.FindByEmailAsync(It.IsAny<string>())).ReturnsAsync((ApplicationUser?)null);
 
         await controller1.Login(new LoginViewModel { Email = "ghost@test.no", Password = "x" });
         var messageUnknownUser = controller1.ModelState[string.Empty]!.Errors.Single().ErrorMessage;
 
         // Case 2: user exists, password is wrong
         var (controller2, userManager2, signInManager2) = CreateController();
-        var user = new IdentityUser { Email = "a@test.no", UserName = "a@test.no" };
+        var user = new ApplicationUser { Email = "a@test.no", UserName = "a@test.no" };
         userManager2.Setup(m => m.FindByEmailAsync("a@test.no")).ReturnsAsync(user);
         signInManager2
             .Setup(m => m.PasswordSignInAsync(user, It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
@@ -158,7 +159,7 @@ public sealed class SecurityTests
     public async Task Login_LockedOutUser_GetsSameGenericError()
     {
         var (controller, userManager, signInManager) = CreateController();
-        var user = new IdentityUser { Email = "a@test.no", UserName = "a@test.no" };
+        var user = new ApplicationUser { Email = "a@test.no", UserName = "a@test.no" };
         userManager.Setup(m => m.FindByEmailAsync("a@test.no")).ReturnsAsync(user);
         signInManager
             .Setup(m => m.PasswordSignInAsync(user, It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
@@ -176,7 +177,7 @@ public sealed class SecurityTests
     public async Task Login_EnablesLockoutOnFailure()
     {
         var (controller, userManager, signInManager) = CreateController();
-        var user = new IdentityUser { Email = "a@test.no", UserName = "a@test.no" };
+        var user = new ApplicationUser { Email = "a@test.no", UserName = "a@test.no" };
         userManager.Setup(m => m.FindByEmailAsync("a@test.no")).ReturnsAsync(user);
         signInManager
             .Setup(m => m.PasswordSignInAsync(user, It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<bool>()))
@@ -193,17 +194,18 @@ public sealed class SecurityTests
     // Setup helper. If your existing test file already has a
     // CreateController(), you can reuse that instead.
     // ---------------------------------------------------------------
+    // IdentityUser changed to ApplicationUser: the app uses ApplicationUser (FirstName/LastName) since the merge
     private static (AccountController controller,
-                    Mock<UserManager<IdentityUser>> userManager,
-                    Mock<SignInManager<IdentityUser>> signInManager) CreateController()
+                    Mock<UserManager<ApplicationUser>> userManager,
+                    Mock<SignInManager<ApplicationUser>> signInManager) CreateController()
     {
-        var userManager = new Mock<UserManager<IdentityUser>>(
-            Mock.Of<IUserStore<IdentityUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
+        var userManager = new Mock<UserManager<ApplicationUser>>(
+            Mock.Of<IUserStore<ApplicationUser>>(), null!, null!, null!, null!, null!, null!, null!, null!);
 
-        var signInManager = new Mock<SignInManager<IdentityUser>>(
+        var signInManager = new Mock<SignInManager<ApplicationUser>>(
             userManager.Object,
             Mock.Of<IHttpContextAccessor>(),
-            Mock.Of<IUserClaimsPrincipalFactory<IdentityUser>>(),
+            Mock.Of<IUserClaimsPrincipalFactory<ApplicationUser>>(),
             null!, null!, null!, null!);
 
         var controller = new AccountController(userManager.Object, signInManager.Object, Mock.Of<IEmailSender>());

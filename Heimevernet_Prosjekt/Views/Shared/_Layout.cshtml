@@ -85,31 +85,72 @@
                         }
                     </ul>
 
-                    @* Search in the menu on every page. Logged in: Hva?, Hvor? and radius, goes to Ressurser or filters the map on Kart. *@
-                    @* Not logged in: searches the information on the homepage. Logic for both is in wwwroot/js/site.js *@
+                    @* Search in the menu on every page, like YouTube: one field with 🔍 and ✕, suggestions while typing (logic in wwwroot/js/site.js). *@
+                    @* Logged in: resources + places from Kartverket. Not logged in: the information on the homepage. Icons from Bootstrap Icons (MIT) *@
                     @if (SignInManager.IsSignedIn(User))
                     {
-                        <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" class="d-flex flex-wrap align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
-                            <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control form-control-sm" style="width: 170px;" placeholder="Hva? (navn, type ...)" />
-                            <input id="globalSearchWhere" name="where" value="@Context.Request.Query["where"]" class="form-control form-control-sm" style="width: 170px;" placeholder="Hvor? (adresse, sted)" />
-                            <select id="globalSearchRadius" name="radius" class="form-select form-select-sm" style="width: auto;" title="Radius rundt stedet">
-                                @foreach (var km in new[] { 1, 5, 10, 25, 50 })
-                                {
-                                    var chosen = Context.Request.Query["radius"].ToString();
-                                    <option value="@km" selected="@(chosen == km.ToString() || (chosen == "" && km == 5))">@km km</option>
-                                }
-                            </select>
-                            <button type="submit" class="btn btn-primary btn-sm">Søk</button>
-                            <button type="button" id="globalSearchReset" class="btn btn-secondary btn-sm">Nullstill</button>
-                            <span id="globalSearchStatus" class="small"></span>
+                                               <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" role="search" autocomplete="off"
+                              data-suggest-url="@Url.Action("Index", "Suggestions")" data-map-url="@Url.Action("Map", "Home")" data-detail-url="@Url.Content("~/Resource/Index/")"
+                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <div class="search-box">
+                                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
+                                <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control rounded-pill" placeholder="Søk etter ressurs eller sted ..." aria-label="Søk etter ressurs eller sted" />
+                                <button type="button" id="globalSearchClear" class="search-clear d-none" aria-label="Tøm søket">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
+                                </button>
+                                <div id="globalSearchSuggestions" class="search-suggestions d-none"></div>
+                            </div>
+
+                            @* Filter: type and radius. "Filter" (outline icon, grey) or "Filter på" (filled icon, blue), so it doesn't rely on color alone - Docs: Bootstrap Dropdowns *@
+                            @* https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
+                            <div class="dropdown">
+                                <button type="button" id="filterButton" class="btn btn-outline-secondary rounded-pill text-nowrap d-flex align-items-center gap-1"
+                                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <svg class="filter-icon-off" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2z" /></svg>
+                                    <svg class="filter-icon-on d-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>
+                                    <span class="filter-text">Filter</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end filter-panel p-3">
+                                    <label for="filterType" class="form-label">Type ressurs</label>
+                                    <select id="filterType" class="form-select mb-3" data-url="@Url.Action("Types", "Resource")">
+                                        <option value="">Alle typer</option>
+                                    </select>
+
+                                    <label for="filterRadius" class="form-label">Radius</label>
+                                    <select id="filterRadius" class="form-select mb-2">
+                                        <option value="0.5">500 m</option>
+                                        <option value="1">1 km</option>
+                                        <option value="2" selected>2 km</option>
+                                        <option value="5">5 km</option>
+                                        <option value="custom">Egen …</option>
+                                    </select>
+                                    <input id="filterRadiusCustom" type="number" min="0.1" max="100" step="0.1" class="form-control mb-2 d-none" placeholder="Antall km (maks 100)" />
+
+                                    <button type="button" id="filterPickOnMap" class="btn btn-sm btn-outline-secondary w-100 mb-2 d-none">📍 Velg punkt på kartet</button>
+                                    <div id="filterPlace" class="small mb-3">Velg et sted i søket for å bruke radius.</div>
+
+                                    <div class="d-flex justify-content-between">
+                                        <button type="button" id="filterReset" class="btn btn-outline-secondary btn-sm">Nullstill</button>
+                                        <button type="button" id="filterApply" class="btn btn-primary btn-sm">Bruk</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span id="globalSearchStatus" class="small text-nowrap"></span>
                         </form>
                     }
                     else
                     {
-                        <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" class="d-flex flex-wrap align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
-                            <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control form-control-sm" style="width: 220px;" placeholder="Søk i informasjon ..." />
-                            <button type="submit" class="btn btn-primary btn-sm">Søk</button>
-                            <span id="infoSearchStatus" class="small"></span>
+                        <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" role="search" autocomplete="off"
+                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <div class="search-box">
+                                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
+                                <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control rounded-pill" placeholder="Søk i informasjon ..." aria-label="Søk i informasjon" />
+                                <button type="button" id="infoSearchClear" class="search-clear d-none" aria-label="Tøm søket">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
+                                </button>
+                            </div>
+                            <span id="infoSearchStatus" class="small text-nowrap"></span>
                         </form>
                     }
 

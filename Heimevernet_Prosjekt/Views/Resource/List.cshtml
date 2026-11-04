@@ -13,6 +13,37 @@
     + Opprett ny ressurs
 </a>
 
+@* Shows the active search/filter from the menu, with links to the map and to clear it (text, not only color) *@
+@{
+    var query = Context.Request.Query;
+    var activeSearch = query["search"].ToString();
+    var activeType = query["type"].ToString();
+    var activeWhere = query["where"].ToString();
+    var hasPlace = query["lat"].ToString() != "";
+}
+@if (activeSearch != "" || activeType != "" || hasPlace)
+{
+    <div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
+        <span>
+            <strong>Filter aktivt:</strong>
+            @if (activeSearch != "")
+            {
+                <span>«@activeSearch»</span>
+            }
+            @if (activeType != "")
+            {
+                <span>· type @activeType</span>
+            }
+            @if (hasPlace)
+            {
+                <span>· innen @query["radius"] km fra @(activeWhere == "" ? "valgt punkt" : activeWhere)</span>
+            }
+        </span>
+        <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="btn btn-sm btn-primary">Vis på kart</a>
+        <a asp-action="List" class="btn btn-sm btn-outline-secondary">Nullstill</a>
+    </div>
+}
+
 @if (!Model.Any())
 {
     <p>Ingen ressurser funnet.</p>

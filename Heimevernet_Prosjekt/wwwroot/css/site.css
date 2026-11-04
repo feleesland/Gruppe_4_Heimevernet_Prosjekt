@@ -93,3 +93,101 @@ body {
     border-left: 4px solid var(--bs-warning);
     padding-left: 6px;
 }
+
+/* Search in the menu like YouTube: one wide rounded field with 🔍 on the left and ✕ on the right */
+/* The menu links only take the space they need, so the search gets the middle (master's flex-grow-1 is kept in _Layout, this overrides it) */
+#mainNavigation > .navbar-nav:first-child {
+    flex-grow: 0 !important;
+}
+
+.nav-search {
+    flex-grow: 1;
+}
+
+.search-box {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+}
+
+    .search-box .form-control {
+        padding-left: 2.75rem;
+        padding-right: 2.75rem;
+        height: 42px;
+    }
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.search-clear {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    color: inherit;
+    padding: 0.25rem;
+    line-height: 0;
+}
+
+/* The suggestion list under the field (above the map: Leaflet uses z-index up to 1000) */
+.search-suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    padding: 6px 0;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.search-section {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    padding: 8px 16px 4px;
+}
+
+.search-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: none;
+    color: inherit;
+    padding: 8px 16px;
+}
+
+    .search-item:hover,
+    .search-item.active {
+        background: var(--bs-secondary-bg);
+    }
+
+    .search-item small {
+        opacity: 0.7;
+    }
+
+.search-item-icon {
+    font-size: 1.1rem;
+}
+
+/* The filter panel under the Filter button (above the map) */
+.filter-panel {
+    width: 280px;
+    z-index: 1060;
+}

@@ -113,7 +113,8 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> List()
+        // search/type/lat/lng/radius come from the search and filter in the menu (optional) - only resources that match are shown
+        public async Task<IActionResult> List(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null)
         {
             var model = new List<ResourceViewModel>();
 
@@ -123,7 +124,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 var authorizationResult = await _authorizationService
                     .AuthorizeAsync(User, resource, ResourceOperations.Read);
 
-                if (authorizationResult.Succeeded)
+                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, lat, lng, radius))
                 {
                     // Same checks as in ResourceHandlerController, so Rediger/Slett only show when they work
                     var canEdit = await _authorizationService
@@ -147,7 +148,8 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> MapResources()
+        // Same search and filter as the list, so the map and the list show the same resources
+        public async Task<IActionResult> MapResources(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null)
         {
             var resources = new List<object>();
 
@@ -159,7 +161,8 @@ namespace Heimevernet_Prosjekt.Controllers
                 // Map markers need permission and both coordinates.
                 if (authorizationResult.Succeeded &&
                     resource.Latitude != null &&
-                    resource.Longitude != null)
+                    resource.Longitude != null &&
+                    PassesFilter(resource, search, type, lat, lng, radius))
                 {
                     resources.Add(new
                     {
@@ -174,6 +177,68 @@ namespace Heimevernet_Prosjekt.Controllers
             }
 
             return Json(resources);
+        }
+
+        // The types of resources the user can see, for the Type dropdown in the filter
+        [HttpGet]
+        public async Task<IActionResult> Types()
+        {
+            var types = new List<string>();
+
+            foreach (var resource in _resourceRepository.GetAll())
+            {
+                var authorizationResult = await _authorizationService
+                    .AuthorizeAsync(User, resource, ResourceOperations.Read);
+
+                if (authorizationResult.Succeeded && !string.IsNullOrWhiteSpace(resource.Type))
+                {
+                    types.Add(resource.Type.Trim());
+                }
+            }
+
+            return Json(types.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(t => t).ToList());
+        }
+
+        // Search, type and radius shared by the list and the map (help with AI)
+        private static bool PassesFilter(Resource r, string? search, string? type, double? lat, double? lng, double? radius)
+        {
+            if (!string.IsNullOrWhiteSpace(type) &&
+                !string.Equals(r.Type?.Trim(), type.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string?[] fields = [r.Name, r.Type, r.Description, r.Address, r.ZipCode, r.City];
+                if (!fields.Any(f => f != null && f.Contains(search, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return false;
+                }
+            }
+            if (lat != null && lng != null && radius != null)
+            {
+                if (r.Latitude == null || r.Longitude == null)
+                {
+                    return false;
+                }
+                if (DistanceKm(lat.Value, lng.Value, r.Latitude.Value, r.Longitude.Value) > radius.Value)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Distance in km between two points on the earth (Haversine formula) (help with AI)
+        private static double DistanceKm(double lat1, double lng1, double lat2, double lng2)
+        {
+            const double EarthRadiusKm = 6371;
+            var dLat = (lat2 - lat1) * Math.PI / 180;
+            var dLng = (lng2 - lng1) * Math.PI / 180;
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(lat1 * Math.PI / 180) * Math.Cos(lat2 * Math.PI / 180) *
+                    Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+            return EarthRadiusKm * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
         }
     }
 }
