@@ -29,3 +29,10 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* Search hit on the homepage: background + stripe, so it doesn't rely on color alone */
+.search-hit {
+    background-color: var(--bs-warning-bg-subtle);
+    border-left: 4px solid var(--bs-warning);
+    padding-left: 6px;
+}
