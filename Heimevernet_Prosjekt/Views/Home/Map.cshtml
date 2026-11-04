@@ -22,9 +22,33 @@
 </style>
 
 
-
 @section Scripts {
 	<script>
+		@*Ikoner*@ 
+var greenIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+});
+
+var yellowIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+});
+
+var redIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+});
+
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
@@ -33,6 +57,8 @@
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
 
+
+	
 		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
 		// https://leafletjs.com/reference.html
 		var markerLayer = L.layerGroup().addTo(map);
@@ -70,6 +96,31 @@
 							return;
 						}
 
+					var icon = greenIcon;
+
+					switch (resource.status) {
+						case "Opptatt":
+							icon = yellowIcon;
+							break;
+						case "Ugyldig":
+							icon = redIcon;
+							break;
+						default:
+							icon = greenIcon;
+							break;
+					}
+
+					var marker = L.marker([lat, lng], {
+						icon: icon					
+					}).addTo(map);
+
+					marker.bindPopup(`
+						<strong>${resource.name}</strong><br>
+						${resource.description || ""}
+						<br>
+						Type: ${resource.type || "Ukjent"}
+						<br> Status: ${resource.status || "Ukjent"}
+					`);
 						var marker = L.marker([lat, lng]).addTo(markerLayer);
 
 						marker.bindPopup(`

@@ -89,6 +89,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type,
+                Status = resource.Status,
                 Notes = resource.Notes,
                 HasImage = resource.ImageData != null,
 
@@ -123,6 +124,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 return BadRequest();
             }
             var existing = _resourceRepository.GetById(model.Id.Value);
+          
             if (existing == null)
             {
                 return NotFound();
@@ -165,6 +167,35 @@ namespace Heimevernet_Prosjekt.Controllers
             return RedirectToAction("List", "Resource");
         }
 
+        [HttpGet]
+        [Authorize(Roles = "Admin,Operator")]
+        public IActionResult ChangeStatus(int id)
+        {
+            var resource = _resourceRepository.GetById(id);
+            if (resource == null)
+            {
+                return NotFound();
+            }
+            return View(resource);
+        }
+
+        //[HttpPost]
+        //[ValidateAntiForgeryToken]
+        //[Authorize(Roles = "Admin,Operator")]
+        //public IActionResult ChangeStatus(int id, string status)
+        //{
+        //    var resource = _resourceRepository.GetById(id);
+        //    if (resource == null)
+        //    {
+        //        return NotFound();
+        //    }
+        //    resource.Status = status;
+
+        //    _resourceRepository.Save();
+
+        //    return RedirectToAction("List", "Resource");
+
+        //}
         // Checks the uploaded picture before it is saved: only images, max 5 MB - Docs: Upload files in ASP.NET Core (security considerations)
         // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
         private void ValidateImage(IFormFile? image)

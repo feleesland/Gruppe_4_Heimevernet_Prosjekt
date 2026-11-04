@@ -26,7 +26,8 @@ namespace Heimevernet_Prosjekt.DataAccess
                 Id = _nextId++,
                 Name = model.Name,
                 Description = model.Description ?? string.Empty, // Stores empty text if no description being entered
-                Type = model.Type
+                Type = model.Type,
+                Status = "Ledig",
             };
 
             _resources.Add(resource.Id, resource);

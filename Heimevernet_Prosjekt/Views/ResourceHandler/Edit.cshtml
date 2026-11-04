@@ -41,6 +41,20 @@
         <span asp-validation-for="Type"></span>
     </div>
 
+@if (User.IsInRole("admin") || User.IsInRole("operator"))
+{
+    <div>
+        <label asp-for="Status"></label>
+
+        <select asp-for="Status">
+            <option value="Ledig">Ledig</option>
+            <option value="Opptatt">Opptatt</option>
+            <option value="Ugyldig">Ugyldig</option>
+        </select>
+
+        <span asp-validation-for="Status"></span>
+    </div>
+}
     <!-- Free text, e.g. where the keys are -->
     <div>
         <label asp-for="Notes"></label>

@@ -148,6 +148,7 @@ namespace Heimevernet_Prosjekt.Controllers
                         Name = resource.Name,
                         Description = resource.Description,
                         Type = resource.Type,
+                        Status = resource.Status,
                         CanEdit = canEdit.Succeeded,
                         CanDelete = canDelete.Succeeded
                     });
@@ -181,6 +182,7 @@ namespace Heimevernet_Prosjekt.Controllers
                         name = resource.Name,
                         description = resource.Description,
                         type = resource.Type,
+                        status = resource.Status,
                         latitude = resource.Latitude,
                         longitude = resource.Longitude
                     });

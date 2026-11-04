@@ -23,6 +23,7 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         [MaxLength(100, ErrorMessage = "Typen kan ikke være lengre enn 100 tegn.")] // kan fjernes vis vi vil
         [Display(Name = "Type")]
         public string Type { get; set; } = string.Empty;
+        public string? Status { get; set; } = "Ledig";
 
         // The owner's contact info, read from the account (AspNetUsers) - not saved on the resource
         public string? OwnerName { get; set; }
