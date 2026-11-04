@@ -85,6 +85,8 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             return View(model);
         }
 
+        // New user with name and phone; FirstName/LastName are our own fields on ApplicationUser, PhoneNumber is built into IdentityUser - Docs: Add, download, and delete custom user data
+        // https://learn.microsoft.com/aspnet/core/security/authentication/add-user-data
         var user = new ApplicationUser
         {
             UserName = model.Email,

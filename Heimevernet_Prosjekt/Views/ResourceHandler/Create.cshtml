@@ -40,7 +40,8 @@
             <span asp-validation-for="Image"></span>
         </div>
 
-        <!-- Address and position on the map (help with AI) -->
+        <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
+        <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
         <div>
             <label asp-for="Address"></label>
             <input asp-for="Address" />
