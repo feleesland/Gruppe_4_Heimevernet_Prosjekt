@@ -3,6 +3,7 @@ using Heimevernet_Prosjekt.Controllers;
 using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.Entities;
+using Microsoft.AspNetCore.Identity;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -94,7 +95,25 @@ public sealed class ResourceControllerTests
         repository
             .Setup(repository => repository.GetAll())
             .Returns(new[] { allowedResource, deniedResource });
+        //var authorization = new Mock<IAuthorizationService>();
+        //authorization
+        //    .Setup(service => service.AuthorizeAsync(
+        //        It.IsAny<ClaimsPrincipal>(), allowedResource,
+        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
+        //            requirements.Contains(ResourceOperations.Read))))
+        //    .ReturnsAsync(AuthorizationResult.Success());
+        //authorization
+        //    .Setup(service => service.AuthorizeAsync(
+        //        It.IsAny<ClaimsPrincipal>(), deniedResource,
+        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
+        //            requirements.Contains(ResourceOperations.Read))))
         var authorization = new Mock<IAuthorizationService>();
+        // Default answer "not allowed" for everything else: List also checks Update/Delete for the Rediger/Slett buttons (help with AI)
+        authorization
+            .Setup(service => service.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(), It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Failed());
         authorization
             .Setup(service => service.AuthorizeAsync(
                 It.IsAny<ClaimsPrincipal>(), allowedResource,
@@ -107,6 +126,7 @@ public sealed class ResourceControllerTests
                 It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
                     requirements.Contains(ResourceOperations.Read))))
             .ReturnsAsync(AuthorizationResult.Failed());
+            //.ReturnsAsync(AuthorizationResult.Failed());
         var controller = CreateController(repository, authorization);
 
         var result = await controller.List();
@@ -121,11 +141,31 @@ public sealed class ResourceControllerTests
         Assert.Equal(allowedResource.Type, returnedResource.Type);
     }
 
+    //private static ResourceController CreateController(
+    //    Mock<IResourceRepository> repository,
+    //    Mock<IAuthorizationService> authorization)
+    //{
+    //    return new ResourceController(repository.Object, authorization.Object)
+    //    {
+    //        ControllerContext = new ControllerContext
+    //        {
+    //            HttpContext = new DefaultHttpContext
+    //            {
+    //                User = new ClaimsPrincipal(new ClaimsIdentity())
+    //            }
+    //        }
+    //    };
+    //} se linje 137 til 156
     private static ResourceController CreateController(
-        Mock<IResourceRepository> repository,
-        Mock<IAuthorizationService> authorization)
+    Mock<IResourceRepository> repository,
+    Mock<IAuthorizationService> authorization)
     {
-        return new ResourceController(repository.Object, authorization.Object)
+        // ResourceController now needs UserManager (owner info) - a mock with an empty user store (help with AI)
+        var userStore = new Mock<IUserStore<ApplicationUser>>();
+        var userManager = new Mock<UserManager<ApplicationUser>>(
+            userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        return new ResourceController(repository.Object, authorization.Object, userManager.Object)
         {
             ControllerContext = new ControllerContext
             {

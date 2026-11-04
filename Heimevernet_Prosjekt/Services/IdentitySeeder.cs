@@ -1,8 +1,10 @@
 ﻿using Heimevernet_Prosjekt.Models.Authorization;
+using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Identity;
 
 namespace Heimevernet_Prosjekt.Services;
 
+// Creates roles and test users at startup - Teacher: IdentitySeeder.cs
 public static class IdentitySeeder
 {
     public const string DevelopmentAdminEmail = "admin@Test.Local";
@@ -10,7 +12,7 @@ public static class IdentitySeeder
     // Test password for development only - never use in production!
     public const string DevelopmentPassword = "test123";
 
-    // CHANGED: creates all roles, not just Admin (help with AI)
+    // Creates all roles, not just Admin
     public static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
     {
         string[] roles = [RoleNames.Admin, RoleNames.Operator, RoleNames.User, RoleNames.Partner];
@@ -31,9 +33,9 @@ public static class IdentitySeeder
         }
     }
 
-    public static async Task SeedDevelopmentAdminAsync(UserManager<IdentityUser> userManager)
+    public static async Task SeedDevelopmentAdminAsync(UserManager<ApplicationUser> userManager)
     {
-        var user = await FindOrCreateDevelopmentUserAsync(userManager, DevelopmentAdminEmail);
+        var user = await FindOrCreateDevelopmentUserAsync(userManager, DevelopmentAdminEmail, "Test", "Admin");
 
         if (!await userManager.IsInRoleAsync(user, RoleNames.Admin))
         {
@@ -43,10 +45,10 @@ public static class IdentitySeeder
         }
     }
 
-    // CHANGED: the test user also gets the User role (help with AI)
-    public static async Task<IdentityUser> SeedDevelopmentUserAsync(UserManager<IdentityUser> userManager)
+    // The test user also gets the User role
+    public static async Task<ApplicationUser> SeedDevelopmentUserAsync(UserManager<ApplicationUser> userManager)
     {
-        var user = await FindOrCreateDevelopmentUserAsync(userManager, DevelopmentUserEmail);
+        var user = await FindOrCreateDevelopmentUserAsync(userManager, DevelopmentUserEmail, "Test", "Bruker");
 
         if (!await userManager.IsInRoleAsync(user, RoleNames.User))
         {
@@ -58,18 +60,22 @@ public static class IdentitySeeder
         return user;
     }
 
-    private static async Task<IdentityUser> FindOrCreateDevelopmentUserAsync(
-        UserManager<IdentityUser> userManager,
-        string email)
+    private static async Task<ApplicationUser> FindOrCreateDevelopmentUserAsync(
+        UserManager<ApplicationUser> userManager,
+        string email,
+        string firstName,
+        string lastName)
     {
         var user = await userManager.FindByEmailAsync(email);
         if (user is null)
         {
-            user = new IdentityUser
+            user = new ApplicationUser
             {
                 UserName = email,
                 Email = email,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                FirstName = firstName,
+                LastName = lastName
             };
 
             await EnsureSucceededAsync(

@@ -1,36 +1,36 @@
 html {
-  font-size: 14px;
+    font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+    html {
+        font-size: 16px;
+    }
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+    color: var(--bs-secondary-color);
+    text-align: end;
 }
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+    text-align: start;
 }
 
-/* Sideway scrolling on smartphones. */ 
+/* Sideway scrolling on smartphones. */
 .resource-table-scroll {
     width: 100%;
     overflow-x: auto;
@@ -85,4 +85,11 @@ body {
     .resource-table td {
         padding: 0.5rem;
     }
+}
+
+/* Search hit on the homepage: background + stripe, so it doesn't rely on color alone */
+.search-hit {
+    background-color: var(--bs-warning-bg-subtle);
+    border-left: 4px solid var(--bs-warning);
+    padding-left: 6px;
 }

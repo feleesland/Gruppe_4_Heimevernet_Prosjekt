@@ -24,17 +24,42 @@ builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
-builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
 
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+// Kartverket search (places and addresses) with a typed HttpClient - Docs: Make HTTP requests using IHttpClientFactory in ASP.NET Core
+// https://learn.microsoft.com/aspnet/core/fundamentals/http-requests
+builder.Services.AddHttpClient<KartverketService>(client =>
 {
-    // Simpler password rules while testing - Docs: Identity on ASP.NET Core
+    client.Timeout = TimeSpan.FromSeconds(3);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("Heimevernet_Prosjekt");
+})
+// IPv6 first, IPv4 if IPv6 doesn't answer (see KartverketService.ConnectAsync)
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    ConnectCallback = KartverketService.ConnectAsync
+});
+
+// Development: emails go to the log; otherwise real email with SendGrid (help with AI) - Docs: Account confirmation and password recovery
+// https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddTransient<IEmailSender, ConsoleEmailSender>();
+}
+else
+{
+    builder.Services.AddTransient<IEmailSender, EmailSender>();
+    builder.Services.Configure<AuthenticationMessageSenderOptions>(options =>
+        options.SendGridKey = builder.Configuration["SendGridKey"]);
+}
+
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    // Password rules (simpler while testing), email confirmation, unique email and lockout - Docs: Introduction to Identity on ASP.NET Core
     // https://learn.microsoft.com/aspnet/core/security/authentication/identity
     options.Password.RequiredLength = 6;
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
 
-    options.SignIn.RequireConfirmedAccount = false;
+    options.SignIn.RequireConfirmedAccount = true;
     options.User.RequireUniqueEmail = true;
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 10;
@@ -42,7 +67,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<HeimevernetDbContext>()
 .AddDefaultTokenProviders();
 
-// Login and access denied pages - Docs: Identity on ASP.NET Core 
+// Login and access denied pages - Docs: Introduction to Identity on ASP.NET Core
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/Account/Login";
@@ -55,36 +80,25 @@ builder.Services.AddSingleton<IAuthorizationHandler, ResourceAuthorizationHandle
 
 var app = builder.Build();
 
-// Migrations, roles and test users - Teacher: Program.cs
+// Migrations, roles and test data - Teacher: Program.cs
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimevernetDbContext>();
     db.Database.Migrate();
 
-    // Test resources if the table is empty (help with AI) - Docs: Data Seeding
-    // https://learn.microsoft.com/ef/core/modeling/data-seeding
-    if (!db.Resources.Any())
-    {
-        db.Resources.AddRange(
-            new Resource { Name = "Name 1", Description = " Description 1", Type = "Type 1" },
-            new Resource { Name = "Name 2", Description = "Description 2", Type = "Type 2" },
-            new Resource { Name = "Name 3", Description = "Description 3", Type = "Type 3" }
-        );
-        db.SaveChanges();
-    }
-
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentitySeeder.SeedRolesAsync(roleManager);
 
-    // Test accounts only when running locally - Docs: Use multiple environments in ASP.NET Core
+    // Test accounts and test resources only when running locally - Docs: Use multiple environments in ASP.NET Core
     // https://learn.microsoft.com/aspnet/core/fundamentals/environments
     if (app.Environment.IsDevelopment())
     {
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         await IdentitySeeder.SeedDevelopmentAdminAsync(userManager);
         await IdentitySeeder.SeedDevelopmentUserAsync(userManager);
-    }
 
+        ResourceDbSeeder.SeedTestResources(db);
+    }
 }
 
 app.MapDefaultEndpoints();

@@ -1,6 +1,8 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using Heimevernet_Prosjekt.Models.Authorization
-@inject SignInManager<IdentityUser> SignInManager
+@using Heimevernet_Prosjekt.Models.Entities
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
 
 <!DOCTYPE html>
 <html lang="en">
@@ -81,14 +83,46 @@
                         }
                     </ul>
 
+                    @* Search in the menu on every page. Logged in: Hva?, Hvor? and radius, goes to Ressurser or filters the map on Kart. *@
+                    @* Not logged in: searches the information on the homepage. Logic for both is in wwwroot/js/site.js *@
+                    @if (SignInManager.IsSignedIn(User))
+                    {
+                        <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" class="d-flex flex-wrap align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control form-control-sm" style="width: 170px;" placeholder="Hva? (navn, type ...)" />
+                            <input id="globalSearchWhere" name="where" value="@Context.Request.Query["where"]" class="form-control form-control-sm" style="width: 170px;" placeholder="Hvor? (adresse, sted)" />
+                            <select id="globalSearchRadius" name="radius" class="form-select form-select-sm" style="width: auto;" title="Radius rundt stedet">
+                                @foreach (var km in new[] { 1, 5, 10, 25, 50 })
+                                {
+                                    var chosen = Context.Request.Query["radius"].ToString();
+                                    <option value="@km" selected="@(chosen == km.ToString() || (chosen == "" && km == 5))">@km km</option>
+                                }
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">Søk</button>
+                            <button type="button" id="globalSearchReset" class="btn btn-secondary btn-sm">Nullstill</button>
+                            <span id="globalSearchStatus" class="small"></span>
+                        </form>
+                    }
+                    else
+                    {
+                        <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" class="d-flex flex-wrap align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control form-control-sm" style="width: 220px;" placeholder="Søk i informasjon ..." />
+                            <button type="submit" class="btn btn-primary btn-sm">Søk</button>
+                            <span id="infoSearchStatus" class="small"></span>
+                        </form>
+                    }
+
                     @* Show account controls based on login status. *@
                     <ul class="navbar-nav">
                         @if (SignInManager.IsSignedIn(User))
                         {
+                            // Show first and last name; fall back to email for users without a name
+                            var currentUser = await UserManager.GetUserAsync(User);
+                            var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
+
                             <li class="nav-item">
                                 @* Display the user's name and role. *@
                                 <span class="nav-link text-dark text-end lh-sm">
-                                    @User.Identity?.Name<br />
+                                    @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-muted">
                                         @RoleNames.DisplayName(
                                             User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
