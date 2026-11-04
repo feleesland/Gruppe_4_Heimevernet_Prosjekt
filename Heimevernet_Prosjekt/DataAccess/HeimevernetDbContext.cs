@@ -11,6 +11,8 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
 {
     public DbSet<Resource> Resources => Set<Resource>();
     public DbSet<ResourceNeed> ResourceNeeds => Set<ResourceNeed>();
+    public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
+    public DbSet<ResourceReport> ResourceReports => Set<ResourceReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

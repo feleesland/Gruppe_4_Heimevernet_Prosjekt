@@ -8,17 +8,20 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         public int? Id { get; set; }
 
         // A resource must have a name.
-        [Required(ErrorMessage = "Please enter a resource name.")]
-        [MaxLength(200, ErrorMessage = "The name cannot exceed 200 characters.")]
+        [Required(ErrorMessage = "Skriv inn et navn på ressursen.")]
+        [MaxLength(200, ErrorMessage = "Navnet kan ikke være lengre enn 200 tegn.")]
+        [Display(Name = "Navn")]
         public string Name { get; set; } = string.Empty;
 
         // A description is optional.
-        [MaxLength(2000, ErrorMessage = "The description cannot exceed 2000 characters.")]
+        [MaxLength(2000, ErrorMessage = "Beskrivelsen kan ikke være lengre enn 2000 tegn.")]
+        [Display(Name = "Beskrivelse")]
         public string? Description { get; set; }
 
-        // A resource must have a type.
-        [Required(ErrorMessage = "Please enter a resource type.")]
-        [MaxLength(100, ErrorMessage = "The type cannot exceed 100 characters.")]
+        // A resource must have a type, chosen from the list (checked again in ResourceHandlerController.ValidateType)
+        [Required(ErrorMessage = "Velg en ressurstype.")]
+        [MaxLength(100, ErrorMessage = "Typen kan ikke være lengre enn 100 tegn.")] // kan fjernes vis vi vil
+        [Display(Name = "Type")]
         public string Type { get; set; } = string.Empty;
 
         // The owner's contact info, read from the account (AspNetUsers) - not saved on the resource
@@ -33,15 +36,18 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         public double? Longitude { get; set; }
 
         // Address (used to find the position on the map)
+        [Display(Name = "Adresse")]
         public string? Address { get; set; }
+        [Display(Name = "Poststed")]
         public string? City { get; set; }
+        [Display(Name = "Postnummer")]
         public string? ZipCode { get; set; }
-      
+
         // When the resource was registered (only shown, never typed in)
         public DateTime? CreatedAt { get; set; }
 
         // Free text from the owner, e.g. where the keys are
-        [MaxLength(2000)]
+        [MaxLength(2000, ErrorMessage = "Merknadene kan ikke være lengre enn 2000 tegn.")]
         [Display(Name = "Merknader")]
         public string? Notes { get; set; }
 

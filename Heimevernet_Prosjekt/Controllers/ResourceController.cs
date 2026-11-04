@@ -5,6 +5,7 @@ using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Heimevernet_Prosjekt.Controllers
 {
@@ -55,6 +56,12 @@ namespace Heimevernet_Prosjekt.Controllers
                 return Forbid();
             }
 
+            // Same checks as in ResourceHandlerController, so Rediger/Slett only show on the page when they work
+            var canEdit = await _authorizationService
+                .AuthorizeAsync(User, resource, ResourceOperations.Update);
+            var canDelete = await _authorizationService
+                .AuthorizeAsync(User, resource, ResourceOperations.Delete);
+
             // Include the resource details and map position.
             var viewModel = new ResourceViewModel
             {
@@ -71,7 +78,9 @@ namespace Heimevernet_Prosjekt.Controllers
                 Latitude = resource.Latitude,
                 Longitude = resource.Longitude,
                 CreatedAt = resource.CreatedAt,
-                OwnerRemoved = resource.OwnerRemoved
+                OwnerRemoved = resource.OwnerRemoved,
+                CanEdit = canEdit.Succeeded,
+                CanDelete = canDelete.Succeeded
             };
 
             // Owner's name, email and phone come from the account, so they are always up to date - Docs: Introduction to Identity on ASP.NET Core
@@ -113,10 +122,11 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpGet]
-        // search/type/lat/lng/radius come from the search and filter in the menu (optional) - only resources that match are shown
-        public async Task<IActionResult> List(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null)
+        // search/type/lat/lng/radius come from the search and filter in the menu, mine from "Alle | Mine" (all optional)
+        public async Task<IActionResult> List(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null, bool mine = false)
         {
             var model = new List<ResourceViewModel>();
+            var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
 
             // Include only resources the user is allowed to view.
             foreach (var resource in _resourceRepository.GetAll())
@@ -124,7 +134,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 var authorizationResult = await _authorizationService
                     .AuthorizeAsync(User, resource, ResourceOperations.Read);
 
-                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, lat, lng, radius))
+                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, lat, lng, radius, ownerId))
                 {
                     // Same checks as in ResourceHandlerController, so Rediger/Slett only show when they work
                     var canEdit = await _authorizationService
@@ -149,9 +159,10 @@ namespace Heimevernet_Prosjekt.Controllers
 
         [HttpGet]
         // Same search and filter as the list, so the map and the list show the same resources
-        public async Task<IActionResult> MapResources(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null)
+        public async Task<IActionResult> MapResources(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null, bool mine = false)
         {
             var resources = new List<object>();
+            var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
 
             foreach (var resource in _resourceRepository.GetAll())
             {
@@ -162,7 +173,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 if (authorizationResult.Succeeded &&
                     resource.Latitude != null &&
                     resource.Longitude != null &&
-                    PassesFilter(resource, search, type, lat, lng, radius))
+                    PassesFilter(resource, search, type, lat, lng, radius, ownerId))
                 {
                     resources.Add(new
                     {
@@ -199,9 +210,13 @@ namespace Heimevernet_Prosjekt.Controllers
             return Json(types.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(t => t).ToList());
         }
 
-        // Search, type and radius shared by the list and the map (help with AI)
-        private static bool PassesFilter(Resource r, string? search, string? type, double? lat, double? lng, double? radius)
+        // Search, type, radius and "only mine" shared by the list and the map (help with AI)
+        private static bool PassesFilter(Resource r, string? search, string? type, double? lat, double? lng, double? radius, string? ownerId)
         {
+            if (ownerId != null && r.OwnerId != ownerId)
+            {
+                return false;
+            }
             if (!string.IsNullOrWhiteSpace(type) &&
                 !string.Equals(r.Type?.Trim(), type.Trim(), StringComparison.OrdinalIgnoreCase))
             {

@@ -1,4 +1,7 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@using Heimevernet_Prosjekt.Models.Authorization
+@using Microsoft.AspNetCore.WebUtilities
+@inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
 @model List<ResourceViewModel>
 
 @{
@@ -12,6 +15,26 @@
    asp-action="Create">
     + Opprett ny ressurs
 </a>
+
+@* Admin and operator see everyone's resources: "Alle | Mine" lets them see only their own. The search/filter in the URL is kept *@
+@if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+{
+    var onlyMine = Context.Request.Query["mine"] == "true";
+    var allQuery = Context.Request.Query
+        .Where(q => q.Key != "mine")
+        .ToDictionary(q => q.Key, q => (string?)q.Value.ToString());
+    var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
+    var listUrl = Url.Action("List", "Resource")!;
+
+    <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
+        <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
+           class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
+           aria-current="@(onlyMine ? null : "page")">Alle</a>
+        <a href="@QueryHelpers.AddQueryString(listUrl, mineQuery)"
+           class="btn @(onlyMine ? "btn-secondary" : "btn-outline-secondary")"
+           aria-current="@(onlyMine ? "page" : null)">Mine</a>
+    </div>
+}
 
 @* Shows the active search/filter from the menu, with links to the map and to clear it (text, not only color) *@
 @{
@@ -42,6 +65,13 @@
         <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="btn btn-sm btn-primary">Vis på kart</a>
         <a asp-action="List" class="btn btn-sm btn-outline-secondary">Nullstill</a>
     </div>
+}
+
+@* Admin: number of open messages per resource, for the "⚑ X meldinger" marker (fetched once, not per row) *@
+@{
+    var openReports = User.IsInRole(RoleNames.Admin)
+        ? ReportRepository.CountOpenByResource()
+        : new Dictionary<int, int>();
 }
 
 @if (!Model.Any())
@@ -106,6 +136,19 @@ else
                                             Slett
                                         </button>
                                     </form>
+                                }
+
+                                @* Admin: open messages from operators - icon + text, so it doesn't rely on color alone *@
+                                @if (r.Id != null && openReports.TryGetValue(r.Id.Value, out var reportCount))
+                                {
+                                    <a class="btn btn-warning d-inline-flex align-items-center justify-content-center"
+                                       style="min-height: 44px;"
+                                       asp-controller="Resource"
+                                       asp-action="Index"
+                                       asp-route-id="@r.Id"
+                                       aria-label="@reportCount @(reportCount == 1 ? "åpen melding" : "åpne meldinger") til admin">
+                                        ⚑ @reportCount @(reportCount == 1 ? "melding" : "meldinger")
+                                    </a>
                                 }
                             </div>
                         </td>

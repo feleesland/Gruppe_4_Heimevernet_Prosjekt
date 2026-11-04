@@ -21,15 +21,18 @@ namespace Heimevernet_Prosjekt.Controllers
     {
         private readonly IResourceRepository _resourceRepository;
         private readonly IAuthorizationService _authorizationService;
+        private readonly IResourceTypeRepository _resourceTypeRepository;
 
         // Allowed picture types and max size (5 MB)
         private static readonly string[] AllowedImageTypes = ["image/jpeg", "image/png", "image/webp"];
         private const long MaxImageSize = 5 * 1024 * 1024;
 
-        public ResourceHandlerController(IResourceRepository resourceRepository, IAuthorizationService authorizationService)
+        public ResourceHandlerController(IResourceRepository resourceRepository, IAuthorizationService authorizationService,
+            IResourceTypeRepository resourceTypeRepository)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
+            _resourceTypeRepository = resourceTypeRepository;
         }
 
 
@@ -43,6 +46,7 @@ namespace Heimevernet_Prosjekt.Controllers
         [HttpGet]
         public IActionResult Create()
         {
+            LoadTypes();
             return View();
         }
 
@@ -51,8 +55,10 @@ namespace Heimevernet_Prosjekt.Controllers
         public ActionResult Create(ResourceViewModel model)
         {
             ValidateImage(model.Image);
+            ValidateType(model.Type, null);
             if (!ModelState.IsValid)
             {
+                LoadTypes();
                 return View(model);
             }
             // The logged-in user owns the new resource - Docs: Claims-based authorization
@@ -94,6 +100,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Longitude = resource.Longitude,
                 CreatedAt = resource.CreatedAt
             };
+            LoadTypes();
             return View(model);
         }
         // Check the form token before saving changes.
@@ -101,9 +108,14 @@ namespace Heimevernet_Prosjekt.Controllers
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Edit(ResourceViewModel model)
         {
+            // An old type (from before the fixed list) may be kept until the owner chooses a new one
+            var oldType = model.Id != null ? _resourceRepository.GetById(model.Id.Value)?.Type : null;
+
             ValidateImage(model.Image);
+            ValidateType(model.Type, oldType);
             if (!ModelState.IsValid)
             {
+                LoadTypes();
                 return View(model);
             }
             if (model.Id == null)
@@ -168,6 +180,26 @@ namespace Heimevernet_Prosjekt.Controllers
             if (image.Length > MaxImageSize)
             {
                 ModelState.AddModelError(nameof(ResourceViewModel.Image), "Bildet kan ikke være større enn 5 MB.");
+            }
+        }
+
+        // The types for the dropdown in Create/Edit (from the ResourceTypes table)
+        private void LoadTypes()
+        {
+            ViewData["ResourceTypes"] = _resourceTypeRepository.GetAll();
+        }
+
+        // The type must be one of the types in the list, so the filter always works - the server checks it,
+        // because a user could send any text without using the dropdown. oldType: the resource's current type is allowed on Edit
+        private void ValidateType(string? type, string? oldType)
+        {
+            if (string.IsNullOrWhiteSpace(type) || type == oldType)
+            {
+                return; // empty is handled by [Required] in the ViewModel
+            }
+            if (!_resourceTypeRepository.Exists(type))
+            {
+                ModelState.AddModelError(nameof(ResourceViewModel.Type), "Velg en type fra listen.");
             }
         }
     }

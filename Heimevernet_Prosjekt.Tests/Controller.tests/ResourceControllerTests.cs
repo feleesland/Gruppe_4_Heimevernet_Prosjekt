@@ -41,6 +41,12 @@ public sealed class ResourceControllerTests
         var repository = new Mock<IResourceRepository>();
         repository.Setup(repository => repository.GetById(resource.Id)).Returns(resource);
         var authorization = new Mock<IAuthorizationService>();
+        // Default answer "not allowed" for everything else: Index also checks Update/Delete for the Rediger/Slett buttons (help with AI)
+        authorization
+            .Setup(service => service.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(), It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Failed());
         authorization
             .Setup(service => service.AuthorizeAsync(
                 It.IsAny<ClaimsPrincipal>(), resource,

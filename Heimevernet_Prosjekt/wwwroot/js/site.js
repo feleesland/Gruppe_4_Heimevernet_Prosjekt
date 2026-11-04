@@ -53,6 +53,7 @@
     let current = (onListPage || onMapPage)
         ? Object.fromEntries(new URLSearchParams(window.location.search))
         : loadFilter();
+    delete current.mine; // "Mine" is only a choice on Ressursoversikt, not part of the saved filter
     if (onListPage || onMapPage) {
         saveFilter(current);
     }

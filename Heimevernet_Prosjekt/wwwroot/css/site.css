@@ -191,3 +191,16 @@ body {
     width: 280px;
     z-index: 1060;
 }
+
+/* The notification list under the bell (above the map) */
+.notification-panel {
+    width: 340px;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 1060;
+}
+
+/* Long messages wrap instead of making the list wider */
+.notification-item {
+    white-space: normal;
+}
