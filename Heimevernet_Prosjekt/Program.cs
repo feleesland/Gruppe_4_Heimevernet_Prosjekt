@@ -37,7 +37,7 @@ builder.Services.AddHttpClient<KartverketService>(client =>
 {
     ConnectCallback = KartverketService.ConnectAsync
 });
-
+builder.Services.AddScoped<IResourceNeedRepository, EfResourceNeedRepository>();
 // Development: emails go to the log; otherwise real email with SendGrid (help with AI) - Docs: Account confirmation and password recovery
 // https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
 if (builder.Environment.IsDevelopment())

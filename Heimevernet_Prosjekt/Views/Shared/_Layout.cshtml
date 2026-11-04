@@ -70,8 +70,10 @@
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
-
-                        @* Show the user management link to administrators. *@
+                         <li class="nav-item">
+     <a class="nav-link text-dark" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+ </li>
+                          @* Show the user management link to administrators. *@
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
