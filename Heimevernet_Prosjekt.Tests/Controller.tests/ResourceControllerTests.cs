@@ -16,7 +16,7 @@ namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 public sealed class ResourceControllerTests
 {
     [Fact]
-    public async Task Index_WhenResourceIdIsMissing_ReturnsEmptyViewModel()
+    public async Task Index_WhenResourceIdIsMissing_ReturnsNotFound()
     {
         var repository = new Mock<IResourceRepository>();
         var authorization = new Mock<IAuthorizationService>();
@@ -24,10 +24,13 @@ public sealed class ResourceControllerTests
 
         var result = await controller.Index(null);
 
-        var view = Assert.IsType<ViewResult>(result);
-        var model = Assert.IsType<ResourceViewModel>(view.Model);
-        Assert.Null(model.Id);
-        repository.Verify(repository => repository.GetById(It.IsAny<int>()), Times.Never);
+        // A missing resource ID should return HTTP 404.
+        Assert.IsType<NotFoundResult>(result);
+
+        // No lookup or authorization check is needed without an ID.
+        repository.Verify(
+            repository => repository.GetById(It.IsAny<int>()),
+            Times.Never);
         authorization.VerifyNoOtherCalls();
     }
 

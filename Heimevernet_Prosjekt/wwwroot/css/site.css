@@ -1,33 +1,90 @@
 html {
-  font-size: 14px;
+    font-size: 14px;
 }
 
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+    html {
+        font-size: 16px;
+    }
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
 
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+    color: var(--bs-secondary-color);
+    text-align: end;
 }
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+    text-align: start;
+}
+
+/* Sideway scrolling on smartphones. */
+.resource-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+
+    /* Show keyboard users when the table area has focus. */
+    .resource-table-scroll:focus-visible {
+        outline: 3px solid #258cfb;
+        outline-offset: 3px;
+    }
+
+/*  Readable table instead of squeezing its columns. */
+.resource-table {
+    width: 100%;
+    min-width: 36rem;
+    border-collapse: collapse;
+}
+
+    /* Add space around the table headings and values. */
+    .resource-table th,
+    .resource-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #d9d9d9;
+        text-align: left;
+        vertical-align: top;
+    }
+
+    /* Make the column headings easy to identify. */
+    .resource-table thead {
+        background-color: #f2f4f6;
+    }
+
+    /* Wrap long text so it does not create very wide columns. */
+    .resource-table td {
+        overflow-wrap: anywhere;
+    }
+
+    /* Give resource links and buttons a larger tap area. */
+    .resource-table a,
+    .resource-table button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0.5rem 0.75rem;
+    }
+
+/* Use slightly smaller cell spacing on narrow screens. */
+@media (max-width: 575.98px) {
+    .resource-table th,
+    .resource-table td {
+        padding: 0.5rem;
+    }
 }
 
 /* Search hit on the homepage: background + stripe, so it doesn't rely on color alone */

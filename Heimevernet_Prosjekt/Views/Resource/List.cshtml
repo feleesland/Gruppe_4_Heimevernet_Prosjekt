@@ -1,12 +1,17 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @model List<ResourceViewModel>
+
 @{
     ViewData["Title"] = "Ressurser";
 }
 
 <h1>Ressurser</h1>
 
-<a class="btn btn-primary mb-3" asp-controller="ResourceHandler" asp-action="Create">+ Opprett ny ressurs</a>
+<a class="btn btn-primary mb-3"
+   asp-controller="ResourceHandler"
+   asp-action="Create">
+    + Opprett ny ressurs
+</a>
 
 @if (!Model.Any())
 {
@@ -14,40 +19,68 @@
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Navn</th>
-                <th>Type</th>
-                <th>Beskrivelse</th>
-                <th>Handlinger</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var r in Model)
-            {
+    @* Allow horizontal scrolling when the table does not fit. *@
+    <div class="table-responsive"
+         role="region"
+         aria-label="Registrerte ressurser"
+         tabindex="0">
+        <table class="table">
+            <thead>
                 <tr>
-                    <td><a asp-action="Index" asp-route-id="@r.Id">@r.Name</a></td>
-                    <td>@r.Type</td>
-                    <td>@r.Description</td>
-                    <td>
-                        @* Buttons only show if the user is allowed (CanEdit/CanDelete set in ResourceController) *@
-                        @if (r.CanEdit)
-                        {
-                            <a class="btn btn-sm btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
-                        }
-                        @if (r.CanDelete)
-                        {
-                            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                        onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
-                                    Slett
-                                </button>
-                            </form>
-                        }
-                    </td>
+                    <th scope="col">Navn</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Beskrivelse</th>
+                    <th scope="col">Handlinger</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td>
+                            <a asp-controller="Resource"
+                               asp-action="Index"
+                               asp-route-id="@r.Id">@r.Name</a>
+                        </td>
+                        <td>@r.Type</td>
+                        <td>@r.Description</td>
+                        <td>
+                            @* Keep space between buttons and allow wrapping. *@
+                            <div class="d-flex flex-wrap gap-2">
+                                @* Buttons only show if the user is allowed (CanEdit/CanDelete set in ResourceController) *@
+                                @if (r.CanEdit)
+                                {
+                                    @* A minimum height of 44px makes tapping easier. *@
+                                    <a class="btn btn-secondary d-inline-flex align-items-center justify-content-center"
+                                       style="min-height: 44px; min-width: 44px;"
+                                       asp-controller="ResourceHandler"
+                                       asp-action="Edit"
+                                       asp-route-id="@r.Id">
+                                        Rediger
+                                    </a>
+                                }
+
+                                @if (r.CanDelete)
+                                {
+                                    @* Keep deletion as a POST with confirmation. *@
+                                    <form asp-controller="ResourceHandler"
+                                          asp-action="Delete"
+                                          asp-route-id="@r.Id"
+                                          method="post"
+                                          class="m-0">
+                                        <button type="submit"
+                                                class="btn btn-danger"
+                                                style="min-height: 44px; min-width: 44px;"
+                                                onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
+                                            Slett
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }

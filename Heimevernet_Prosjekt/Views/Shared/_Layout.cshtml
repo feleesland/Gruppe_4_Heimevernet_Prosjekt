@@ -14,38 +14,75 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Heimevernet_Prosjekt.styles.css" asp-append-version="true" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />   <!-- Her er linje 1 fra Leaflet_Lab.pdf hostet versjon limt inn -->
+
+    <!-- Load the map stylesheet. -->
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
 </head>
 <body>
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Heimevernet_Prosjekt</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <a class="navbar-brand"
+                   asp-area=""
+                   asp-controller="Home"
+                   asp-action="Index">Heimevernet_Prosjekt</a>
+
+                <!-- Open or close the menu on small screens. -->
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#mainNavigation"
+                        aria-controls="mainNavigation"
+                        aria-expanded="false"
+                        aria-label="Åpne eller lukk meny">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav">
+
+                <!-- This ID connects the menu to the button above. -->
+                <div id="mainNavigation"
+                     class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Hjem</a>
+                            <a class="nav-link text-dark"
+                               asp-area=""
+                               asp-controller="Home"
+                               asp-action="Index">Hjem</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Map">Kart</a>    <!-- Map has been added to the navigationbar -->
+                            <a class="nav-link text-dark"
+                               asp-area=""
+                               asp-controller="Home"
+                               asp-action="Map">Kart</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+                            <a class="nav-link text-dark"
+                               asp-area=""
+                               asp-controller="Home"
+                               asp-action="Privacy">Privacy</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Resource" asp-action="List">Resources</a>
+                            @* The controller checks which resources the user can see. *@
+                            <a class="nav-link text-dark"
+                               asp-area=""
+                               asp-controller="Resource"
+                               asp-action="List">Ressursoversikt</a>
                         </li>
+
+                        @* Show the user management link to administrators. *@
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Admin" asp-action="Index">Brukere</a>
+                                <a class="nav-link text-dark"
+                                   asp-area=""
+                                   asp-controller="Admin"
+                                   asp-action="Index">Brukere</a>
                             </li>
                         }
                     </ul>
+
                     @* Search in the menu on every page. Logged in: Hva?, Hvor? and radius, goes to Ressurser or filters the map on Kart. *@
                     @* Not logged in: searches the information on the homepage. Logic for both is in wwwroot/js/site.js *@
                     @if (SignInManager.IsSignedIn(User))
@@ -73,8 +110,8 @@
                             <span id="infoSearchStatus" class="small"></span>
                         </form>
                     }
-                    <!-- Login/logout on the right side - Docs: Dependency injection into views (SignInManager) -->
-                    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection -->
+
+                    @* Show account controls based on login status. *@
                     <ul class="navbar-nav">
                         @if (SignInManager.IsSignedIn(User))
                         {
@@ -83,6 +120,7 @@
                             var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
 
                             <li class="nav-item">
+                                @* Display the user's name and role. *@
                                 <span class="nav-link text-dark text-end lh-sm">
                                     @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-muted">
@@ -95,18 +133,29 @@
                                 </span>
                             </li>
                             <li class="nav-item">
-                                <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
-                                    <button type="submit" class="nav-link btn btn-link text-dark">Logg ut</button>
+                                @* Submit logout as a POST request. *@
+                                <form asp-controller="Account"
+                                      asp-action="Logout"
+                                      method="post"
+                                      class="d-inline">
+                                    <button type="submit"
+                                            class="nav-link btn btn-link text-dark">
+                                        Logg ut
+                                    </button>
                                 </form>
                             </li>
                         }
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Account" asp-action="Login">Logg inn</a>
+                                <a class="nav-link text-dark"
+                                   asp-controller="Account"
+                                   asp-action="Login">Logg inn</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Account" asp-action="Register">Registrer</a>
+                                <a class="nav-link text-dark"
+                                   asp-controller="Account"
+                                   asp-action="Register">Registrer</a>
                             </li>
                         }
                     </ul>
@@ -114,6 +163,8 @@
             </div>
         </nav>
     </header>
+
+    <!-- Display the content of the current page. -->
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
@@ -122,13 +173,22 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - Heimevernet_Prosjekt - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            &copy; 2026 - Heimevernet_Prosjekt -
+            <a asp-area=""
+               asp-controller="Home"
+               asp-action="Privacy">Privacy</a>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script> <!-- Her er linje 2 fra Leaflet_Lab.pdf hostet versjon limt inn -->
+
+    <!-- Load the map library. -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

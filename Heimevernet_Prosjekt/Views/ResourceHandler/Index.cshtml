@@ -1,31 +1,99 @@
-﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @model List<ResourceViewModel>
-@{
-    ViewData["Title"] = "Ressurs";
-}
-<a asp-controller="ResourceHandler" asp-action="Create">Opprett ny ressurs</a>
-<table>
-    <tr>
-        <th>ID</th>
-        <th>Navn</th>
-        <th>Beskrivelse</th>
-        <th>Type</th>
-        <th>Handlinger</th>
-    </tr>
 
-    @foreach (var item in Model)
-    {
-        <tr>
-            <td>@item.Id</td>
-            <td>@item.Name</td>
-            <td>@item.Description</td>
-            <td>@item.Type</td>
-            <td>
-                <a asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@item.Id">Rediger</a> |
-                <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@item.Id" method="post" style="display:inline">
-                    <button type="submit">Slett</button>
-                </form>
-            </td>
-        </tr>
-    }
-</table>
+@{
+    ViewData["Title"] = "Ressursoversikt";
+}
+
+<h1>Ressursoversikt</h1>
+
+<p>Her finner du registrerte ressurser.</p>
+
+<p>
+    <a asp-controller="ResourceHandler" asp-action="Create">
+        Opprett ny ressurs
+    </a>
+</p>
+
+@* Shows number of resources in the list. *@
+<p>Antall ressurser: @Model.Count</p>
+
+@if (Model.Count == 0)
+{
+    @* Explanation; why the list is empty. *@
+    <p>Ingen ressurser er registrert ennå.</p>
+}
+else
+{
+    @* Let users scroll the table on small screens. *@
+    <div class="resource-table-scroll"
+         role="region"
+         aria-labelledby="resourceTableCaption"
+         tabindex="0">
+
+        @* Apply the resource table styles from site.css. *@
+        <table class="resource-table">
+            <caption id="resourceTableCaption">Registrerte ressurser</caption>
+
+        <thead>
+            <tr>
+                <th scope="col">Navn</th>
+                <th scope="col">Beskrivelse</th>
+                <th scope="col">Type</th>
+                <th scope="col">Handlinger</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.Name</td>
+
+                    <td>
+                        @* In case of no description a helpful text will be shown. *@
+                        @if (string.IsNullOrWhiteSpace(item.Description))
+                        {
+                            <span>Ingen beskrivelse</span>
+                        }
+                        else
+                        {
+                            @item.Description
+                        }
+                    </td>
+
+                    <td>@item.Type</td>
+
+                    <td>
+                        @* Open the page for this resource. *@
+                        <a asp-controller="Resource"
+                           asp-action="Index"
+                           asp-route-id="@item.Id">
+                            Vis detaljer
+                        </a>
+
+                        <span> | </span>
+
+                        <a asp-controller="ResourceHandler"
+                           asp-action="Edit"
+                           asp-route-id="@item.Id">
+                            Rediger
+                        </a>
+
+                        @* Submit a POST request to delete this resource. *@
+                        <form asp-controller="ResourceHandler"
+                              asp-action="Delete"
+                              asp-route-id="@item.Id"
+                              method="post"
+                              style="display:inline">
+                            <button type="submit">Slett</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @* End of scrolling around the table. *@
+    </div>
+}

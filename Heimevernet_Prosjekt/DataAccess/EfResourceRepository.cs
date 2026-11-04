@@ -16,7 +16,8 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         var resource = new Resource
         {
             Name = model.Name,
-            Description = model.Description,
+            // Store an empty string when no description is entered.
+            Description = model.Description ?? string.Empty,
             Type = model.Type,
             OwnerId = model.OwnerId ?? string.Empty,
             Notes = model.Notes,
@@ -64,7 +65,8 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         }
 
         resource.Name = model.Name;
-        resource.Description = model.Description;
+        // Store an empty string when no description is entered.
+        resource.Description = model.Description ?? string.Empty;
         resource.Type = model.Type;
         resource.Notes = model.Notes;
 
