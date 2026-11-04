@@ -26,11 +26,15 @@ builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
 
 // Kartverket search (places and addresses) with a typed HttpClient - Docs: Make HTTP requests using IHttpClientFactory in ASP.NET Core
 // https://learn.microsoft.com/aspnet/core/fundamentals/http-requests
-
 builder.Services.AddHttpClient<KartverketService>(client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(5);
+    client.Timeout = TimeSpan.FromSeconds(3);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Heimevernet_Prosjekt");
+})
+// IPv6 first, IPv4 if IPv6 doesn't answer (see KartverketService.ConnectAsync)
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    ConnectCallback = KartverketService.ConnectAsync
 });
 
 // Development: emails go to the log; otherwise real email with SendGrid (help with AI) - Docs: Account confirmation and password recovery

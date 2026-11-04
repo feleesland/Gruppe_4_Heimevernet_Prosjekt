@@ -92,7 +92,25 @@ public sealed class ResourceControllerTests
         repository
             .Setup(repository => repository.GetAll())
             .Returns(new[] { allowedResource, deniedResource });
+        //var authorization = new Mock<IAuthorizationService>();
+        //authorization
+        //    .Setup(service => service.AuthorizeAsync(
+        //        It.IsAny<ClaimsPrincipal>(), allowedResource,
+        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
+        //            requirements.Contains(ResourceOperations.Read))))
+        //    .ReturnsAsync(AuthorizationResult.Success());
+        //authorization
+        //    .Setup(service => service.AuthorizeAsync(
+        //        It.IsAny<ClaimsPrincipal>(), deniedResource,
+        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
+        //            requirements.Contains(ResourceOperations.Read))))
         var authorization = new Mock<IAuthorizationService>();
+        // Default answer "not allowed" for everything else: List also checks Update/Delete for the Rediger/Slett buttons (help with AI)
+        authorization
+            .Setup(service => service.AuthorizeAsync(
+                It.IsAny<ClaimsPrincipal>(), It.IsAny<object?>(),
+                It.IsAny<IEnumerable<IAuthorizationRequirement>>()))
+            .ReturnsAsync(AuthorizationResult.Failed());
         authorization
             .Setup(service => service.AuthorizeAsync(
                 It.IsAny<ClaimsPrincipal>(), allowedResource,
@@ -105,6 +123,7 @@ public sealed class ResourceControllerTests
                 It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
                     requirements.Contains(ResourceOperations.Read))))
             .ReturnsAsync(AuthorizationResult.Failed());
+            //.ReturnsAsync(AuthorizationResult.Failed());
         var controller = CreateController(repository, authorization);
 
         var result = await controller.List();

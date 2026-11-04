@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using System.Net;
+using System.Net.Sockets;
+using System.Globalization;
 using System.Text.Json;
 
 namespace Heimevernet_Prosjekt.Services;
@@ -153,5 +155,47 @@ public sealed class KartverketService(HttpClient httpClient, ILogger<KartverketS
         }
 
         return ordered.DistinctBy(p => (p.Name, p.Description));
+    }
+
+    // How the Kartverket client connects: IPv6 first, and IPv4 if IPv6 hasn't answered within 1 second.
+    // On networks with broken IPv6, .NET would otherwise wait until the timeout, while the browser switches by itself (help with AI)
+    // Docs: SocketsHttpHandler.ConnectCallback
+    // https://learn.microsoft.com/dotnet/api/system.net.http.socketshttphandler.connectcallback
+    public static async ValueTask<Stream> ConnectAsync(SocketsHttpConnectionContext context, CancellationToken cancellationToken)
+    {
+        var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, cancellationToken);
+        var port = context.DnsEndPoint.Port;
+
+        // 1) IPv6, max 1 second
+        var ipv6 = addresses.Where(a => a.AddressFamily == AddressFamily.InterNetworkV6).ToArray();
+        if (ipv6.Length > 0)
+        {
+            using var ipv6Timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ipv6Timeout.CancelAfter(TimeSpan.FromSeconds(1));
+            var socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+            try
+            {
+                await socket.ConnectAsync(ipv6, port, ipv6Timeout.Token);
+                return new NetworkStream(socket, ownsSocket: true);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                socket.Dispose(); // IPv6 didn't work: try IPv4 below
+            }
+        }
+
+        // 2) IPv4
+        var ipv4 = addresses.Where(a => a.AddressFamily == AddressFamily.InterNetwork).ToArray();
+        var ipv4Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await ipv4Socket.ConnectAsync(ipv4, port, cancellationToken);
+            return new NetworkStream(ipv4Socket, ownsSocket: true);
+        }
+        catch
+        {
+            ipv4Socket.Dispose();
+            throw;
+        }
     }
 }
