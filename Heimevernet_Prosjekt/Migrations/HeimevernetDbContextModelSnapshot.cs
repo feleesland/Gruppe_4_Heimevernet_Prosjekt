@@ -74,6 +74,10 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)

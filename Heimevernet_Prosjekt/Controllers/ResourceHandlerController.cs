@@ -78,6 +78,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type,
+                Status = resource.Status,
 
                 // Address and position on the map
                 Address = resource.Address,
@@ -103,6 +104,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 return BadRequest();
             }
             var existing = _resourceRepository.GetById(model.Id.Value);
+          
             if (existing == null)
             {
                 return NotFound();
@@ -144,5 +146,35 @@ namespace Heimevernet_Prosjekt.Controllers
 
             return RedirectToAction("List", "Resource");
         }
+
+        [HttpGet]
+        [Authorize(Roles = "Admin,Operator")]
+        public IActionResult ChangeStatus(int id)
+        {
+            var resource = _resourceRepository.GetById(id);
+            if (resource == null)
+            {
+                return NotFound();
+            }
+            return View(resource);
+        }
+
+        //[HttpPost]
+        //[ValidateAntiForgeryToken]
+        //[Authorize(Roles = "Admin,Operator")]
+        //public IActionResult ChangeStatus(int id, string status)
+        //{
+        //    var resource = _resourceRepository.GetById(id);
+        //    if (resource == null)
+        //    {
+        //        return NotFound();
+        //    }
+        //    resource.Status = status;
+
+        //    _resourceRepository.Save();
+
+        //    return RedirectToAction("List", "Resource");
+
+        //}
     }
 }

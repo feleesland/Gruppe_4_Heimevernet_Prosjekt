@@ -20,6 +20,7 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         [Required(ErrorMessage = "Please enter a resource type.")]
         [MaxLength(100, ErrorMessage = "The type cannot exceed 100 characters.")]
         public string Type { get; set; } = string.Empty;
+        public string? Status { get; set; } = "Ledig";
         public string? OwnerId { get; set; }
         public bool OwnerRemoved { get; set; }
 

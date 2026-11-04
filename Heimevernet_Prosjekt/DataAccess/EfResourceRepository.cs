@@ -18,6 +18,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             // Store an empty string when no description is entered.
             Description = model.Description ?? string.Empty,
             Type = model.Type,
+            Status = model.Status ?? "Ledig",
             OwnerId = model.OwnerId ?? string.Empty,
 
             // Address and position on the map
@@ -60,6 +61,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         // Store an empty string when no description is entered.
         resource.Description = model.Description ?? string.Empty;
         resource.Type = model.Type;
+        resource.Status = model.Status ?? resource.Status;
         
         // Address and position on the map
         resource.Address = model.Address ?? string.Empty;

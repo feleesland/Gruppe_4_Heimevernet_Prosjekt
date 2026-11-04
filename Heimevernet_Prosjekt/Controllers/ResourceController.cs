@@ -84,7 +84,8 @@ namespace Heimevernet_Prosjekt.Controllers
                         Id = resource.Id,
                         Name = resource.Name,
                         Description = resource.Description,
-                        Type = resource.Type
+                        Type = resource.Type,
+                        Status = resource.Status,
                     });
                 }
             }
@@ -113,6 +114,7 @@ namespace Heimevernet_Prosjekt.Controllers
                         name = resource.Name,
                         description = resource.Description,
                         type = resource.Type,
+                        status = resource.Status,
                         latitude = resource.Latitude,
                         longitude = resource.Longitude
                     });
