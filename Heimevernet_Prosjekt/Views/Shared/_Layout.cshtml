@@ -1,6 +1,9 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using Heimevernet_Prosjekt.Models.Authorization
-@inject SignInManager<IdentityUser> SignInManager
+@using Heimevernet_Prosjekt.Models.Entities
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
 
 <!DOCTYPE html>
 <html lang="en">
@@ -68,8 +71,10 @@
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
-
-                        @* Show the user management link to administrators. *@
+                         <li class="nav-item">
+     <a class="nav-link text-dark" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+ </li>
+                          @* Show the user management link to administrators. *@
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
@@ -81,14 +86,129 @@
                         }
                     </ul>
 
+                    @* Search in the menu on every page, like YouTube: one field with 🔍 and ✕, suggestions while typing (logic in wwwroot/js/site.js). *@
+                    @* Logged in: resources + places from Kartverket. Not logged in: the information on the homepage. Icons from Bootstrap Icons (MIT) *@
+                    @if (SignInManager.IsSignedIn(User))
+                    {
+                        <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" role="search" autocomplete="off"
+                              data-suggest-url="@Url.Action("Index", "Suggestions")" data-map-url="@Url.Action("Map", "Home")" data-detail-url="@Url.Content("~/Resource/Index/")"
+                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <div class="search-box">
+                                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
+                                <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control rounded-pill" placeholder="Søk etter ressurs eller sted ..." aria-label="Søk etter ressurs eller sted" />
+                                <button type="button" id="globalSearchClear" class="search-clear d-none" aria-label="Tøm søket">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
+                                </button>
+                                <div id="globalSearchSuggestions" class="search-suggestions d-none"></div>
+                            </div>
+
+                            @* Filter: type and radius. "Filter" (outline icon, grey) or "Filter på" (filled icon, blue), so it doesn't rely on color alone - Docs: Bootstrap Dropdowns *@
+                            @* https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
+                            <div class="dropdown">
+                                <button type="button" id="filterButton" class="btn btn-outline-secondary rounded-pill text-nowrap d-flex align-items-center gap-1"
+                                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                                    <svg class="filter-icon-off" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2z" /></svg>
+                                    <svg class="filter-icon-on d-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>
+                                    <span class="filter-text">Filter</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end filter-panel p-3">
+                                    <label for="filterType" class="form-label">Type ressurs</label>
+                                    <select id="filterType" class="form-select mb-3" data-url="@Url.Action("Types", "Resource")">
+                                        <option value="">Alle typer</option>
+                                    </select>
+
+                                    <label for="filterRadius" class="form-label">Radius</label>
+                                    <select id="filterRadius" class="form-select mb-2">
+                                        <option value="0.5">500 m</option>
+                                        <option value="1">1 km</option>
+                                        <option value="2" selected>2 km</option>
+                                        <option value="5">5 km</option>
+                                        <option value="custom">Egen …</option>
+                                    </select>
+                                    <input id="filterRadiusCustom" type="number" min="0.1" max="100" step="0.1" class="form-control mb-2 d-none" placeholder="Antall km (maks 100)" />
+
+                                    <button type="button" id="filterPickOnMap" class="btn btn-sm btn-outline-secondary w-100 mb-2 d-none">📍 Velg punkt på kartet</button>
+                                    <div id="filterPlace" class="small mb-3">Velg et sted i søket for å bruke radius.</div>
+
+                                    <div class="d-flex justify-content-between">
+                                        <button type="button" id="filterReset" class="btn btn-outline-secondary btn-sm">Nullstill</button>
+                                        <button type="button" id="filterApply" class="btn btn-primary btn-sm">Bruk</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span id="globalSearchStatus" class="small text-nowrap"></span>
+                        </form>
+                    }
+                    else
+                    {
+                        <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" role="search" autocomplete="off"
+                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                            <div class="search-box">
+                                <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
+                                <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control rounded-pill" placeholder="Søk i informasjon ..." aria-label="Søk i informasjon" />
+                                <button type="button" id="infoSearchClear" class="search-clear d-none" aria-label="Tøm søket">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
+                                </button>
+                            </div>
+                            <span id="infoSearchStatus" class="small text-nowrap"></span>
+                        </form>
+                    }
+
                     @* Show account controls based on login status. *@
-                    <ul class="navbar-nav">
+                    <ul class="navbar-nav align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
+                            // Show first and last name; fall back to email for users without a name
+                            var currentUser = await UserManager.GetUserAsync(User);
+                            var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
+
+                            // Admin: 🔔 with the number of open messages from operators; each notification links to the resource
+                            if (User.IsInRole(RoleNames.Admin))
+                            {
+                                var openCount = ReportRepository.CountOpen();
+                                var notifications = ReportRepository.GetOpenNotifications();
+
+                                @* The bell and its list - Docs: Bootstrap Dropdowns. Number + text, not only color *@
+                                <li class="nav-item dropdown">
+                                    <button type="button" class="nav-link btn btn-link text-dark position-relative"
+                                            data-bs-toggle="dropdown" aria-expanded="false"
+                                            aria-label="@(openCount == 0 ? "Ingen nye varsler" : openCount + (openCount == 1 ? " nytt varsel" : " nye varsler"))">
+                                        🔔
+                                        @if (openCount > 0)
+                                        {
+                                            <span class="badge rounded-pill bg-danger">@openCount</span>
+                                        }
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-end notification-panel p-0">
+                                        <div class="px-3 py-2 border-bottom fw-semibold">Varsler</div>
+                                        @if (notifications.Count == 0)
+                                        {
+                                            <div class="px-3 py-2 small">Ingen nye varsler.</div>
+                                        }
+                                        @foreach (var n in notifications)
+                                        {
+                                            var minutes = (DateTime.UtcNow - n.CreatedAt).TotalMinutes;
+                                            var ago = minutes < 1 ? "nå nettopp"
+                                                : minutes < 60 ? $"{(int)minutes} min siden"
+                                                : minutes < 1440 ? $"{(int)(minutes / 60)} t siden"
+                                                : TimeZoneInfo.ConvertTimeFromUtc(n.CreatedAt, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo")).ToString("dd.MM.yyyy");
+
+                                            <a class="dropdown-item notification-item border-bottom py-2"
+                                               asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
+                                                <div class="fw-semibold">⚑ Nytt varsel · @n.ReporterEmail</div>
+                                                <div class="small">«@n.Message» – @n.ResourceName</div>
+                                                <div class="small opacity-75">@ago</div>
+                                            </a>
+                                        }
+                                    </div>
+                                </li>
+                            }
+
                             <li class="nav-item">
                                 @* Display the user's name and role. *@
                                 <span class="nav-link text-dark text-end lh-sm">
-                                    @User.Identity?.Name<br />
+                                    @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-muted">
                                         @RoleNames.DisplayName(
                                             User.IsInRole(RoleNames.Admin) ? RoleNames.Admin

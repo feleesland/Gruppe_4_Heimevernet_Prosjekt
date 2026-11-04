@@ -30,6 +30,7 @@ else
     <table class="table">
         <thead>
             <tr>
+                <th>Navn</th>
                 <th>E-post</th>
                 <th>Rolle</th>
             </tr>
@@ -38,6 +39,7 @@ else
             @foreach (var u in Model)
             {
                 <tr>
+                    <td>@u.Name</td>
                     <td><a asp-action="UserResources" asp-route-id="@u.UserId">@u.Email</a></td>
                     <td>
                         <form asp-action="SetRole" method="post" class="d-flex gap-2">

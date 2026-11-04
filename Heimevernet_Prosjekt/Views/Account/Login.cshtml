@@ -5,6 +5,10 @@
 }
 
 <h1>Log in</h1>
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info">@TempData["Message"]</div>
+}
 <form asp-action="Login" method="post" class="col-md-6">
     <input asp-for="ReturnUrl" type="hidden" />
     <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>

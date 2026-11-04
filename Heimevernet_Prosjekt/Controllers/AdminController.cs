@@ -5,18 +5,19 @@ using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Heimevernet_Prosjekt.Models.Entities;
 
 namespace Heimevernet_Prosjekt.Controllers
 {
     // Only admin can see users and change roles - Docs: Role-based authorization
     // https://learn.microsoft.com/aspnet/core/security/authorization/roles
     [Authorize(Roles = RoleNames.Admin)]
-    public class AdminController(UserManager<IdentityUser> userManager, IResourceRepository resourceRepository) : Controller
+    public class AdminController(UserManager<ApplicationUser> userManager, IResourceRepository resourceRepository) : Controller
     {
         // The roles admin can choose between (Partner comes later)
         public static readonly string[] Roles = [RoleNames.Admin, RoleNames.Operator, RoleNames.User];
 
-        // List of users with email and role, with search on email - Docs: Introduction to Identity on ASP.NET Core
+        // List of users with name, email and role, with search on email - Docs: Introduction to Identity on ASP.NET Core
         // https://learn.microsoft.com/aspnet/core/security/authentication/identity
         [HttpGet]
         public async Task<IActionResult> Index(string? search)
@@ -35,6 +36,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 {
                     UserId = user.Id,
                     Email = user.Email ?? string.Empty,
+                    Name = $"{user.FirstName} {user.LastName}".Trim(),
                     // Users created before roles were added are shown as User
                     Role = roles.FirstOrDefault() ?? RoleNames.User
                 });
@@ -60,6 +62,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 return NotFound();
             }
 
+            // Admin can't change their own role, so there is always at least one admin
             if (user.Id == userManager.GetUserId(User))
             {
                 TempData["Message"] = "Du kan ikke endre din egen rolle.";
@@ -101,7 +104,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return View(model);
         }
 
-        // Deletes a user; resources are kept (owner removed) or soft deleted - admin can't delete themselves (help with AI)
+        // Deletes a user; resources are kept (owner removed) or soft deleted (help with AI)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteUser(string userId, bool deleteResources)
@@ -112,6 +115,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 return NotFound();
             }
 
+            // Admin can't delete themselves, so there is always at least one admin
             if (user.Id == userManager.GetUserId(User))
             {
                 TempData["Message"] = "Du kan ikke slette deg selv.";

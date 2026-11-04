@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Heimevernet_Prosjekt.DataAccess;
 
+// Create, read and update with EF Core - Teacher: EfResourceRepository.cs
 public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRepository
 {
 
@@ -20,6 +21,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             Type = model.Type,
             Status = model.Status ?? "Ledig",
             OwnerId = model.OwnerId ?? string.Empty,
+            Notes = model.Notes,
 
             // Address and position on the map
             Address = model.Address ?? string.Empty,
@@ -27,7 +29,13 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             ZipCode = model.ZipCode ?? string.Empty,
             Latitude = model.Latitude,
             Longitude = model.Longitude
-        }; 
+        };
+
+        if (model.Image != null)
+        {
+            resource.ImageData = ReadImage(model.Image);
+            resource.ImageContentType = model.Image.ContentType;
+        }
 
         dbContext.Resources.Add(resource);
         dbContext.SaveChanges();
@@ -63,12 +71,22 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         resource.Type = model.Type;
         resource.Status = model.Status ?? resource.Status;
         
+        resource.Notes = model.Notes;
+
         // Address and position on the map
         resource.Address = model.Address ?? string.Empty;
         resource.City = model.City ?? string.Empty;
         resource.ZipCode = model.ZipCode ?? string.Empty;
         resource.Latitude = model.Latitude;
         resource.Longitude = model.Longitude;
+
+        // Only replace the picture if a new one was uploaded, otherwise keep the old one
+        if (model.Image != null)
+        {
+            resource.ImageData = ReadImage(model.Image);
+            resource.ImageContentType = model.Image.ContentType;
+        }
+
         dbContext.SaveChanges();
         return true;
     }
@@ -123,6 +141,15 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
 
         dbContext.SaveChanges();
         return resources.Count;
+    }
+
+    // Copies the uploaded file into a byte array so it can be saved in the database - Docs: Upload files in ASP.NET Core
+    // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
+    private static byte[] ReadImage(IFormFile image)
+    {
+        using var memoryStream = new MemoryStream();
+        image.CopyTo(memoryStream);
+        return memoryStream.ToArray();
     }
 
 }

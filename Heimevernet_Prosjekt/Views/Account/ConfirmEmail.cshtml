@@ -1,0 +1,17 @@
+﻿@{
+    ViewData["Title"] = "Bekreft e-post";
+    var succeeded = ViewData["Succeeded"] as bool? == true;
+}
+
+<!-- Result of clicking the confirmation link - Docs: Account confirmation and password recovery -->
+@if (succeeded)
+{
+    <h1>E-posten er bekreftet</h1>
+    <p>Takk! Kontoen din er nå aktiv, og du kan logge inn.</p>
+    <a asp-action="Login" class="btn btn-primary">Logg inn</a>
+}
+else
+{
+    <h1>Kunne ikke bekrefte e-posten</h1>
+    <p class="text-danger">Lenken er ugyldig eller utløpt. Prøv å registrere deg på nytt, eller bruk «Glemt passord».</p>
+}
