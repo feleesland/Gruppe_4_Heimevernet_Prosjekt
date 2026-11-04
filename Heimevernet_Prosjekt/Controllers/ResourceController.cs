@@ -1,50 +1,59 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
+using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Heimevernet_Prosjekt.Models.Authorization;
-
 
 namespace Heimevernet_Prosjekt.Controllers
 {
-    // Must be logged in; who can see what is checked by ResourceAuthorizationHandler - Docs: Introduction to authorization
-    // https://learn.microsoft.com/aspnet/core/security/authorization/introduction
+    // Users must log in before accessing these pages.
     [Authorize]
     public class ResourceController : Controller
     {
         private readonly IResourceRepository _resourceRepository;
         private readonly IAuthorizationService _authorizationService;
 
-        public ResourceController(IResourceRepository resourceRepository, IAuthorizationService authorizationService)
+        public ResourceController(
+            IResourceRepository resourceRepository,
+            IAuthorizationService authorizationService)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
         }
 
+        [HttpGet]
         public async Task<IActionResult> Index(int? id)
         {
-            var resource = id.HasValue ? _resourceRepository.GetById(id.Value) : null;
-            var viewModel = new ResourceViewModel();
-            if (resource == null)
+            // A resource ID is needed to open this page.
+            if (!id.HasValue)
             {
-                return View(viewModel);
+                return NotFound();
             }
 
-            // Owner, admin and operator can see the resource - Docs: Resource-based authorization
-            var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceOperations.Read);
+            var resource = _resourceRepository.GetById(id.Value);
+
+            // Return 404 if the resource does not exist.
+            if (resource == null)
+            {
+                return NotFound();
+            }
+
+            // Use the shared authorization rules to check access.
+            var authorizationResult = await _authorizationService
+                .AuthorizeAsync(User, resource, ResourceOperations.Read);
+
             if (!authorizationResult.Succeeded)
             {
                 return Forbid();
             }
 
-            viewModel = new ResourceViewModel
+            // Include the resource details and map position.
+            var viewModel = new ResourceViewModel
             {
                 Id = resource.Id,
                 Name = resource.Name,
                 Description = resource.Description,
                 Type = resource.Type,
-
-                // Address, position and date
                 Address = resource.Address,
                 ZipCode = resource.ZipCode,
                 City = resource.City,
@@ -53,25 +62,29 @@ namespace Heimevernet_Prosjekt.Controllers
                 CreatedAt = resource.CreatedAt,
                 OwnerRemoved = resource.OwnerRemoved
             };
+
             return View(viewModel);
         }
 
-        // List of resources: only those the user is allowed to see - Docs: Resource-based authorization
+        [HttpGet]
         public async Task<IActionResult> List()
         {
             var model = new List<ResourceViewModel>();
 
-            foreach (var r in _resourceRepository.GetAll())
+            // Include only resources the user is allowed to view.
+            foreach (var resource in _resourceRepository.GetAll())
             {
-                var authorizationResult = await _authorizationService.AuthorizeAsync(User, r, ResourceOperations.Read);
+                var authorizationResult = await _authorizationService
+                    .AuthorizeAsync(User, resource, ResourceOperations.Read);
+
                 if (authorizationResult.Succeeded)
                 {
                     model.Add(new ResourceViewModel
                     {
-                        Id = r.Id,
-                        Name = r.Name,
-                        Description = r.Description,
-                        Type = r.Type
+                        Id = resource.Id,
+                        Name = resource.Name,
+                        Description = resource.Description,
+                        Type = resource.Type
                     });
                 }
             }
@@ -79,28 +92,29 @@ namespace Heimevernet_Prosjekt.Controllers
             return View(model);
         }
 
-        [HttpGet]   //Kart relatert metode for at kartet skal kunne hente ressurser fra databasen og vise de som markører på kartet.
+        [HttpGet]
         public async Task<IActionResult> MapResources()
         {
             var resources = new List<object>();
 
-            foreach (var r in _resourceRepository.GetAll())
+            foreach (var resource in _resourceRepository.GetAll())
             {
                 var authorizationResult = await _authorizationService
-                    .AuthorizeAsync(User, r, ResourceOperations.Read);
+                    .AuthorizeAsync(User, resource, ResourceOperations.Read);
 
+                // Map markers need permission and both coordinates.
                 if (authorizationResult.Succeeded &&
-                    r.Latitude != null &&
-                    r.Longitude != null)
+                    resource.Latitude != null &&
+                    resource.Longitude != null)
                 {
                     resources.Add(new
                     {
-                        id = r.Id,
-                        name = r.Name,
-                        description = r.Description,
-                        type = r.Type,
-                        latitude = r.Latitude,
-                        longitude = r.Longitude
+                        id = resource.Id,
+                        name = resource.Name,
+                        description = resource.Description,
+                        type = resource.Type,
+                        latitude = resource.Latitude,
+                        longitude = resource.Longitude
                     });
                 }
             }

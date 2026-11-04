@@ -11,6 +11,7 @@ using System.Globalization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+
 builder.AddServiceDefaults();
 
 // Add services to the container.

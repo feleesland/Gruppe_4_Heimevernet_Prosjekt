@@ -89,6 +89,7 @@ namespace Heimevernet_Prosjekt.Controllers
             };
             return View(model);
         }
+        // Check the form token before saving changes.
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Edit(ResourceViewModel model)
