@@ -1,4 +1,5 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Endre Ressurs";
@@ -16,9 +17,27 @@
         <input asp-for="Description" value="@Model.Description" />
         <span asp-validation-for="Description"></span>
     </div>
+
+    @* Type is chosen from a fixed list (admin can add more), so the filter can find every resource *@
+    @{
+        var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
+        var currentType = Model.Type; // the Edit page always gets a resource from the controller
+        var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
+    }
     <div>
         <label asp-for="Type"></label>
-        <input asp-for="Type" value="@Model.Type" />
+        <select asp-for="Type" data-type-select>
+            <option value="">Velg type …</option>
+            @foreach (var t in resourceTypes)
+            {
+                <option value="@t.Name" data-examples="@t.Examples">@t.Name</option>
+            }
+            @if (hasOldType)
+            {
+                <option value="@currentType">@currentType (gammel type – velg en ny)</option>
+            }
+        </select>
+        <small id="typeExamples"></small>
         <span asp-validation-for="Type"></span>
     </div>
 

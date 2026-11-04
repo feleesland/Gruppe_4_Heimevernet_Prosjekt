@@ -8,6 +8,7 @@ namespace Heimevernet_Prosjekt.Services;
 public static class IdentitySeeder
 {
     public const string DevelopmentAdminEmail = "admin@Test.Local";
+    public const string DevelopmentOperatorEmail = "operator@Test.local";
     public const string DevelopmentUserEmail = "user@Test.local";
     // Test password for development only - never use in production!
     public const string DevelopmentPassword = "test123";

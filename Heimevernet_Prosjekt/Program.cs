@@ -24,6 +24,9 @@ builder.Services.AddDbContext<HeimevernetDbContext>(options =>
     options.UseMySql(connectionString, new MariaDbServerVersion(new Version(11, 8))));
 
 builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
+builder.Services.AddScoped<IResourceNeedRepository, EfResourceNeedRepository>();
+builder.Services.AddScoped<IResourceTypeRepository, EfResourceTypeRepository>();
+builder.Services.AddScoped<IResourceReportRepository, EfResourceReportRepository>();
 
 // Kartverket search (places and addresses) with a typed HttpClient - Docs: Make HTTP requests using IHttpClientFactory in ASP.NET Core
 // https://learn.microsoft.com/aspnet/core/fundamentals/http-requests
@@ -88,6 +91,9 @@ using (var scope = app.Services.CreateScope())
 
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentitySeeder.SeedRolesAsync(roleManager);
+
+    // Resource types are needed everywhere (not only in development)
+    ResourceDbSeeder.SeedResourceTypes(db);
 
     // Test accounts and test resources only when running locally - Docs: Use multiple environments in ASP.NET Core
     // https://learn.microsoft.com/aspnet/core/fundamentals/environments

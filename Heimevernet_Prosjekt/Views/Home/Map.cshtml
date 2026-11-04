@@ -1,5 +1,4 @@
-﻿
-@model Heimevernet_Prosjekt.Models.PositionModel
+﻿@model Heimevernet_Prosjekt.Models.PositionModel
 
 <!-- 
 	<h2>Legg til en heading her?</h2>
@@ -33,39 +32,134 @@
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
-	
+
+		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
+		// https://leafletjs.com/reference.html
+		var markerLayer = L.layerGroup().addTo(map);
+		var markersById = {};
+		var radiusCircle = null;
+		var detailUrl = '@Url.Content("~/Resource/Index/")';
+
+		// Text from users is escaped before it goes into the popup, so HTML in a name can't run as code (XSS)
+		function escapeHtml(text) {
+			var div = document.createElement('div');
+			div.textContent = text || '';
+			return div.innerHTML;
+		}
+
 		//Ressurser hentes fra databasen og legges til på kartet som markører.
-				fetch('@Url.Action("MapResources", "Resource")')
-			.then(response => response.json())
-			.then(resources => {
+		// params can contain search, type, lat, lng and radius (sent to MapResources in ResourceController)
+		function loadResources(params) {
+			return fetch('@Url.Action("MapResources", "Resource")' + '?' + new URLSearchParams(params))
+				.then(response => response.json())
+				.then(resources => {
 
-				console.log("Ressurser hentet:", resources);
+					console.log("Ressurser hentet:", resources);
+					markerLayer.clearLayers();
+					markersById = {};
+					var markers = [];
 
-				resources.forEach(resource => {
+					resources.forEach(resource => {
 
-					var lat = parseFloat(resource.latitude);
-					var lng = parseFloat(resource.longitude);
+						var lat = parseFloat(resource.latitude);
+						var lng = parseFloat(resource.longitude);
 
-					// Kontroller at koordinatene er gyldige
-					if (isNaN(lat) || isNaN(lng)) {
-						console.warn("Ugyldige koordinater:", resource);
-						return;
-					}
+						// Kontroller at koordinatene er gyldige
+						if (isNaN(lat) || isNaN(lng)) {
+							console.warn("Ugyldige koordinater:", resource);
+							return;
+						}
 
-					var marker = L.marker([lat, lng]).addTo(map);
+						var marker = L.marker([lat, lng]).addTo(markerLayer);
 
-					marker.bindPopup(`
-						<strong>${resource.name}</strong><br>
-						${resource.description || ""}
-						<br>
-						Type: ${resource.type || "Ukjent"}
-					`);
+						marker.bindPopup(`
+							<strong>${escapeHtml(resource.name)}</strong><br>
+							${escapeHtml(resource.description)}
+							<br>
+							Type: ${escapeHtml(resource.type) || "Ukjent"}
+							<br>
+							<a href="${detailUrl}${resource.id}">Vis ressurs</a>
+						`);
+						markers.push(marker);
+						markersById[resource.id] = marker;
+					});
+					return markers;
+				})
+				.catch(error => {
+					console.error("Feil ved henting av ressurser:", error);
+					return [];
 				});
-			})
-			.catch(error => {
-				console.error("Feil ved henting av ressurser:", error);
+		}
+
+		// Called by the search in the menu (site.js), and when the page opens with a search in the URL (help with AI)
+		window.onResourceSearch = async function (params) {
+			var statusText = document.getElementById('globalSearchStatus');
+
+			// The circle: the chosen place in the middle, with the radius in km
+			if (radiusCircle) {
+				map.removeLayer(radiusCircle);
+				radiusCircle = null;
+			}
+			if (params.lat && params.lng && params.radius) {
+				radiusCircle = L.circle([parseFloat(params.lat), parseFloat(params.lng)], { radius: params.radius * 1000 }).addTo(map);
+			}
+
+			var markers = await loadResources(params);
+
+			// No search: show everything with the normal view
+			if (Object.keys(params).length === 0) {
+				if (statusText) statusText.textContent = '';
+				map.setView([58.14671, 7.9956], 13);
+				return;
+			}
+
+			if (statusText) {
+				var found = markers.length === 1 ? '1 ressurs' : markers.length + ' ressurser';
+				var radiusText = parseFloat(params.radius) < 1 ? (params.radius * 1000) + ' m' : params.radius + ' km';
+				statusText.textContent = params.lat ? found + ' innen ' + radiusText : found + ' funnet';
+			}
+
+			// Move the map: to the circle, so all results fit, or to the only result
+			if (radiusCircle) {
+				map.fitBounds(radiusCircle.getBounds());
+			} else if (markers.length > 1) {
+				map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [40, 40] });
+			} else if (markers.length === 1) {
+				map.setView(markers[0].getLatLng(), 16);
+			}
+			if (markers.length === 1) {
+				markers[0].openPopup();
+			}
+		};
+
+		// Called when a resource is picked in the suggestion list: fly there and open its popup
+		window.onResourceSelected = async function (resource) {
+			if (resource.latitude == null || resource.longitude == null) {
+				window.location.href = detailUrl + resource.id; // no position: open the resource page instead
+				return;
+			}
+			if (radiusCircle) {
+				map.removeLayer(radiusCircle);
+				radiusCircle = null;
+			}
+			await loadResources({});
+			map.setView([resource.latitude, resource.longitude], 16);
+			if (markersById[resource.id]) {
+				markersById[resource.id].openPopup();
+			}
+		};
+
+		// "Velg punkt på kartet" in the filter: the next click on the map becomes the centre of the circle
+		window.startPickCenter = function (callback) {
+			map.getContainer().style.cursor = 'crosshair';
+			map.once('click', function (e) {
+				map.getContainer().style.cursor = '';
+				callback(e.latlng.lat, e.latlng.lng);
 			});
-		
+		};
+
+		// Open with the search from the URL (e.g. from another page), or show everything
+		window.onResourceSearch(Object.fromEntries(new URLSearchParams(window.location.search)));
 
 	</script>
 }

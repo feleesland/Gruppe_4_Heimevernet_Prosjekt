@@ -10,6 +10,9 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
         : IdentityDbContext<ApplicationUser, IdentityRole, string>(options) 
 {
     public DbSet<Resource> Resources => Set<Resource>();
+    public DbSet<ResourceNeed> ResourceNeeds => Set<ResourceNeed>();
+    public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
+    public DbSet<ResourceReport> ResourceReports => Set<ResourceReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,5 +48,32 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
                 .HasMaxLength(20)
                 .IsRequired(false);
         });
+
+        modelBuilder.Entity<ResourceNeed>().HasQueryFilter(r => !r.IsDeleted);
+
+        modelBuilder.Entity<ResourceNeed>(entity =>
+        {
+            entity.ToTable("ResourceNeeds");
+            entity.HasKey(resourceneed => resourceneed.Id);
+            entity.Property(resourceneed => resourceneed.Name)
+                .HasMaxLength(200)
+                .IsRequired();
+            entity.Property(resourceneed => resourceneed.Description)
+                .HasMaxLength(2000)
+                .IsRequired();
+            entity.Property(resourceneed => resourceneed.Type)
+                .HasMaxLength(100)
+                .IsRequired();
+            entity.Property(resourceneed => resourceneed.Address)
+                .HasMaxLength(200)
+                .IsRequired(false);
+            entity.Property(resourceneed => resourceneed.City)
+                .HasMaxLength(100)
+                .IsRequired(false);
+            entity.Property(resourceneed => resourceneed.ZipCode)
+                .HasMaxLength(6)
+                .IsRequired(false);
+        });
     }
+
 }
