@@ -39,5 +39,8 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 
         // The lines, e.g. "2 × Motoriserte kjøretøy"
         public List<ResourceNeedItem> Items { get; set; } = new();
+
+        // The lines with requests and suggestions (the need page)
+        public List<NeedLineViewModel> Lines { get; set; } = new();
     }
 }

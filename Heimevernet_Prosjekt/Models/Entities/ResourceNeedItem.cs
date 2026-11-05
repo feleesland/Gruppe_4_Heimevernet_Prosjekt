@@ -20,5 +20,8 @@ namespace Heimevernet_Prosjekt.Models.Entities
         public int Quantity { get; set; } = 1;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // The requests sent for this line
+        public List<ResourceRequest> Requests { get; set; } = new();
     }
 }

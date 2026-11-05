@@ -1,7 +1,10 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models.Authorization;
+using Heimevernet_Prosjekt.Models.Entities;
 using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed;
+using Heimevernet_Prosjekt.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heimevernet_Prosjekt.Controllers
@@ -12,15 +15,26 @@ namespace Heimevernet_Prosjekt.Controllers
     public class ResourceNeedController : Controller
     {
         private readonly IResourceNeedRepository _resourceNeedRepository;
+        private readonly IResourceRequestRepository _requestRepository;
+        private readonly IResourceRepository _resourceRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly IAuthorizationService _authorizationService;
 
-        public ResourceNeedController(IResourceNeedRepository resourceNeedRepository, IAuthorizationService authorizationService)
+        public ResourceNeedController(
+            IResourceNeedRepository resourceNeedRepository,
+            IResourceRequestRepository requestRepository,
+            IResourceRepository resourceRepository,
+            UserManager<ApplicationUser> userManager,
+            IAuthorizationService authorizationService)
         {
             _resourceNeedRepository = resourceNeedRepository;
+            _requestRepository = requestRepository;
+            _resourceRepository = resourceRepository;
+            _userManager = userManager;
             _authorizationService = authorizationService;
         }
 
-        // The need's page, with its lines
+        // The need's page, with its lines, requests and suggestions
         public async Task<IActionResult> Index(int? id)
         {
             if (!id.HasValue)
@@ -65,7 +79,114 @@ namespace Heimevernet_Prosjekt.Controllers
                 ClosedAt = need.ClosedAt,
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
+
+            viewModel.Lines = await BuildLinesAsync(need, viewModel.Items);
             return View(viewModel);
+        }
+
+        // Each line with its requests and suggestions: free resources of the same type, nearest first (help with AI)
+        private async Task<List<NeedLineViewModel>> BuildLinesAsync(ResourceNeed need, List<ResourceNeedItem> items)
+        {
+            var now = DateTime.UtcNow;
+            var requests = _requestRepository.GetForNeed(need.Id);
+            var inUse = _requestRepository.GetResourceIdsInUse();
+            var resources = _resourceRepository.GetAll();
+            var resourcesById = resources.ToDictionary(resource => resource.Id);
+
+            // Owners are looked up once each - Docs: Introduction to Identity on ASP.NET Core
+            var owners = new Dictionary<string, ApplicationUser?>();
+            async Task<ApplicationUser?> OwnerAsync(string? ownerId)
+            {
+                if (string.IsNullOrEmpty(ownerId)) return null;
+                if (!owners.TryGetValue(ownerId, out var owner))
+                {
+                    owner = await _userManager.FindByIdAsync(ownerId);
+                    owners[ownerId] = owner;
+                }
+                return owner;
+            }
+            static string OwnerName(ApplicationUser? owner) =>
+                owner == null ? "Ukjent eier"
+                : $"{owner.FirstName} {owner.LastName}".Trim() is { Length: > 0 } name ? name : owner.Email ?? "Ukjent eier";
+
+            var lines = new List<NeedLineViewModel>();
+            foreach (var item in items)
+            {
+                var itemRequests = requests.Where(request => request.ResourceNeedItemId == item.Id).ToList();
+                var line = new NeedLineViewModel
+                {
+                    ItemId = item.Id,
+                    Type = item.Type,
+                    Quantity = item.Quantity,
+                    Accepted = itemRequests.Count(request => request.Status == RequestStatus.Godtatt)
+                };
+
+                foreach (var request in itemRequests)
+                {
+                    resourcesById.TryGetValue(request.ResourceId, out var resource);
+                    var owner = await OwnerAsync(resource?.OwnerId);
+                    line.Requests.Add(new RequestRowViewModel
+                    {
+                        Id = request.Id,
+                        ResourceName = resource?.Name ?? "Slettet ressurs",
+                        OwnerName = OwnerName(owner),
+                        OwnerPhone = owner?.PhoneNumber ?? resource?.OwnerTelephoneNumber,
+                        Status = request.Status,
+                        Unanswered = request.IsUnanswered(now),
+                        Delivery = request.Delivery,
+                        SentAt = request.SentAt,
+                        AnswerBy = request.AnswerBy,
+                        ConfirmedByPhone = request.ConfirmedByPhone,
+                        Comment = request.Comment
+                    });
+                }
+
+                if (line.IsCovered || need.ClosedAt != null)
+                {
+                    lines.Add(line);
+                    continue;
+                }
+
+                // Already asked on this line (and still waiting or accepted)
+                var asked = itemRequests
+                    .Where(request => request.Status == RequestStatus.Godtatt ||
+                                      (request.Status == RequestStatus.Sendt && !request.IsUnanswered(now)))
+                    .Select(request => request.ResourceId)
+                    .ToHashSet();
+
+                var candidates = resources
+                    .Where(resource => resource.Type == item.Type
+                                       && (string.IsNullOrEmpty(resource.Status) || resource.Status == "Ledig")
+                                       && !inUse.Contains(resource.Id)
+                                       && !asked.Contains(resource.Id))
+                    .Select(resource => new
+                    {
+                        Resource = resource,
+                        Distance = need.Latitude != null && need.Longitude != null && resource.Latitude != null && resource.Longitude != null
+                            ? GeoDistance.Km(need.Latitude.Value, need.Longitude.Value, resource.Latitude.Value, resource.Longitude.Value)
+                            : (double?)null
+                    })
+                    .OrderBy(x => x.Distance ?? double.MaxValue)
+                    .Take(10);
+
+                foreach (var candidate in candidates)
+                {
+                    var owner = await OwnerAsync(candidate.Resource.OwnerId);
+                    line.Suggestions.Add(new SuggestionViewModel
+                    {
+                        ResourceId = candidate.Resource.Id,
+                        Name = candidate.Resource.Name,
+                        OwnerName = OwnerName(owner),
+                        OwnerPhone = owner?.PhoneNumber ?? candidate.Resource.OwnerTelephoneNumber,
+                        DistanceKm = candidate.Distance,
+                        InsideCircle = candidate.Distance != null && candidate.Distance <= need.RadiusKm
+                    });
+                }
+
+                lines.Add(line);
+            }
+
+            return lines;
         }
 
         // List of needs: only those the user is allowed to see - Docs: Resource-based authorization

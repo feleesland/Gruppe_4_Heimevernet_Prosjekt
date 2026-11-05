@@ -14,6 +14,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
     public DbSet<ResourceReport> ResourceReports => Set<ResourceReport>();
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
+    public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -97,6 +98,27 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             entity.Property(item => item.Type)
                 .HasMaxLength(100)
                 .IsRequired();
+        });
+
+        // Requests of a soft-deleted need are hidden too (same as the lines)
+        modelBuilder.Entity<ResourceRequest>().HasQueryFilter(request => !request.ResourceNeedItem.ResourceNeed.IsDeleted);
+
+        modelBuilder.Entity<ResourceRequest>(entity =>
+        {
+            entity.ToTable("ResourceRequests");
+            entity.HasKey(request => request.Id);
+
+            // One line has many requests - Docs: Relationships (one-to-many)
+            // https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many
+            entity.HasOne(request => request.ResourceNeedItem)
+                .WithMany(item => item.Requests)
+                .HasForeignKey(request => request.ResourceNeedItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Quick lookup of "is this resource already asked for / in use?"
+            entity.HasIndex(request => request.ResourceId);
+
+            entity.Property(request => request.Comment).HasMaxLength(500);
         });
     }
 }

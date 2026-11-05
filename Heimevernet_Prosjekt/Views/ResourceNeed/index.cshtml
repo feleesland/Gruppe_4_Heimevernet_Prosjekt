@@ -10,11 +10,32 @@
     // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
     private static string OsloTime(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM.yyyy HH:mm");
+    private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+
+    // Request status as text + colour (not colour alone)
+    private static (string Text, string Css) StatusBadge(RequestRowViewModel r) => r.Status switch
+    {
+        RequestStatus.Sendt when r.Unanswered => ("Ikke svart", "text-bg-secondary"),
+        RequestStatus.Sendt => ($"Venter · svar innen {OsloShort(r.AnswerBy)}", "text-bg-warning"),
+        RequestStatus.Godtatt => (r.Delivery == DeliveryMethod.Hentes ? "✓ Godtatt · må hentes" : "✓ Godtatt · leverer", "text-bg-success"),
+        RequestStatus.Avslatt => ("Avslått", "text-bg-secondary"),
+        RequestStatus.IkkeLengerNodvendig => ("Ikke lenger nødvendig", "text-bg-light"),
+        _ => ("Avbrutt", "text-bg-secondary")
+    };
+
+    // "1,2 km", "4,6 km · utenfor" or "ukjent avstand"
+    private static string DistanceText(SuggestionViewModel s) =>
+        s.DistanceKm == null ? "ukjent avstand"
+        : s.DistanceKm.Value.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")) + " km" + (s.InsideCircle ? "" : " · utenfor");
 }
 
 @if (TempData["Message"] != null)
 {
     <div class="alert alert-success" role="status">@TempData["Message"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger" role="alert">@TempData["Error"]</div>
 }
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
@@ -80,33 +101,108 @@
 </dl>
 
 <h2 class="h4">Hva trengs</h2>
-@if (Model.Items.Count == 0)
+@if (Model.Lines.Count == 0)
 {
-    <p class="text-muted">Ingen linjer ennå.</p>
+    <p class="text-muted">Ingen behov ennå.</p>
 }
-else
+@foreach (var line in Model.Lines)
 {
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Ressurs</th>
-                    <th scope="col">Antall</th>
-                    <th scope="col">Lagt til</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in Model.Items)
+    var answerDefault = planned ? 1440 : 30;
+    <section class="card mb-3" aria-labelledby="line-@line.ItemId">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h3 id="line-@line.ItemId" class="h5 mb-0">@line.Quantity × @line.Type</h3>
+                <span class="badge @(line.IsCovered ? "text-bg-success" : "text-bg-warning")">
+                    @(line.IsCovered ? "✓ Dekket" : $"{line.Accepted} av {line.Quantity} dekket")
+                </span>
+            </div>
+
+            @* Requests already sent for this line *@
+            @if (line.Requests.Count > 0)
+            {
+                <div class="table-responsive mt-2">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Ressurs</th>
+                                <th scope="col">Eier</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Sendt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in line.Requests)
+                            {
+                                var badge = StatusBadge(r);
+                                <tr>
+                                    <td>@r.ResourceName</td>
+                                    <td>
+                                        @r.OwnerName
+                                        @if (!string.IsNullOrEmpty(r.OwnerPhone))
+                                        {
+                                            <br /><a href="tel:@r.OwnerPhone">☎ @r.OwnerPhone</a>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="badge @badge.Css">@badge.Text</span>
+                                        @if (!string.IsNullOrEmpty(r.Comment))
+                                        {
+                                            <div class="small text-muted">«@r.Comment»</div>
+                                        }
+                                    </td>
+                                    <td class="text-muted small">@OsloShort(r.SentAt)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            @* Suggestions: free resources of the same type, nearest first *@
+            @if (!line.IsCovered && Model.ClosedAt == null)
+            {
+                @if (line.Suggestions.Count == 0)
                 {
-                    <tr>
-                        <td>@item.Type</td>
-                        <td>@item.Quantity</td>
-                        <td class="text-muted">@OsloTime(item.CreatedAt)</td>
-                    </tr>
+                    <p class="text-muted small mt-2 mb-0">Ingen ledige ressurser av typen «@line.Type».</p>
                 }
-            </tbody>
-        </table>
-    </div>
+                else
+                {
+                    <form asp-controller="ResourceNeedHandler" asp-action="SendRequests" method="post" class="mt-3">
+                        <input type="hidden" name="itemId" value="@line.ItemId" />
+                        <p class="small text-muted mb-1">
+                            Forslag – ledige, nærmest først. Spør gjerne flere enn @line.Quantity; de første som sier ja får oppdraget.
+                        </p>
+                        <div class="list-group mb-2">
+                            @foreach (var s in line.Suggestions)
+                            {
+                                <label class="list-group-item d-flex gap-2 align-items-center">
+                                    <input class="form-check-input mt-0" type="checkbox" name="resourceIds" value="@s.ResourceId" />
+                                    <span class="flex-grow-1">
+                                        @s.Name <span class="text-muted small">· @s.OwnerName · @DistanceText(s)</span>
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(s.OwnerPhone))
+                                    {
+                                        <span class="small text-muted">☎ @s.OwnerPhone</span>
+                                    }
+                                </label>
+                            }
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <button type="submit" class="btn btn-primary" style="min-height: 44px;">Send forespørsler</button>
+                            <label class="small mb-0" for="answer-@line.ItemId">Svarfrist</label>
+                            <select id="answer-@line.ItemId" name="answerMinutes" class="form-select form-select-sm" style="width: auto;">
+                                <option value="30" selected="@(answerDefault == 30)">30 min</option>
+                                <option value="60">1 time</option>
+                                <option value="180">3 timer</option>
+                                <option value="1440" selected="@(answerDefault == 1440)">1 døgn</option>
+                                <option value="2880">2 døgn</option>
+                            </select>
+                        </div>
+                    </form>
+                }
+            }
+        </div>
+    </section>
 }
 
 @if (Model.ClosedAt == null && Model.Latitude != null && Model.Longitude != null)
