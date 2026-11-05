@@ -1,10 +1,10 @@
 ﻿namespace Heimevernet_Prosjekt.Models
 {
-    public class PositionModel    //Klassen tilhører kartet
+    // Stores coordinates used by the map.
+    public class PositionModel
     {
-        public string Latitude { get; set; }
-        public string Longitude { get; set; }
-
-        
+        // Start with empty text until a coordinate is provided.
+        public string Latitude { get; set; } = string.Empty;
+        public string Longitude { get; set; } = string.Empty;
     }
 }
