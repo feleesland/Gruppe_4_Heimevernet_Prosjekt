@@ -25,5 +25,7 @@ namespace Heimevernet_Prosjekt.DataAccess
         // Active needs whose circle contains the point, nearest first (with their lines)
         IReadOnlyCollection<ResourceNeed> GetActiveAt(double latitude, double longitude);
         bool Close(int id);
+        void AddLog(int needId, string userId, string userName, string text);
+        IReadOnlyList<ResourceNeedLog> GetLog(int needId);
     }
 }

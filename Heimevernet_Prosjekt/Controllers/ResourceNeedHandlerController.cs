@@ -105,6 +105,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 _resourceNeedRepository.AddItems(existing.Id, model.Lines);
                 TempData["Message"] = $"{CountText(model.Lines)} lagt til i «{existing.Name}»: {Summary(model.Lines)}.";
+                Log(existing.Id, $"La til {Summary(model.Lines)}");
                 return RedirectToAction("Index", "ResourceNeed", new { id = existing.Id });
             }
 
@@ -120,6 +121,7 @@ namespace Heimevernet_Prosjekt.Controllers
             var need = _resourceNeedRepository.CreateWithItems(model, ownerId);
 
             TempData["Message"] = $"«{need.Name}» er meldt med {CountText(model.Lines)}: {Summary(model.Lines)}.";
+            Log(need.Id, $"Meldte behovet ({need.Urgency}): {Summary(model.Lines)}");
             return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
         }
 
@@ -194,6 +196,11 @@ namespace Heimevernet_Prosjekt.Controllers
                 await NotifyOwnersAsync(need, sentIds);
 
                 TempData["Message"] = sentIds.Count == 1 ? "1 forespørsel sendt." : $"{sentIds.Count} forespørsler sendt.";
+                if (sentIds.Count > 0)
+                {
+                    var names = sentIds.Select(id => _resourceRepository.GetById(id)?.Name ?? $"#{id}");
+                    Log(needId, $"Sendte forespørsel til {string.Join(", ", names)} (svarfrist {answerMinutes} min)");
+                }
             }
 
             return RedirectToAction("Index", "ResourceNeed", new { id = needId });
@@ -262,10 +269,12 @@ namespace Heimevernet_Prosjekt.Controllers
             if (result == AnswerResult.Accepted)
             {
                 TempData["Message"] = "Registrert: eieren sa ja på telefon.";
+                Log(needId, $"Registrerte telefonsvar JA ({choice}) for {RequestName(needId, requestId)}");
             }
             else if (result == AnswerResult.Declined)
             {
                 TempData["Message"] = "Registrert: eieren sa nei på telefon.";
+                Log(needId, $"Registrerte telefonsvar NEI for {RequestName(needId, requestId)}");
             }
             else if (result == AnswerResult.AlreadyCovered)
             {
@@ -293,6 +302,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (_requestRepository.Undo(undo))
             {
                 TempData["Message"] = "Angret. Forespørselen venter på svar igjen.";
+                Log(needId, $"Angret telefonsvar for {RequestName(needId, undo)}");
             }
             else
             {
@@ -316,6 +326,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (_requestRepository.Cancel(cancel))
             {
                 TempData["Message"] = "Forespørselen er avbrutt.";
+                Log(needId, $"Avbrøt {RequestName(needId, cancel)}");
             }
             else
             {
@@ -339,6 +350,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (_requestRepository.MarkDelivered(delivered))
             {
                 TempData["Message"] = "Markert som levert.";
+                Log(needId, $"Markerte {RequestName(needId, delivered)} som levert");
             }
             else
             {
@@ -362,6 +374,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (_requestRepository.MarkReturned(returned))
             {
                 TempData["Message"] = "Markert som levert tilbake. Ressursen er ledig igjen.";
+                Log(needId, $"Markerte {RequestName(needId, returned)} som levert tilbake");
             }
             else
             {
@@ -370,15 +383,27 @@ namespace Heimevernet_Prosjekt.Controllers
 
             return RedirectToAction("Index", "ResourceNeed", new { id = needId });
         }
-        // Close the need - only operator and admin
+
+        // Close the need. The operator must write why, and the reason is saved in the log
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = RoleNames.Admin + "," + RoleNames.Operator)]
-        public IActionResult Close(int needId)
+        public IActionResult Close(int needId, string? closeNote)
         {
+            closeNote = closeNote?.Trim();
+            if (string.IsNullOrEmpty(closeNote))
+            {
+                TempData["Error"] = "Skriv hvorfor behovet avsluttes.";
+                return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            }
+            if (closeNote.Length > 400)
+            {
+                closeNote = closeNote[..400];
+            }
+
             if (_resourceNeedRepository.Close(needId))
             {
                 TempData["Message"] = "Behovet er avsluttet. Forespørsler som ventet på svar er trukket tilbake.";
+                Log(needId, $"Avsluttet behovet: «{closeNote}»");
             }
             else
             {
@@ -408,6 +433,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (_requestRepository.Extend(requestId, minutes))
             {
                 TempData["Message"] = minutes == 60 ? "Fristen er forlenget med 1 time." : "Fristen er forlenget med 30 min.";
+                Log(needId, $"Ga +{minutes} min svarfrist til {RequestName(needId, requestId)}");
             }
             else
             {
@@ -508,6 +534,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
+            Log(model.Id.Value, "Endret navn, beskrivelse eller sted");
             return RedirectToAction("List", "ResourceNeed");
         }
 
@@ -531,6 +558,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
+            Log(id, "Slettet behovet");
 
             // Back to the Behov list (it went to the resource list before)
             return RedirectToAction("List", "ResourceNeed");
@@ -600,6 +628,20 @@ namespace Heimevernet_Prosjekt.Controllers
         private static string Summary(List<NeedLineInput> lines)
         {
             return string.Join(", ", lines.Select(line => $"{line.Quantity} × {line.Type}"));
+        }
+        // "«traktor»" instead of "#11" in the log
+        private string RequestName(int needId, int requestId)
+        {
+            var request = _requestRepository.GetForNeed(needId).FirstOrDefault(r => r.Id == requestId);
+            var name = request == null ? null : _resourceRepository.GetById(request.ResourceId)?.Name;
+            return name != null ? $"«{name}»" : $"forespørsel #{requestId}";
+        }
+        // Writes who did what in the need's log (who and when). The name is saved as text, so it stays if the user is deleted
+        private void Log(int needId, string text)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var userName = User.Identity?.Name ?? "Ukjent";
+            _resourceNeedRepository.AddLog(needId, userId, userName, text);
         }
     }
 }

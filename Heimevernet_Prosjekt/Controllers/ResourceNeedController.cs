@@ -37,6 +37,7 @@ namespace Heimevernet_Prosjekt.Controllers
         // The need's page, with its lines, requests and suggestions
         public async Task<IActionResult> Index(int? id)
         {
+            
             if (!id.HasValue)
             {
                 return RedirectToAction(nameof(List));
@@ -79,7 +80,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 ClosedAt = need.ClosedAt,
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
-
+            ViewData["Log"] = _resourceNeedRepository.GetLog(id.Value);
             viewModel.Lines = await BuildLinesAsync(need, viewModel.Items);
             return View(viewModel);
         }
