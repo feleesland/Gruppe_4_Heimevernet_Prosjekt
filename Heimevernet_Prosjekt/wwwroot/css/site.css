@@ -1,5 +1,16 @@
 html {
+    position: relative;
+    min-height: 100%;
     font-size: 14px;
+}
+
+body {
+    margin-bottom: 60px;
+    background-image: url(/Krs.png);
+}
+
+a {
+    color: #1e6447;
 }
 
 @media (min-width: 768px) {
@@ -8,17 +19,24 @@ html {
     }
 }
 
+.button {
+    color: #ffffff;
+    background-color: #1e6447;
+    font-size: 18px;
+    border-radius: 5px;
+    display: inline-block;
+    text-decoration: none;
+    margin: 20px 2px;
+    padding: 15px 15px;
+}
+
+.navbar {
+  background-color: #1e6447;
+  padding: 12px;
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-    position: relative;
-    min-height: 100%;
-}
-
-body {
-    margin-bottom: 60px;
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #1e6447;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -30,27 +48,23 @@ body {
     text-align: start;
 }
 
-/* Sideway scrolling on smartphones. */
 .resource-table-scroll {
     width: 100%;
     overflow-x: auto;
     margin-bottom: 1rem;
 }
 
-    /* Show keyboard users when the table area has focus. */
     .resource-table-scroll:focus-visible {
-        outline: 3px solid #258cfb;
+        outline: 3px solid #1e6447;
         outline-offset: 3px;
     }
 
-/*  Readable table instead of squeezing its columns. */
 .resource-table {
     width: 100%;
     min-width: 36rem;
     border-collapse: collapse;
 }
 
-    /* Add space around the table headings and values. */
     .resource-table th,
     .resource-table td {
         padding: 0.75rem;
@@ -79,7 +93,6 @@ body {
         padding: 0.5rem 0.75rem;
     }
 
-/* Use slightly smaller cell spacing on narrow screens. */
 @media (max-width: 575.98px) {
     .resource-table th,
     .resource-table td {
@@ -87,15 +100,12 @@ body {
     }
 }
 
-/* Search hit on the homepage: background + stripe, so it doesn't rely on color alone */
 .search-hit {
     background-color: var(--bs-warning-bg-subtle);
     border-left: 4px solid var(--bs-warning);
     padding-left: 6px;
 }
 
-/* Search in the menu like YouTube: one wide rounded field with 🔍 on the left and ✕ on the right */
-/* The menu links only take the space they need, so the search gets the middle (master's flex-grow-1 is kept in _Layout, this overrides it) */
 #mainNavigation > .navbar-nav:first-child {
     flex-grow: 0 !important;
 }
@@ -137,7 +147,6 @@ body {
     line-height: 0;
 }
 
-/* The suggestion list under the field (above the map: Leaflet uses z-index up to 1000) */
 .search-suggestions {
     position: absolute;
     top: calc(100% + 6px);
@@ -186,13 +195,11 @@ body {
     font-size: 1.1rem;
 }
 
-/* The filter panel under the Filter button (above the map) */
 .filter-panel {
     width: 280px;
     z-index: 1060;
 }
 
-/* The notification list under the bell (above the map) */
 .notification-panel {
     width: 340px;
     max-height: 70vh;
@@ -200,7 +207,6 @@ body {
     z-index: 1060;
 }
 
-/* Long messages wrap instead of making the list wider */
 .notification-item {
     white-space: normal;
 }

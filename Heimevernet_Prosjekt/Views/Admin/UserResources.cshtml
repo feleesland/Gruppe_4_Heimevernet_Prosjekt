@@ -7,7 +7,7 @@
 
 <h1>Ressurser for @ViewData["Email"]</h1>
 
-<a asp-action="Index" class="btn btn-secondary btn-sm mb-3">← Tilbake til brukere</a>
+<a asp-action="Index" class="button">← Tilbake til brukere</a>
 
 @if (!Model.Any())
 {
@@ -47,7 +47,7 @@ else
         <form asp-action="DeleteUser" method="post" class="d-inline">
             <input type="hidden" name="userId" value="@ViewData["UserId"]" />
             <input type="hidden" name="deleteResources" value="false" />
-            <button type="submit" class="btn btn-outline-danger"
+            <button type="submit" class="button"
                     onclick="return confirm('Slette brukeren, men beholde ressursene?');">
                 Slett bruker, behold ressursene
             </button>

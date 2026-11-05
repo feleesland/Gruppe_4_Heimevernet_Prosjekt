@@ -31,7 +31,7 @@ public sealed class RegisterViewModel
 
     [Required]
     [DataType(DataType.Password)]
-    [Compare(nameof(Password), ErrorMessage = "The passwords do not match.")]
-    [Display(Name = "Confirm password")]
+    [Compare(nameof(Password), ErrorMessage = "Passordene matcher ikke.")]
+    [Display(Name = "Gjenta passord")]
     public string ConfirmPassword { get; set; } = string.Empty;
 }
