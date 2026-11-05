@@ -25,7 +25,6 @@
             <span asp-validation-for="Type"></span>
         </div>
 
-        <!-- Address and position on the map (help with AI) -->
         <div>
             <label asp-for="Address"></label>
             <input asp-for="Address" />
@@ -46,14 +45,14 @@
         <input type="hidden" asp-for="Latitude" />
         <input type="hidden" asp-for="Longitude" />
 
-        <button type="submit">Create</button>
+        <button class="button" type="submit">Create</button>
     </form>
 }
 else
 {
 
     <div>
-        Gratulerer du har opprettet et nytt behov!
+        Du har opprettet et nytt behov!
         <h1>@Model.Name</h1>
         <p>@Model.Description</p>
         <p>Type: @Model.Type</p>
