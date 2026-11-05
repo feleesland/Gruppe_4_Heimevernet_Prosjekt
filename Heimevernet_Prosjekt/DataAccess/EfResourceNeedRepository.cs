@@ -209,5 +209,29 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             .ToList()
             .AsReadOnly();
     }
+    // Close the need: it disappears from the map and stops taking new requests.
+    // Requests still waiting for an answer are withdrawn so owners don't answer for nothing.
+    // Resources that were lent out keep their status until they are marked as returned.
+    public bool Close(int id)
+    {
+        var need = dbContext.ResourceNeeds.Find(id);
+        if (need is null || need.ClosedAt != null)
+        {
+            return false;
+        }
+
+        need.ClosedAt = DateTime.UtcNow;
+
+        var waiting = dbContext.ResourceRequests
+            .Where(r => r.ResourceNeedItem.ResourceNeedId == id && r.Status == RequestStatus.Sendt)
+            .ToList();
+        foreach (var request in waiting)
+        {
+            request.Status = RequestStatus.Avbrutt;
+        }
+
+        dbContext.SaveChanges();
+        return true;
+    }
 
 }

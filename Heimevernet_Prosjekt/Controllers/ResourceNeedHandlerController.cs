@@ -370,6 +370,23 @@ namespace Heimevernet_Prosjekt.Controllers
 
             return RedirectToAction("Index", "ResourceNeed", new { id = needId });
         }
+        // Close the need - only operator and admin
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = RoleNames.Admin + "," + RoleNames.Operator)]
+        public IActionResult Close(int needId)
+        {
+            if (_resourceNeedRepository.Close(needId))
+            {
+                TempData["Message"] = "Behovet er avsluttet. Forespørsler som ventet på svar er trukket tilbake.";
+            }
+            else
+            {
+                TempData["Error"] = "Behovet finnes ikke, eller er allerede avsluttet.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
 
         // "+30 min / +1 t": more time to answer
         [HttpPost]
