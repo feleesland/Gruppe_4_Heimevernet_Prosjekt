@@ -231,6 +231,205 @@ namespace Heimevernet_Prosjekt.Controllers
             }
         }
 
+        // The buttons on each request sit in the big form on the need page and use formaction,
+        // so their value is "requestId:choice" (help with AI) - Docs: formaction (MDN)
+        // https://developer.mozilla.org/docs/Web/HTML/Element/button#formaction
+        private static readonly int[] ExtendMinutes = { 30, 60 };
+
+        // "Eieren svarte på telefon": ja (leverer / hentes) or nei
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmByPhone(int needId, string phoneAnswer)
+        {
+            if (!TryParsePair(phoneAnswer, out var requestId, out var choice)
+                || choice is not ("leverer" or "hentes" or "nei"))
+            {
+                return BadRequest();
+            }
+
+            var denied = await CheckRequestAsync(needId, requestId);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            var yes = choice != "nei";
+            DeliveryMethod? delivery = choice == "hentes" ? DeliveryMethod.Hentes
+                : choice == "leverer" ? DeliveryMethod.Leverer
+                : null;
+
+            var result = _requestRepository.ConfirmByPhone(requestId, yes, delivery);
+            if (result == AnswerResult.Accepted)
+            {
+                TempData["Message"] = "Registrert: eieren sa ja på telefon.";
+            }
+            else if (result == AnswerResult.Declined)
+            {
+                TempData["Message"] = "Registrert: eieren sa nei på telefon.";
+            }
+            else if (result == AnswerResult.AlreadyCovered)
+            {
+                TempData["Error"] = "Behovet var allerede dekket. Forespørselen er satt til «Ikke lenger nødvendig».";
+            }
+            else
+            {
+                TempData["Error"] = "Forespørselen er ikke åpen lenger.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // "↩ Angre": undo an answer the operator registered by phone (back to "Venter")
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UndoAnswer(int needId, int undo)
+        {
+            var denied = await CheckRequestAsync(needId, undo);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            if (_requestRepository.Undo(undo))
+            {
+                TempData["Message"] = "Angret. Forespørselen venter på svar igjen.";
+            }
+            else
+            {
+                TempData["Error"] = "Kan bare angre svar som ble registrert på telefon.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // "Trekk tilbake forespørselen" (waiting) / "Avbryt bekreftelsen" (accepted)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CancelRequest(int needId, int cancel)
+        {
+            var denied = await CheckRequestAsync(needId, cancel);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            if (_requestRepository.Cancel(cancel))
+            {
+                TempData["Message"] = "Forespørselen er avbrutt.";
+            }
+            else
+            {
+                TempData["Error"] = "Forespørselen kan ikke avbrytes lenger.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // "Marker som levert": the resource has arrived
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkDelivered(int needId, int delivered)
+        {
+            var denied = await CheckRequestAsync(needId, delivered);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            if (_requestRepository.MarkDelivered(delivered))
+            {
+                TempData["Message"] = "Markert som levert.";
+            }
+            else
+            {
+                TempData["Error"] = "Kan bare markere godtatte forespørsler som levert.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // "Marker som levert tilbake": the resource is back with the owner and becomes free again
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkReturned(int needId, int returned)
+        {
+            var denied = await CheckRequestAsync(needId, returned);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            if (_requestRepository.MarkReturned(returned))
+            {
+                TempData["Message"] = "Markert som levert tilbake. Ressursen er ledig igjen.";
+            }
+            else
+            {
+                TempData["Error"] = "Ressursen er allerede levert tilbake.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // "+30 min / +1 t": more time to answer
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExtendDeadline(int needId, string extend)
+        {
+            if (!TryParsePair(extend, out var requestId, out var choice)
+                || !int.TryParse(choice, out var minutes) || !ExtendMinutes.Contains(minutes))
+            {
+                return BadRequest();
+            }
+
+            var denied = await CheckRequestAsync(needId, requestId);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            if (_requestRepository.Extend(requestId, minutes))
+            {
+                TempData["Message"] = minutes == 60 ? "Fristen er forlenget med 1 time." : "Fristen er forlenget med 30 min.";
+            }
+            else
+            {
+                TempData["Error"] = "Forespørselen venter ikke på svar lenger.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // The request must belong to this need, and the user must be allowed to change the need
+        private async Task<IActionResult?> CheckRequestAsync(int needId, int requestId)
+        {
+            if (_requestRepository.GetNeedId(requestId) != needId)
+            {
+                return NotFound();
+            }
+            var need = _resourceNeedRepository.GetById(needId);
+            if (need == null)
+            {
+                return NotFound();
+            }
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            return canUpdate.Succeeded ? null : Forbid();
+        }
+
+        // "12:leverer" → 12 and "leverer"
+        private static bool TryParsePair(string? value, out int id, out string rest)
+        {
+            id = 0;
+            rest = string.Empty;
+            var parts = value?.Split(':');
+            if (parts is not { Length: 2 } || !int.TryParse(parts[0], out id))
+            {
+                return false;
+            }
+            rest = parts[1];
+            return true;
+        }
+
         [HttpGet]
         public async Task<ActionResult> Edit(int id)
         {

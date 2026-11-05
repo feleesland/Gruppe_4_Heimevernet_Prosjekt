@@ -23,6 +23,27 @@ public interface IResourceRequestRepository
 
     // The owner answers. Checks that the request is theirs and still open; the first ones who say yes get the job
     AnswerResult Answer(int requestId, string ownerId, bool yes, DeliveryMethod? delivery, string? comment);
+
+    // The operator got the yes on the phone (allowed after the deadline too, as long as nobody has answered)
+    AnswerResult ConfirmByPhone(int requestId, bool yes, DeliveryMethod? delivery);
+
+    // "↩ Angre": only answers the operator registered by phone. The request goes back to "Venter"
+    bool Undo(int requestId);
+
+    // "Avbryt forespørsel": waiting or accepted (not delivered). The resource becomes free again
+    bool Cancel(int requestId);
+
+    // The resource has arrived. Only accepted requests that are not delivered yet
+    bool MarkDelivered(int requestId);
+
+    // The resource is back with the owner: the resource becomes free again
+    bool MarkReturned(int requestId);
+
+    // More time to answer: from the deadline, or from now if it has passed. False if the request isn't waiting
+    bool Extend(int requestId, int minutes);
+
+    // Which need the request belongs to (to check access)
+    int? GetNeedId(int requestId);
 }
 
 // One request as the owner sees it

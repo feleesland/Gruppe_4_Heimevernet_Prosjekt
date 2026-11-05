@@ -118,12 +118,10 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
             .AsReadOnly();
     }
 
-    // "The first ones who say yes get the job": when the line is covered, the others still waiting get "Ikke lenger nødvendig" (help with AI)
+    // The owner answers in the app: the request must be theirs, waiting, and within the deadline
     public AnswerResult Answer(int requestId, string ownerId, bool yes, DeliveryMethod? delivery, string? comment)
     {
-        var request = dbContext.ResourceRequests
-            .Include(r => r.ResourceNeedItem)
-            .FirstOrDefault(r => r.Id == requestId);
+        var request = Load(requestId);
         if (request is null)
         {
             return AnswerResult.NotFound;
@@ -136,13 +134,178 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
             return AnswerResult.NotFound;
         }
 
-        var now = DateTime.UtcNow;
-        if (request.Status != RequestStatus.Sendt || request.AnswerBy < now)
+        if (request.Status != RequestStatus.Sendt || request.AnswerBy < DateTime.UtcNow)
         {
             return AnswerResult.NotOpen;
         }
 
-        request.AnsweredAt = now;
+        return Apply(request, resource, yes, delivery, comment);
+    }
+
+    // The operator registers the owner's answer from the phone (yes or no).
+    // Allowed after the deadline too, as long as nobody has answered
+    public AnswerResult ConfirmByPhone(int requestId, bool yes, DeliveryMethod? delivery)
+    {
+        var request = Load(requestId);
+        if (request is null)
+        {
+            return AnswerResult.NotFound;
+        }
+
+        var resource = dbContext.Resources.Find(request.ResourceId);
+        if (resource is null)
+        {
+            return AnswerResult.NotFound;
+        }
+
+        if (request.Status != RequestStatus.Sendt)
+        {
+            return AnswerResult.NotOpen;
+        }
+
+        request.ConfirmedByPhone = true;
+        return Apply(request, resource, yes, delivery, null);
+    }
+
+    // Undo a phone answer (a misclick): back to "Venter", as if nothing was answered
+    public bool Undo(int requestId)
+    {
+        var request = dbContext.ResourceRequests.Find(requestId);
+        if (request is null || !request.ConfirmedByPhone || request.DeliveredAt != null
+            || (request.Status != RequestStatus.Godtatt && request.Status != RequestStatus.Avslatt))
+        {
+            return false;
+        }
+
+        var wasAccepted = request.Status == RequestStatus.Godtatt;
+        request.Status = RequestStatus.Sendt;
+        request.AnsweredAt = null;
+        request.Delivery = null;
+        request.ConfirmedByPhone = false;
+
+        if (wasAccepted)
+        {
+            ReopenLine(request);
+        }
+
+        dbContext.SaveChanges();
+        return true;
+    }
+
+    // Cancel a request that is waiting or accepted (not delivered yet)
+    public bool Cancel(int requestId)
+    {
+        var request = dbContext.ResourceRequests.Find(requestId);
+        if (request is null || request.DeliveredAt != null
+            || (request.Status != RequestStatus.Sendt && request.Status != RequestStatus.Godtatt))
+        {
+            return false;
+        }
+
+        var wasAccepted = request.Status == RequestStatus.Godtatt;
+        request.Status = RequestStatus.Avbrutt;
+
+        if (wasAccepted)
+        {
+            ReopenLine(request);
+        }
+
+        dbContext.SaveChanges();
+        return true;
+    }
+
+    public bool MarkDelivered(int requestId)
+    {
+        var request = dbContext.ResourceRequests.Find(requestId);
+        if (request is null || request.Status != RequestStatus.Godtatt || request.DeliveredAt != null)
+        {
+            return false;
+        }
+
+        request.DeliveredAt = DateTime.UtcNow;
+        dbContext.SaveChanges();
+        return true;
+    }
+
+    public bool MarkReturned(int requestId)
+    {
+        var request = dbContext.ResourceRequests.Find(requestId);
+        if (request is null || request.Status != RequestStatus.Godtatt || request.ReturnedAt != null)
+        {
+            return false;
+        }
+
+        // Returned without being marked delivered first: count it as delivered too
+        var now = DateTime.UtcNow;
+        request.DeliveredAt ??= now;
+        request.ReturnedAt = now;
+
+        var resource = dbContext.Resources.Find(request.ResourceId);
+        if (resource != null)
+        {
+            resource.Status = "Ledig";
+        }
+
+        dbContext.SaveChanges();
+        return true;
+    }
+
+    // An accepted request was undone or cancelled: the resource is free again, and requests that got
+    // "Ikke lenger nødvendig" without being answered are waiting again (help with AI)
+    private void ReopenLine(ResourceRequest request)
+    {
+        var resource = dbContext.Resources.Find(request.ResourceId);
+        if (resource != null)
+        {
+            resource.Status = "Ledig";
+        }
+
+        var others = dbContext.ResourceRequests
+            .Where(r => r.ResourceNeedItemId == request.ResourceNeedItemId
+                        && r.Id != request.Id
+                        && r.Status == RequestStatus.IkkeLengerNodvendig
+                        && r.AnsweredAt == null)
+            .ToList();
+        foreach (var other in others)
+        {
+            other.Status = RequestStatus.Sendt;
+        }
+    }
+
+    public bool Extend(int requestId, int minutes)
+    {
+        var request = dbContext.ResourceRequests.Find(requestId);
+        if (request is null || request.Status != RequestStatus.Sendt)
+        {
+            return false;
+        }
+
+        // From the deadline, or from now if "Ikke svart" (then it is waiting again)
+        var now = DateTime.UtcNow;
+        request.AnswerBy = (request.AnswerBy > now ? request.AnswerBy : now).AddMinutes(minutes);
+        dbContext.SaveChanges();
+        return true;
+    }
+
+    public int? GetNeedId(int requestId)
+    {
+        return dbContext.ResourceRequests
+            .Where(request => request.Id == requestId)
+            .Select(request => (int?)request.ResourceNeedItem.ResourceNeedId)
+            .FirstOrDefault();
+    }
+
+    private ResourceRequest? Load(int requestId)
+    {
+        return dbContext.ResourceRequests
+            .Include(r => r.ResourceNeedItem)
+            .FirstOrDefault(r => r.Id == requestId);
+    }
+
+    // "The first ones who say yes get the job": when the line is covered, the others still waiting get "Ikke lenger nødvendig" (help with AI)
+    private AnswerResult Apply(ResourceRequest request, Resource resource, bool yes, DeliveryMethod? delivery, string? comment)
+    {
+        request.AnsweredAt = DateTime.UtcNow;
         request.Comment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
 
         if (!yes)

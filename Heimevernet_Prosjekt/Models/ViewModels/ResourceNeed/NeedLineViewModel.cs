@@ -30,6 +30,8 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         public DateTime AnswerBy { get; set; }
         public bool ConfirmedByPhone { get; set; }
         public string? Comment { get; set; }
+        public DateTime? DeliveredAt { get; set; }
+        public DateTime? ReturnedAt { get; set; }
     }
 
     public class SuggestionViewModel
@@ -42,5 +44,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         // Empty when the resource has no position
         public double? DistanceKm { get; set; }
         public bool InsideCircle { get; set; }
+
+        // For the dots in the map on the need page
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
     }
 }
