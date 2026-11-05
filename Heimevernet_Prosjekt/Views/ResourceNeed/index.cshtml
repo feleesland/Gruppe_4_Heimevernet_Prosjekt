@@ -1,48 +1,152 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
-@model ResourceNeedViewModel    
+@using Heimevernet_Prosjekt.Models.Entities
+@model ResourceNeedViewModel
 @{
-    ViewData["Title"] = "Behov";
+    ViewData["Title"] = Model.Name;
+    var planned = Model.Urgency == NeedUrgency.Planlagt;
+}
+@functions {
+    // Times are saved as UTC and shown in Norwegian time - Docs: Converting times between time zones
+    // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static string OsloTime(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM.yyyy HH:mm");
 }
 
-<h1>@Model.Name</h1>
-<p>@Model.Description</p>
-<p>Type: @Model.Type</p>
-@if (Model.OwnerRemoved)
+@if (TempData["Message"] != null)
 {
-    <p class="text-warning">Eieren er fjernet fra systemet.</p>
+    <div class="alert alert-success" role="status">@TempData["Message"]</div>
 }
 
+<div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+    <h1 class="mb-0">@Model.Name</h1>
+    @* Icon + text, not colour alone *@
+    @if (planned)
+    {
+        <span class="badge text-bg-primary fs-6">📅 Planlagt</span>
+    }
+    else
+    {
+        <span class="badge text-bg-danger fs-6">⏰ Akutt</span>
+    }
+    @if (Model.ClosedAt != null)
+    {
+        <span class="badge text-bg-secondary fs-6">Avsluttet</span>
+    }
+</div>
 
-<!-- Address, date and position - Docs: Converting times between time zones -->
-<!-- https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones -->
-<p>Adresse: @(string.IsNullOrEmpty(Model.Address) ? "Ikke oppgitt" : $"{Model.Address}, {Model.ZipCode} {Model.City}")</p>
-
-@if (Model.CreatedAt != null)
+@if (!string.IsNullOrWhiteSpace(Model.Description))
 {
-    var osloTime = TimeZoneInfo.ConvertTimeFromUtc(Model.CreatedAt.Value, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
-    <p>Registrert: @osloTime.ToString("dd.MM.yyyy HH:mm")</p>
+    <p>@Model.Description</p>
+}
+
+<dl class="row mb-3">
+    <dt class="col-sm-3">Når</dt>
+    <dd class="col-sm-9">
+        @if (planned && Model.NeededFrom != null)
+        {
+            <text>Fra @OsloTime(Model.NeededFrom.Value)</text>
+            @if (Model.NeededTo != null)
+            {
+                <text> til @OsloTime(Model.NeededTo.Value)</text>
+            }
+        }
+        else
+        {
+            <text>Nå</text>
+            @if (Model.NeededTo != null)
+            {
+                <text> – innen @OsloTime(Model.NeededTo.Value)</text>
+            }
+        }
+    </dd>
+
+    <dt class="col-sm-3">Hvor</dt>
+    <dd class="col-sm-9">
+        @(string.IsNullOrEmpty(Model.Address) ? "Valgt i kartet" : $"{Model.Address}, {Model.ZipCode} {Model.City}")
+        · radius @(Model.RadiusKm < 1 ? $"{Model.RadiusKm * 1000:0} m" : $"{Model.RadiusKm:0.#} km")
+    </dd>
+
+    @if (Model.CreatedAt != null)
+    {
+        <dt class="col-sm-3">Meldt</dt>
+        <dd class="col-sm-9">
+            @OsloTime(Model.CreatedAt.Value)
+            @if (Model.OwnerRemoved)
+            {
+                <span class="text-warning">· den som meldte er fjernet fra systemet</span>
+            }
+        </dd>
+    }
+</dl>
+
+<h2 class="h4">Hva trengs</h2>
+@if (Model.Items.Count == 0)
+{
+    <p class="text-muted">Ingen linjer ennå.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Ressurs</th>
+                    <th scope="col">Antall</th>
+                    <th scope="col">Lagt til</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>@item.Type</td>
+                        <td>@item.Quantity</td>
+                        <td class="text-muted">@OsloTime(item.CreatedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (Model.ClosedAt == null && Model.Latitude != null && Model.Longitude != null)
+{
+    <a class="btn btn-primary mb-3"
+       asp-controller="ResourceNeedHandler" asp-action="Create"
+       asp-route-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+       asp-route-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)">+ Legg til mer</a>
 }
 
 @if (Model.Latitude != null && Model.Longitude != null)
 {
-    <div id="detailMap" style="height: 300px;"
+    <div id="detailMap" style="height: 300px;" class="rounded"
          data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-         data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+         data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+         data-radius="@Model.RadiusKm.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+         data-planned="@(planned ? "true" : "false")"></div>
 }
 
 @section Scripts {
     <script>
-        // Show the resource's position on a small map - Docs: Leaflet API reference
+        // The need's place and circle on a small map - Docs: Leaflet API reference (Circle)
         // https://leafletjs.com/reference.html
         const mapDiv = document.getElementById('detailMap');
         if (mapDiv) {
             const lat = parseFloat(mapDiv.dataset.lat);
             const lng = parseFloat(mapDiv.dataset.lng);
-            const detailMap = L.map('detailMap').setView([lat, lng], 15);
+            const planned = mapDiv.dataset.planned === 'true';
+            const detailMap = L.map('detailMap').setView([lat, lng], 13);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(detailMap);
             L.marker([lat, lng]).addTo(detailMap);
+            const circle = L.circle([lat, lng], {
+                radius: parseFloat(mapDiv.dataset.radius) * 1000,
+                color: planned ? '#378ADD' : '#E24B4A',
+                dashArray: planned ? '2 6' : '8 6',
+                fillOpacity: 0.08
+            }).addTo(detailMap);
+            detailMap.fitBounds(circle.getBounds());
         }
     </script>
 }

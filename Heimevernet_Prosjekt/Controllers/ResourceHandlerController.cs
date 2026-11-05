@@ -42,12 +42,12 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             return RedirectToAction("List", "Resource");
         }
-
+        // From the map's click menu, the place comes in the address (?lat=..&lng=..)
         [HttpGet]
-        public IActionResult Create()
+        public IActionResult Create(double? lat, double? lng)
         {
             LoadTypes();
-            return View();
+            return View(new ResourceViewModel { Latitude = lat, Longitude = lng });
         }
 
         [HttpPost]

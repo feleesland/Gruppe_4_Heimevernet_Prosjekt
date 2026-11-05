@@ -13,6 +13,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceNeed> ResourceNeeds => Set<ResourceNeed>();
     public DbSet<ResourceType> ResourceTypes => Set<ResourceType>();
     public DbSet<ResourceReport> ResourceReports => Set<ResourceReport>();
+    public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -73,7 +74,30 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             entity.Property(resourceneed => resourceneed.ZipCode)
                 .HasMaxLength(6)
                 .IsRequired(false);
+
+            // Existing needs get 2 km in the migration; new needs get what the operator picks in the form
+            entity.Property(resourceneed => resourceneed.RadiusKm)
+                .HasDefaultValue(2.0);
+
+            // One need has many lines; deleting a need deletes its lines - Docs: Relationships (one-to-many)
+            // https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many
+            entity.HasMany(resourceneed => resourceneed.Items)
+                .WithOne(item => item.ResourceNeed)
+                .HasForeignKey(item => item.ResourceNeedId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Lines of a soft-deleted need are hidden too, otherwise EF warns about the query filter
+        modelBuilder.Entity<ResourceNeedItem>().HasQueryFilter(item => !item.ResourceNeed.IsDeleted);
+
+        modelBuilder.Entity<ResourceNeedItem>(entity =>
+        {
+            entity.ToTable("ResourceNeedItems");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.Type)
+                .HasMaxLength(100)
+                .IsRequired();
         });
     }
-
 }
+

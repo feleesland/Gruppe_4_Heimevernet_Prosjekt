@@ -27,6 +27,8 @@ function setPosition(lat, lng) {
     }
     latInput.value = lat.toFixed(6);
     lngInput.value = lng.toFixed(6);
+    // Tell the page the place changed (the need form then checks for an active need here)
+    latInput.dispatchEvent(new Event('change'));
 }
 
 // 4. Flytter kartet dit og viser en beskjed
