@@ -1,9 +1,12 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Endre Ressurs";
 }
-<form asp-controller="ResourceHandler" asp-action="Edit" method="post">
+<!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
+<!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
+<form asp-controller="ResourceHandler" asp-action="Edit" method="post" enctype="multipart/form-data">
     <div>
         <label asp-for="Name"></label>
         <input asp-for="Name" value="@Model.Name" />
@@ -14,10 +17,63 @@
         <input asp-for="Description" value="@Model.Description" />
         <span asp-validation-for="Description"></span>
     </div>
+
+    @* Type is chosen from a fixed list (admin can add more), so the filter can find every resource *@
+    @{
+        var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
+        var currentType = Model.Type; // the Edit page always gets a resource from the controller
+        var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
+    }
     <div>
         <label asp-for="Type"></label>
-        <input asp-for="Type" value="@Model.Type" />
+        <select asp-for="Type" data-type-select>
+            <option value="">Velg type …</option>
+            @foreach (var t in resourceTypes)
+            {
+                <option value="@t.Name" data-examples="@t.Examples">@t.Name</option>
+            }
+            @if (hasOldType)
+            {
+                <option value="@currentType">@currentType (gammel type – velg en ny)</option>
+            }
+        </select>
+        <small id="typeExamples"></small>
         <span asp-validation-for="Type"></span>
+    </div>
+
+@if (User.IsInRole("admin") || User.IsInRole("operator"))
+{
+    <div>
+        <label asp-for="Status"></label>
+
+        <select asp-for="Status">
+            <option value="Ledig">Ledig</option>
+            <option value="Opptatt">Opptatt</option>
+            <option value="Ugyldig">Ugyldig</option>
+        </select>
+
+        <span asp-validation-for="Status"></span>
+    </div>
+}
+    <!-- Free text, e.g. where the keys are -->
+    <div>
+        <label asp-for="Notes"></label>
+        <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
+        <span asp-validation-for="Notes"></span>
+    </div>
+
+    <!-- Current picture (if any); choosing a new one replaces it, otherwise the old one is kept -->
+    <div>
+        <label asp-for="Image"></label>
+        @if (Model.HasImage)
+        {
+            <div>
+                <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" style="max-width: 200px;" />
+            </div>
+        }
+        <input asp-for="Image" type="file" accept="image/*" capture="environment" />
+        <span asp-validation-for="Image"></span>
+        <input type="hidden" asp-for="HasImage" />
     </div>
 
     <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->

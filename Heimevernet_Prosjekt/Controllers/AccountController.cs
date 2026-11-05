@@ -7,13 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 using System.Text.Encodings.Web;
+using Heimevernet_Prosjekt.Models.Entities;
 
 namespace Heimevernet_Prosjekt.Controllers;
+
 // Login, register, logout and password reset - Teacher: AccountController.cs
 // [ValidateAntiForgeryToken] on all POST methods - Docs: Prevent Cross-Site Request Forgery (XSRF/CSRF) attacks
 // https://learn.microsoft.com/aspnet/core/security/anti-request-forgery
-
-public sealed class AccountController(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager,
+public sealed class AccountController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager,
     IEmailSender emailSender) : Controller
 {
     [AllowAnonymous]
@@ -84,27 +85,100 @@ public sealed class AccountController(UserManager<IdentityUser> userManager, Sig
             return View(model);
         }
 
-        var user = new IdentityUser
+        // New user with name and phone; FirstName/LastName are our own fields on ApplicationUser, PhoneNumber is built into IdentityUser - Docs: Add, download, and delete custom user data
+        // https://learn.microsoft.com/aspnet/core/security/authentication/add-user-data
+        var user = new ApplicationUser
         {
             UserName = model.Email,
             Email = model.Email,
-            EmailConfirmed = true
+            PhoneNumber = model.PhoneNumber,
+            FirstName = model.FirstName,
+            LastName = model.LastName
         };
         var result = await userManager.CreateAsync(user, model.Password);
         if (result.Succeeded)
         {
-            // new accounts always get the User role (help with AI)
+            // New accounts always get the User role, never chosen by the user - Docs: Role-based authorization
+            // https://learn.microsoft.com/aspnet/core/security/authorization/roles
             await userManager.AddToRoleAsync(user, RoleNames.User);
 
-            return RedirectToAction(nameof(Login));
+            // Send a link the user must click before they can log in - Docs: Account confirmation and password recovery
+            // https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
+            var code = await userManager.GenerateEmailConfirmationTokenAsync(user);
+            var encodedCode = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+            var callbackUrl = Url.Action(
+                nameof(ConfirmEmail),
+                "Account",
+                new { userId = user.Id, code = encodedCode },
+                Request.Scheme)
+                ?? throw new InvalidOperationException("Could not generate the confirmation URL.");
+
+            await emailSender.SendEmailAsync(
+                model.Email,
+                "Bekreft e-posten din",
+                $"Bekreft kontoen din ved å <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>klikke her</a>.");
+
+            return RedirectToAction(nameof(RegisterConfirmation));
         }
 
-        foreach (var error in result.Errors)
+        // Same result whether or not the email exists, so nobody can see who has an account (help with AI)
+        var duplicateCodes = new[] { "DuplicateUserName", "DuplicateEmail" };
+        var otherErrors = result.Errors.Where(e => !duplicateCodes.Contains(e.Code)).ToList();
+        if (otherErrors.Count == 0)
+        {
+            await emailSender.SendEmailAsync(
+                model.Email,
+                "Noen prøvde å registrere seg med e-posten din",
+                "Det finnes allerede en konto med denne e-posten. Har du glemt passordet, kan du bruke «Glemt passord» på innloggingssiden.");
+            return RedirectToAction(nameof(RegisterConfirmation));
+        }
+
+        // Other errors (e.g. password too short) don't reveal anything about other users
+        foreach (var error in otherErrors)
         {
             ModelState.AddModelError(string.Empty, error.Description);
         }
 
         return View(model);
+    }
+
+    // "Check your email" page after registering - Docs: Account confirmation and password recovery
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult RegisterConfirmation()
+    {
+        return View();
+    }
+
+    // The link in the email ends up here and confirms the account - Docs: Account confirmation and password recovery
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ConfirmEmail(string? userId, string? code)
+    {
+        if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(code))
+        {
+            return RedirectToAction("Index", "Home");
+        }
+
+        var user = await userManager.FindByIdAsync(userId);
+        if (user is null)
+        {
+            return NotFound();
+        }
+
+        IdentityResult result;
+        try
+        {
+            var decodedCode = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            result = await userManager.ConfirmEmailAsync(user, decodedCode);
+        }
+        catch (FormatException)
+        {
+            result = IdentityResult.Failed();
+        }
+
+        ViewData["Succeeded"] = result.Succeeded;
+        return View();
     }
 
     [AllowAnonymous]

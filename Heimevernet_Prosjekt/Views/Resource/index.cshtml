@@ -1,15 +1,118 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+@using Heimevernet_Prosjekt.Models.Authorization
+@inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Ressurs";
 }
 
 <h1>@Model.Name</h1>
+@* Rediger/Slett only show when the user is allowed (CanEdit/CanDelete set in ResourceController.Index) *@
+@if (Model.CanEdit || Model.CanDelete)
+{
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        @if (Model.CanEdit)
+        {
+            <a class="button" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
+        }
+        @if (Model.CanDelete)
+        {
+            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@Model.Id" method="post" class="m-0">
+                <button type="submit" class="btn btn-danger"
+                        onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
+                    Slett
+                </button>
+            </form>
+        }
+    </div>
+}
+
+@* Confirmation after "Meld til admin" *@
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info">@TempData["Message"]</div>
+}
+
+@* Operator on a resource they can't edit: send a message to admin instead (e.g. "wrong address") *@
+@if (!Model.CanEdit && (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)))
+{
+    <button class="btn btn-outline-warning mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#reportForm"
+            aria-expanded="false" aria-controls="reportForm">
+        ⚑ Meld til admin
+    </button>
+
+    <div class="collapse mb-3" id="reportForm">
+        <form asp-controller="ResourceReport" asp-action="Create" method="post">
+            <input type="hidden" name="resourceId" value="@Model.Id" />
+            <label for="reportMessage" class="form-label">Hva bør admin endre eller slette?</label>
+            <textarea id="reportMessage" name="message" class="form-control mb-2" rows="3" maxlength="1000" required
+                      placeholder="F.eks. feil adresse, traktoren står på Lund"></textarea>
+            <button type="submit" class="btn btn-warning">Send</button>
+        </form>
+    </div>
+}
+
+
+@* Admin: open messages from operators about this resource, with "Marker som løst" - Docs: Dependency injection into views *@
+@* https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection *@
+@if (User.IsInRole(RoleNames.Admin) && Model.Id != null)
+{
+    var reports = ReportRepository.GetOpenForResource(Model.Id.Value);
+    if (reports.Count > 0)
+    {
+        <div class="alert alert-warning">
+            <h5 class="alert-heading">⚑ Meldinger til admin (@reports.Count)</h5>
+            @foreach (var report in reports)
+            {
+                var sent = TimeZoneInfo.ConvertTimeFromUtc(report.CreatedAt, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
+                <div class="border-top pt-2 mt-2">
+                    <div class="small">@report.ReporterEmail · @sent.ToString("dd.MM.yyyy HH:mm")</div>
+                    <p class="mb-2">@report.Message</p>
+                    <form asp-controller="ResourceReport" asp-action="Resolve" method="post" class="m-0">
+                        <input type="hidden" name="id" value="@report.Id" />
+                        <input type="hidden" name="resourceId" value="@Model.Id" />
+                        <button type="submit" class="btn btn-sm btn-success">✓ Marker som løst</button>
+                    </form>
+                </div>
+            }
+        </div>
+    }
+}
+
 <p>@Model.Description</p>
 <p>Type: @Model.Type</p>
+@* Picture and notes from the owner *@
+@if (Model.HasImage)
+{
+    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="img-fluid mb-3" style="max-height: 300px;" />
+}
+@if (!string.IsNullOrEmpty(Model.Notes))
+{
+    <p><strong>Merknader:</strong> @Model.Notes</p>
+}
 @if (Model.OwnerRemoved)
 {
     <p class="text-warning">Eieren er fjernet fra systemet.</p>
+}
+else if (Model.OwnerEmail != null)
+{
+    @* Owner's contact info; mailto/tel links open email or the phone app *@
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Eier</h5>
+            <p class="mb-1">@(string.IsNullOrEmpty(Model.OwnerName) ? "Navn ikke oppgitt" : Model.OwnerName)</p>
+            <p class="mb-1">E-post: <a href="mailto:@Model.OwnerEmail">@Model.OwnerEmail</a></p>
+            <p class="mb-0">
+                Telefon: @if (string.IsNullOrEmpty(Model.OwnerPhone)) {
+                <span>Ikke oppgitt</span>
+            } else
+            {
+
+                <a href="tel:@Model.OwnerPhone">@Model.OwnerPhone</a>
+            }
+        </p>
+    </div>
+</div>
 }
 
 

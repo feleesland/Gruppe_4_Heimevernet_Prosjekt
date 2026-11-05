@@ -22,7 +22,159 @@ namespace Heimevernet_Prosjekt.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ApplicationUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
+
+                    b.ToTable("AspNetUsers", (string)null);
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.Resource", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("ImageContentType")
+                        .HasColumnType("longtext");
+
+                    b.Property<byte[]>("ImageData")
+                        .HasColumnType("longblob");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<bool>("OwnerRemoved")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OwnerTelephoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ZipCode")
+                        .HasMaxLength(6)
+                        .HasColumnType("varchar(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Resources", (string)null);
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -70,10 +222,6 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.Property<bool>("OwnerRemoved")
                         .HasColumnType("tinyint(1)");
 
-                    b.Property<string>("OwnerTelephoneNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("varchar(20)");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -85,7 +233,67 @@ namespace Heimevernet_Prosjekt.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Resources", (string)null);
+                    b.ToTable("ResourceNeeds", (string)null);
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("ReporterEmail")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ReporterId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ResourceId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ResourceReports");
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceType", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Examples")
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ResourceTypes");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -137,70 +345,6 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.HasIndex("RoleId");
 
                     b.ToTable("AspNetRoleClaims", (string)null);
-                });
-
-            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("varchar(255)");
-
-                    b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ConcurrencyStamp")
-                        .IsConcurrencyToken()
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("Email")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<string>("NormalizedEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<string>("NormalizedUserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.Property<string>("PasswordHash")
-                        .HasColumnType("longtext");
-
-                    b.Property<string>("PhoneNumber")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("SecurityStamp")
-                        .HasColumnType("longtext");
-
-                    b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("tinyint(1)");
-
-                    b.Property<string>("UserName")
-                        .HasMaxLength(256)
-                        .HasColumnType("varchar(256)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("NormalizedEmail")
-                        .HasDatabaseName("EmailIndex");
-
-                    b.HasIndex("NormalizedUserName")
-                        .IsUnique()
-                        .HasDatabaseName("UserNameIndex");
-
-                    b.ToTable("AspNetUsers", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -295,7 +439,7 @@ namespace Heimevernet_Prosjekt.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -304,7 +448,7 @@ namespace Heimevernet_Prosjekt.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -319,7 +463,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -328,7 +472,7 @@ namespace Heimevernet_Prosjekt.Migrations
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)

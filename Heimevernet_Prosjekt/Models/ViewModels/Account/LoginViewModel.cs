@@ -13,7 +13,7 @@ public sealed class LoginViewModel
     [DataType(DataType.Password)]
     public string Password { get; set; } = string.Empty;
 
-    [Display(Name = "Remember me")]
+    [Display(Name = "Husk meg")]
     public bool RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }

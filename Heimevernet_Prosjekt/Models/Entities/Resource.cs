@@ -1,4 +1,6 @@
-﻿namespace Heimevernet_Prosjekt.Models.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Heimevernet_Prosjekt.Models.Entities
 {
     public class Resource
     {
@@ -6,6 +8,7 @@
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
+        public string Status { get; set; } = "Ledig";
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
@@ -24,5 +27,14 @@
 
         // When the resource was registered
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Free text from the owner, e.g. where the keys are
+        [MaxLength(2000)]
+        public string? Notes { get; set; }
+
+        // Picture of the resource, saved in the database - Docs: Upload files in ASP.NET Core
+        // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
+        public byte[]? ImageData { get; set; }
+        public string? ImageContentType { get; set; }
     }
 }

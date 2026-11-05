@@ -12,7 +12,7 @@
         {
             Admin => "Admin",
             Operator => "Operatør",
-            User => "Frivillig",
+            User => "User",
             Partner => "Partner",
             _ => role
         };

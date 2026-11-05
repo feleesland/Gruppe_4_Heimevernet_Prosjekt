@@ -1,56 +1,70 @@
 html {
-  font-size: 14px;
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
+    font-size: 14px;
 }
 
 body {
-  margin-bottom: 60px;
+    margin-bottom: 60px;
+    background-image: url(/Krs.png);
+}
+
+a {
+    color: #1e6447;
+}
+
+@media (min-width: 768px) {
+    html {
+        font-size: 16px;
+    }
+}
+
+.button {
+    color: #ffffff;
+    background-color: #1e6447;
+    font-size: 18px;
+    border-radius: 5px;
+    display: inline-block;
+    text-decoration: none;
+    margin: 20px 2px;
+    padding: 15px 15px;
+}
+
+.navbar {
+  background-color: #1e6447;
+  padding: 12px;
+}
+
+.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
+    box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #1e6447;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+    color: var(--bs-secondary-color);
+    text-align: end;
 }
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+    text-align: start;
 }
 
-/* Sideway scrolling on smartphones. */ 
 .resource-table-scroll {
     width: 100%;
     overflow-x: auto;
     margin-bottom: 1rem;
 }
 
-    /* Show keyboard users when the table area has focus. */
     .resource-table-scroll:focus-visible {
-        outline: 3px solid #258cfb;
+        outline: 3px solid #1e6447;
         outline-offset: 3px;
     }
 
-/*  Readable table instead of squeezing its columns. */
 .resource-table {
     width: 100%;
     min-width: 36rem;
     border-collapse: collapse;
 }
 
-    /* Add space around the table headings and values. */
     .resource-table th,
     .resource-table td {
         padding: 0.75rem;
@@ -79,10 +93,120 @@ body {
         padding: 0.5rem 0.75rem;
     }
 
-/* Use slightly smaller cell spacing on narrow screens. */
 @media (max-width: 575.98px) {
     .resource-table th,
     .resource-table td {
         padding: 0.5rem;
     }
+}
+
+.search-hit {
+    background-color: var(--bs-warning-bg-subtle);
+    border-left: 4px solid var(--bs-warning);
+    padding-left: 6px;
+}
+
+#mainNavigation > .navbar-nav:first-child {
+    flex-grow: 0 !important;
+}
+
+.nav-search {
+    flex-grow: 1;
+}
+
+.search-box {
+    position: relative;
+    width: 100%;
+    max-width: 640px;
+}
+
+    .search-box .form-control {
+        padding-left: 2.75rem;
+        padding-right: 2.75rem;
+        height: 42px;
+    }
+
+.search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.search-clear {
+    position: absolute;
+    right: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 0;
+    background: none;
+    color: inherit;
+    padding: 0.25rem;
+    line-height: 0;
+}
+
+.search-suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    padding: 6px 0;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.search-section {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+    padding: 8px 16px 4px;
+}
+
+.search-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    border: 0;
+    background: none;
+    color: inherit;
+    padding: 8px 16px;
+}
+
+    .search-item:hover,
+    .search-item.active {
+        background: var(--bs-secondary-bg);
+    }
+
+    .search-item small {
+        opacity: 0.7;
+    }
+
+.search-item-icon {
+    font-size: 1.1rem;
+}
+
+.filter-panel {
+    width: 280px;
+    z-index: 1060;
+}
+
+.notification-panel {
+    width: 340px;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 1060;
+}
+
+.notification-item {
+    white-space: normal;
 }

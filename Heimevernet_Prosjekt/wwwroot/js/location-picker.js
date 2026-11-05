@@ -18,7 +18,7 @@ let marker = null;
 function setPosition(lat, lng) {
     if (marker === null) {
         marker = L.marker([lat, lng], { draggable: true }).addTo(pickMap);
-        marker.on('dragend', () => {                                          // ← endret
+        marker.on('dragend', () => {                                         
             setPosition(marker.getLatLng().lat, marker.getLatLng().lng);
             fillAddress(marker.getLatLng().lat, marker.getLatLng().lng);
         });
@@ -36,7 +36,8 @@ function showPosition(lat, lng, message) {
     statusText.textContent = message;
 }
 
-// 5. Finner adressen til et punkt og fyller inn skjemaet - Docs: Nominatim Reverse API   ← ny
+// 5. Finner adressen til et punkt og fyller inn skjemaet (help with AI) - Docs: Nominatim Reverse API
+// https://nominatim.org/release-docs/latest/api/Reverse/
 async function fillAddress(lat, lng) {
     try {
         const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
@@ -55,7 +56,7 @@ async function fillAddress(lat, lng) {
 // Måte A: klikk på kartet
 pickMap.on('click', (e) => {
     setPosition(e.latlng.lat, e.latlng.lng);
-    fillAddress(e.latlng.lat, e.latlng.lng);                                 // ← ny
+    fillAddress(e.latlng.lat, e.latlng.lng);                             
     statusText.textContent = 'Plassering valgt på kartet.';
 });
 
@@ -98,7 +99,7 @@ document.getElementById('useMyLocation').addEventListener('click', () => {
     }
     statusText.textContent = 'Henter posisjonen din...';
     navigator.geolocation.getCurrentPosition(
-        (pos) => {                                                             // ← endret
+        (pos) => {                                                        
             showPosition(pos.coords.latitude, pos.coords.longitude,
                 'Posisjonen din er valgt. Dra markøren hvis den ikke står helt riktig.');
             fillAddress(pos.coords.latitude, pos.coords.longitude);

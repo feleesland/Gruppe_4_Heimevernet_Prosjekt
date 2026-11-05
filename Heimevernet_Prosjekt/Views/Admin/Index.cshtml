@@ -30,6 +30,7 @@ else
     <table class="table">
         <thead>
             <tr>
+                <th>Navn</th>
                 <th>E-post</th>
                 <th>Rolle</th>
             </tr>
@@ -38,6 +39,7 @@ else
             @foreach (var u in Model)
             {
                 <tr>
+                    <td>@u.Name</td>
                     <td><a asp-action="UserResources" asp-route-id="@u.UserId">@u.Email</a></td>
                     <td>
                         <form asp-action="SetRole" method="post" class="d-flex gap-2">
@@ -48,7 +50,7 @@ else
                                     <option value="@role" selected="@(role == u.Role)">@RoleNames.DisplayName(role)</option>
                                 }
                             </select>
-                            <button type="submit" class="btn btn-primary btn-sm">Lagre</button>
+                            <button type="submit" class="button">Lagre</button>
                         </form>
                     </td>
                 </tr>
