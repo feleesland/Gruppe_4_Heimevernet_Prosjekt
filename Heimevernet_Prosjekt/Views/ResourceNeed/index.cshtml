@@ -177,7 +177,7 @@
                                         <td class="text-end">
                                             @* One small menu instead of many buttons. Every choice that changes much asks "Er du sikker?" - Docs: Bootstrap Dropdowns *@
                                             @* strategy fixed: the menu isn't cut off by the scrolling table *@
-                                            @if ((r.Status == RequestStatus.Sendt || (r.Status == RequestStatus.Godtatt && r.ReturnedAt == null)) && Model.ClosedAt == null)
+                                            @if ((r.Status == RequestStatus.Sendt && Model.ClosedAt == null) || (r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
                                             {
                                                 <div class="dropdown">
                                                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
@@ -236,7 +236,7 @@
                                                         else
                                                         {
                                                             @* Accepted: delivered, returned, or cancel the yes (only before delivery) *@
-                                                            @if (r.DeliveredAt == null)
+                                                            @if (r.DeliveredAt == null && Model.ClosedAt == null)
                                                             {
                                                                 <button type="submit" class="dropdown-item"
                                                                         formaction="@Url.Action("MarkDelivered", "ResourceNeedHandler")"
@@ -251,7 +251,7 @@
                                                                     onclick="return confirm(this.dataset.confirm);">
                                                                 ↩ Marker som levert tilbake
                                                             </button>
-                                                            @if (r.DeliveredAt == null)
+                                                            @if (r.DeliveredAt == null && Model.ClosedAt == null)
                                                             {
                                                                 <div class="dropdown-divider"></div>
                                                                 <button type="submit" class="dropdown-item text-danger"
@@ -334,6 +334,23 @@
        asp-controller="ResourceNeedHandler" asp-action="Create"
        asp-route-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
        asp-route-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)">+ Legg til mer</a>
+}
+
+@if (Model.ClosedAt == null)
+{
+    // Warn if something is still out with someone
+    var stillOut = Model.Lines.SelectMany(l => l.Requests)
+        .Count(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null);
+    <form asp-controller="ResourceNeedHandler" asp-action="Close" method="post" class="d-inline">
+        <input type="hidden" name="needId" value="@Model.Id" />
+        <button type="submit" class="btn btn-outline-danger mb-3"
+                data-confirm="@(stillOut > 0
+                    ? $"{stillOut} ressurs(er) er ikke markert som levert tilbake. Avslutte behovet likevel?"
+                    : "Avslutte behovet? Det forsvinner fra kartet.")"
+                onclick="return confirm(this.dataset.confirm);">
+            ✓ Avslutt behov
+        </button>
+    </form>
 }
 
 @if (Model.Latitude != null && Model.Longitude != null)
