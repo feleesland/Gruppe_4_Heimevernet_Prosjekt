@@ -171,7 +171,7 @@ public sealed class ResourceControllerTests
         var userManager = new Mock<UserManager<ApplicationUser>>(
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
-        return new ResourceController(repository.Object, authorization.Object, userManager.Object)
+        return new ResourceController(repository.Object, authorization.Object, userManager.Object, new Mock<IResourceTypeRepository>().Object)
         {
             ControllerContext = new ControllerContext
             {
