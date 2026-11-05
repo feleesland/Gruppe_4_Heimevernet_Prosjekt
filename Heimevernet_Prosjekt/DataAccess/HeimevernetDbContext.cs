@@ -15,6 +15,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceReport> ResourceReports => Set<ResourceReport>();
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
+    public DbSet<ResourceNeedLog> ResourceNeedLogs => Set<ResourceNeedLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -119,6 +120,12 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             entity.HasIndex(request => request.ResourceId);
 
             entity.Property(request => request.Comment).HasMaxLength(500);
+        });
+        // The log is never deleted, not even when the need is deleted - it is history
+        modelBuilder.Entity<ResourceNeedLog>(entity =>
+        {
+            entity.ToTable("ResourceNeedLogs");
+            entity.HasIndex(log => log.ResourceNeedId);
         });
     }
 }

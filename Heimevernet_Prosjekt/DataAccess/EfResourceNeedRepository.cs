@@ -233,5 +233,27 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         dbContext.SaveChanges();
         return true;
     }
+    // Write one line in the need's log
+    public void AddLog(int needId, string userId, string userName, string text)
+    {
+        dbContext.ResourceNeedLogs.Add(new ResourceNeedLog
+        {
+            ResourceNeedId = needId,
+            UserId = userId,
+            UserName = userName,
+            Text = text
+        });
+        dbContext.SaveChanges();
+    }
+
+    // The need's log, newest first
+    public IReadOnlyList<ResourceNeedLog> GetLog(int needId)
+    {
+        return dbContext.ResourceNeedLogs
+            .AsNoTracking()
+            .Where(log => log.ResourceNeedId == needId)
+            .OrderByDescending(log => log.At)
+            .ToList();
+    }
 
 }

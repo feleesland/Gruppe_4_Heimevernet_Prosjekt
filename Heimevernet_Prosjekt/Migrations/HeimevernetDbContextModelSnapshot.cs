@@ -282,6 +282,42 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("ResourceNeedItems", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeedLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ResourceNeedId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("varchar(450)");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceNeedId");
+
+                    b.ToTable("ResourceNeedLogs", (string)null);
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceReport", b =>
                 {
                     b.Property<int>("Id")
