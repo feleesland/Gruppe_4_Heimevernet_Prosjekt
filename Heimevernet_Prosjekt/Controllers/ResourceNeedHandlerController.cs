@@ -19,6 +19,7 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IResourceNeedRepository _resourceNeedRepository;
         private readonly IResourceTypeRepository _typeRepository;
         private readonly IAuthorizationService _authorizationService;
+        private readonly IResourceRequestRepository _requestRepository;
 
         // Times in the form are Norwegian time; they are saved as UTC like CreatedAt - Docs: Converting times between time zones
         // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
@@ -27,11 +28,13 @@ namespace Heimevernet_Prosjekt.Controllers
         public ResourceNeedHandlerController(
             IResourceNeedRepository resourceNeedRepository,
             IResourceTypeRepository typeRepository,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            IResourceRequestRepository requestRepository)
         {
             _resourceNeedRepository = resourceNeedRepository;
             _typeRepository = typeRepository;
             _authorizationService = authorizationService;
+            _requestRepository = requestRepository;
         }
 
         // The list is on the Behov page
@@ -123,6 +126,54 @@ namespace Heimevernet_Prosjekt.Controllers
                     items = need.Items.Select(item => new { type = item.Type, quantity = item.Quantity })
                 });
             return Json(needs);
+        }
+
+        // The deadlines the form can choose (minutes): 30 min, 1 h, 3 h, 1 day, 2 days
+        private static readonly int[] AnswerMinutes = { 30, 60, 180, 1440, 2880 };
+
+        // "Send forespørsler" on the need page: one request per chosen resource for one line
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SendRequests(int itemId, List<int> resourceIds, int answerMinutes)
+        {
+            var item = _requestRepository.GetItem(itemId);
+            if (item == null)
+            {
+                return NotFound();
+            }
+
+            // Docs: Resource-based authorization
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, item.ResourceNeed, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
+            {
+                return Forbid();
+            }
+
+            if (item.ResourceNeed.ClosedAt != null)
+            {
+                TempData["Error"] = "Behovet er avsluttet.";
+            }
+            else if (resourceIds.Count == 0)
+            {
+                TempData["Error"] = "Velg minst én ressurs.";
+            }
+            else
+            {
+                // A changed form can't choose its own deadline
+                if (!AnswerMinutes.Contains(answerMinutes))
+                {
+                    answerMinutes = item.ResourceNeed.Urgency == NeedUrgency.Akutt ? 30 : 1440;
+                }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+                var sent = _requestRepository.Create(item.Id, resourceIds, userId, DateTime.UtcNow.AddMinutes(answerMinutes));
+
+                TempData["Message"] = sent == 1
+                    ? $"1 forespørsel sendt for {item.Quantity} × {item.Type}."
+                    : $"{sent} forespørsler sendt for {item.Quantity} × {item.Type}.";
+            }
+
+            return RedirectToAction("Index", "ResourceNeed", new { id = item.ResourceNeedId });
         }
 
         [HttpGet]

@@ -27,6 +27,7 @@ builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
 builder.Services.AddScoped<IResourceNeedRepository, EfResourceNeedRepository>();
 builder.Services.AddScoped<IResourceTypeRepository, EfResourceTypeRepository>();
 builder.Services.AddScoped<IResourceReportRepository, EfResourceReportRepository>();
+builder.Services.AddScoped<IResourceRequestRepository, EfResourceRequestRepository>();
 
 // Kartverket search (places and addresses) with a typed HttpClient - Docs: Make HTTP requests using IHttpClientFactory in ASP.NET Core
 // https://learn.microsoft.com/aspnet/core/fundamentals/http-requests
