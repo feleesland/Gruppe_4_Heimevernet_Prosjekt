@@ -3,10 +3,14 @@
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Ny Ressurs";
+
+    // Show the form when nothing is saved yet. From the map, the model only has a position (no name),
+    // so it is still a new form - not "Gratulerer"
+    var showForm = Model == null || !ViewData.ModelState.IsValid || string.IsNullOrEmpty(Model.Name);
 }
 
 
-@if (Model == null || !ViewData.ModelState.IsValid)
+@if (showForm)
 {
     <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
     <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
@@ -81,7 +85,7 @@
         <input type="hidden" asp-for="Latitude" />
         <input type="hidden" asp-for="Longitude" />
 
-        <button type="submit">Create</button>
+        <button class="button" type="submit">Create</button>
     </form>
 }
 else
@@ -89,14 +93,14 @@ else
 
     <div>
         Gratulerer du har opprettet en ny ressurs!
-        <h1>@Model.Name</h1>
+        <h1>@Model!.Name</h1>
         <p>@Model.Description</p>
         <p>Type: @Model.Type</p>
     </div>
 }
 
 @section Scripts {
-    @if (Model == null || !ViewData.ModelState.IsValid)
+    @if (showForm)
     {
         <script src="~/js/location-picker.js" asp-append-version="true"></script>
     }
