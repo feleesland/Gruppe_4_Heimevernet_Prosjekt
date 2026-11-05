@@ -4,8 +4,11 @@ using Heimevernet_Prosjekt.Models.Entities;
 using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed;
 using Heimevernet_Prosjekt.Services;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Text.Encodings.Web;
 
 namespace Heimevernet_Prosjekt.Controllers
 {
@@ -20,6 +23,9 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IResourceTypeRepository _typeRepository;
         private readonly IAuthorizationService _authorizationService;
         private readonly IResourceRequestRepository _requestRepository;
+        private readonly IResourceRepository _resourceRepository;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IEmailSender _emailSender;
 
         // Times in the form are Norwegian time; they are saved as UTC like CreatedAt - Docs: Converting times between time zones
         // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
@@ -29,12 +35,18 @@ namespace Heimevernet_Prosjekt.Controllers
             IResourceNeedRepository resourceNeedRepository,
             IResourceTypeRepository typeRepository,
             IAuthorizationService authorizationService,
-            IResourceRequestRepository requestRepository)
+            IResourceRequestRepository requestRepository,
+            IResourceRepository resourceRepository,
+            UserManager<ApplicationUser> userManager,
+            IEmailSender emailSender)
         {
             _resourceNeedRepository = resourceNeedRepository;
             _typeRepository = typeRepository;
             _authorizationService = authorizationService;
             _requestRepository = requestRepository;
+            _resourceRepository = resourceRepository;
+            _userManager = userManager;
+            _emailSender = emailSender;
         }
 
         // The list is on the Behov page
@@ -131,29 +143,40 @@ namespace Heimevernet_Prosjekt.Controllers
         // The deadlines the form can choose (minutes): 30 min, 1 h, 3 h, 1 day, 2 days
         private static readonly int[] AnswerMinutes = { 30, 60, 180, 1440, 2880 };
 
-        // "Send forespørsler" on the need page: one request per chosen resource for one line
+        // "Send forespørsler" on the need page: all ticked resources on all lines, sent in one go (help with AI)
+        // Each tick is "lineId:resourceId", so one list can hold choices for several lines
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SendRequests(int itemId, List<int> resourceIds, int answerMinutes)
+        public async Task<IActionResult> SendRequests(int needId, List<string> picks, int answerMinutes)
         {
-            var item = _requestRepository.GetItem(itemId);
-            if (item == null)
+            var need = _resourceNeedRepository.GetWithItems(needId);
+            if (need == null)
             {
                 return NotFound();
             }
 
             // Docs: Resource-based authorization
-            var canUpdate = await _authorizationService.AuthorizeAsync(User, item.ResourceNeed, ResourceNeedOperations.Update);
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
             if (!canUpdate.Succeeded)
             {
                 return Forbid();
             }
 
-            if (item.ResourceNeed.ClosedAt != null)
+            // Only lines that belong to this need
+            var lineIds = need.Items.Select(item => item.Id).ToHashSet();
+            var byLine = picks
+                .Select(pick => pick.Split(':'))
+                .Where(parts => parts.Length == 2
+                                && int.TryParse(parts[0], out var lineId) && lineIds.Contains(lineId)
+                                && int.TryParse(parts[1], out _))
+                .GroupBy(parts => int.Parse(parts[0]), parts => int.Parse(parts[1]))
+                .ToList();
+
+            if (need.ClosedAt != null)
             {
                 TempData["Error"] = "Behovet er avsluttet.";
             }
-            else if (resourceIds.Count == 0)
+            else if (byLine.Count == 0)
             {
                 TempData["Error"] = "Velg minst én ressurs.";
             }
@@ -162,18 +185,50 @@ namespace Heimevernet_Prosjekt.Controllers
                 // A changed form can't choose its own deadline
                 if (!AnswerMinutes.Contains(answerMinutes))
                 {
-                    answerMinutes = item.ResourceNeed.Urgency == NeedUrgency.Akutt ? 30 : 1440;
+                    answerMinutes = need.Urgency == NeedUrgency.Akutt ? 30 : 1440;
                 }
 
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-                var sent = _requestRepository.Create(item.Id, resourceIds, userId, DateTime.UtcNow.AddMinutes(answerMinutes));
+                var answerBy = DateTime.UtcNow.AddMinutes(answerMinutes);
+                var sentIds = byLine.SelectMany(line => _requestRepository.Create(line.Key, line, userId, answerBy)).ToList();
+                await NotifyOwnersAsync(need, sentIds);
 
-                TempData["Message"] = sent == 1
-                    ? $"1 forespørsel sendt for {item.Quantity} × {item.Type}."
-                    : $"{sent} forespørsler sendt for {item.Quantity} × {item.Type}.";
+                TempData["Message"] = sentIds.Count == 1 ? "1 forespørsel sendt." : $"{sentIds.Count} forespørsler sendt.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = item.ResourceNeedId });
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
+        // One e-mail per request, with a link to "Mine forespørsler" - Docs: Account confirmation and password recovery (IEmailSender)
+        // https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
+        private async Task NotifyOwnersAsync(ResourceNeed need, IEnumerable<int> resourceIds)
+        {
+            var link = Url.Action("Mine", "ResourceRequest", null, Request.Scheme);
+            var when = need.Urgency == NeedUrgency.Akutt ? "Det trengs nå." : "Det er et planlagt behov.";
+            var html = HtmlEncoder.Default;
+
+            foreach (var resourceId in resourceIds)
+            {
+                var resource = _resourceRepository.GetById(resourceId);
+                if (resource == null || string.IsNullOrEmpty(resource.OwnerId)) continue;
+
+                var owner = await _userManager.FindByIdAsync(resource.OwnerId);
+                if (owner == null || string.IsNullOrEmpty(owner.Email)) continue;
+
+                try
+                {
+                    await _emailSender.SendEmailAsync(
+                        owner.Email,
+                        $"Forespørsel: {resource.Name} trengs – {need.Name}",
+                        $"<p>Hei!</p>" +
+                        $"<p>Heimevernet spør om <strong>{html.Encode(resource.Name)}</strong> kan hjelpe til «{html.Encode(need.Name)}». {when}</p>" +
+                        $"<p><a href=\"{link}\">Svar her</a>: ja, jeg leverer / ja, må hentes / nei.</p>");
+                }
+                catch
+                {
+                    // The request is saved anyway, and the owner also sees it under 🔔 in the app
+                }
+            }
         }
 
         [HttpGet]
