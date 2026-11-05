@@ -137,7 +137,9 @@ namespace Heimevernet_Prosjekt.Controllers
                         SentAt = request.SentAt,
                         AnswerBy = request.AnswerBy,
                         ConfirmedByPhone = request.ConfirmedByPhone,
-                        Comment = request.Comment
+                        Comment = request.Comment,
+                        DeliveredAt = request.DeliveredAt,
+                        ReturnedAt = request.ReturnedAt
                     });
                 }
 
@@ -179,7 +181,9 @@ namespace Heimevernet_Prosjekt.Controllers
                         OwnerName = OwnerName(owner),
                         OwnerPhone = owner?.PhoneNumber ?? candidate.Resource.OwnerTelephoneNumber,
                         DistanceKm = candidate.Distance,
-                        InsideCircle = candidate.Distance != null && candidate.Distance <= need.RadiusKm
+                        InsideCircle = candidate.Distance != null && candidate.Distance <= need.RadiusKm,
+                         Latitude = candidate.Resource.Latitude,
+                        Longitude = candidate.Resource.Longitude
                     });
                 }
 
