@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Heimevernet_Prosjekt.styles.css" asp-append-version="true" />
 
-    <!-- Load the map stylesheet. -->
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -26,9 +25,9 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand"
+                <a class="navbar-brand text-white"
                    asp-area=""
                    asp-controller="Home"
                    asp-action="Index">Heimevernet_Prosjekt</a>
@@ -49,38 +48,32 @@
                      class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Home"
                                asp-action="Index">Hjem</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Home"
                                asp-action="Map">Kart</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
-                               asp-area=""
-                               asp-controller="Home"
-                               asp-action="Privacy">Privacy</a>
-                        </li>
-                        <li class="nav-item">
                             @* The controller checks which resources the user can see. *@
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
-                         <li class="nav-item">
-     <a class="nav-link text-dark" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
- </li>
+                        <li class="nav-item">
+                             <a class="nav-link text-white" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+                        </li>
                           @* Show the user management link to administrators. *@
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-area=""
                                    asp-controller="Admin"
                                    asp-action="Index">Brukere</a>
@@ -176,7 +169,7 @@
 
                             @* The bell and its list - Docs: Bootstrap Dropdowns. Number + text, not only color *@
                             <li class="nav-item dropdown">
-                                <button type="button" class="nav-link btn btn-link text-dark position-relative"
+                                <button type="button" class="nav-link text-white btn btn-link position-relative"
                                         data-bs-toggle="dropdown" aria-expanded="false"
                                         aria-label="@(openCount == 0 ? "Ingen nye varsler" : openCount + (openCount == 1 ? " nytt varsel" : " nye varsler"))">
                                     🔔
@@ -229,7 +222,7 @@
 
                             <li class="nav-item">
                                 @* Display the user's name and role. *@
-                                <span class="nav-link text-dark text-end lh-sm">
+                                <span class="nav-link text-white text-end lh-sm">
                                     @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-muted">
                                         @RoleNames.DisplayName(
@@ -247,7 +240,7 @@
                                       method="post"
                                       class="d-inline">
                                     <button type="submit"
-                                            class="nav-link btn btn-link text-dark">
+                                            class="nav-link text-white btn btn-link">
                                         Logg ut
                                     </button>
                                 </form>
@@ -256,12 +249,12 @@
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-controller="Account"
                                    asp-action="Login">Logg inn</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-controller="Account"
                                    asp-action="Register">Registrer</a>
                             </li>
@@ -272,7 +265,6 @@
         </nav>
     </header>
 
-    <!-- Display the content of the current page. -->
     <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
@@ -281,7 +273,7 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - Heimevernet_Prosjekt -
+            &copy; 2026 UiA Gruppe 4 - Heimevernet_Prosjekt -
             <a asp-area=""
                asp-controller="Home"
                asp-action="Privacy">Privacy</a>
@@ -291,8 +283,6 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
-    <!-- Load the map library. -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
