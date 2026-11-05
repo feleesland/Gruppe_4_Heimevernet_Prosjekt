@@ -19,12 +19,13 @@ Produksjonsutrulling og rutinar for sikkerheitskopiering er nok ikkje dokumenter
 ### System arkitektur
 Systemarkitektur
 Systemet vårt er ein ASP.NET Core MVC-applikasjon. Det handterer ressursar, ressursbehov, ressurstypar. Ressursrapportar og til slutt brukarar. 
-Komponent	Bruk
-Views og viewmodels	Razor-visning presentere nettsidene. Viewmodels flytta og sjekke skjemaopplysning. Bootstrap og CSS gjer det mogleg for visning på forskjellige skjerm størrelse. 
-Controllers	Tar i mot førespurnader, behandle brukarhandling og velje kva visning og svar må returnerast.  
-Repository og database	Repositories samla datatilgang, Entity Framcwork Core lese og lagre data i MariaDB databasen vår gjennom HeimevernetDbContext. 
-Innlogging og tilgang	ASP.NET Core identity ta seg av brukarkonto og innlogging. Rolle og autorisasjonsreglar styre tilgangen. 
-Kart og tenester 	Leaflet brukast til visning av kart og markør. Kartverket-tenesta bidra med søking av adresser og stader. 
+
+Komponent	& Bruk
+Views og viewmodels:	Razor-visning presentere nettsidene. Viewmodels flytta og sjekke skjemaopplysning. Bootstrap og CSS gjer det mogleg for visning på forskjellige skjerm størrelse. 
+Controllers:	Tar i mot førespurnader, behandle brukarhandling og velje kva visning og svar må returnerast.  
+Repository og database:	Repositories samla datatilgang, Entity Framcwork Core lese og lagre data i MariaDB databasen vår gjennom HeimevernetDbContext. 
+Innlogging og tilgang:	ASP.NET Core identity ta seg av brukarkonto og innlogging. Rolle og autorisasjonsreglar styre tilgangen. 
+Kart og tenester: 	Leaflet brukast til visning av kart og markør. Kartverket-tenesta bidra med søking av adresser og stader. 
 
 Ein typisk førespurnad går frå nettlesaren til ein controllar, dermed til eit repository og databasen. Controlleran sende dei nødvendige data til visning eller returnere JSON, kartmarkørar er eit eksempel på det. 
 For ressursar gir nok autorisasjonshandteraren administrator tilgang, eigaren får tilgang til eigne ressursar og operatøren får lesetilgang. Ressurs og ressursbehov følgje ein logisk sletting, det vil sei at dei blir skjulte ved databasefilter og oppføringane blir ivaretatt i databasen vår. 
