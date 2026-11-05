@@ -1,9 +1,11 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @using Heimevernet_Prosjekt.Models.Authorization
 @using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.DataAccess
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 @inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
+@inject Heimevernet_Prosjekt.DataAccess.IResourceRequestRepository RequestRepository
 
 <!DOCTYPE html>
 <html lang="en">
@@ -148,7 +150,7 @@
                         </form>
                     }
 
-                    @* Show account controls based on login status. *@
+                                       @* Show account controls based on login status. *@
                     <ul class="navbar-nav align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
@@ -156,11 +158,14 @@
                             var currentUser = await UserManager.GetUserAsync(User);
                             var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
 
-                            // Admin: 🔔 with the number of open messages from operators; each notification links to the resource
-                            if (User.IsInRole(RoleNames.Admin))
-                            {
-                                var openCount = ReportRepository.CountOpen();
-                                var notifications = ReportRepository.GetOpenNotifications();
+                            // 🔔 for everyone: requests waiting for my answer, and (admin) open messages from operators
+                            var nowUtc = DateTime.UtcNow;
+                            var myRequests = currentUser == null
+                                ? new List<OwnerRequest>()
+                                : RequestRepository.GetForOwner(currentUser.Id).Where(r => r.IsOpen(nowUtc)).ToList();
+                            var isAdmin = User.IsInRole(RoleNames.Admin);
+                            var openCount = myRequests.Count + (isAdmin ? ReportRepository.CountOpen() : 0);
+                            var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
 
                                 @* The bell and its list - Docs: Bootstrap Dropdowns. Number + text, not only color *@
                                 <li class="nav-item dropdown">
@@ -185,7 +190,7 @@
                                             var ago = minutes < 1 ? "nå nettopp"
                                                 : minutes < 60 ? $"{(int)minutes} min siden"
                                                 : minutes < 1440 ? $"{(int)(minutes / 60)} t siden"
-                                                : TimeZoneInfo.ConvertTimeFromUtc(n.CreatedAt, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo")).ToString("dd.MM.yyyy");
+                                                : TimeZoneInfo.ConvertTimeFromUtc(n.CreatedAt, oslo).ToString("dd.MM.yyyy");
 
                                             <a class="dropdown-item notification-item border-bottom py-2"
                                                asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
@@ -194,9 +199,11 @@
                                                 <div class="small opacity-75">@ago</div>
                                             </a>
                                         }
-                                    </div>
-                                </li>
-                            }
+                                    }
+
+                                    <a class="dropdown-item small py-2" asp-controller="ResourceRequest" asp-action="Mine">Alle mine forespørsler</a>
+                                </div>
+                            </li>
 
                             <li class="nav-item">
                                 @* Display the user's name and role. *@
