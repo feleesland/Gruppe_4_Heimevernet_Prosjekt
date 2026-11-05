@@ -1,12 +1,13 @@
 html {
     position: relative;
     min-height: 100%;
-    font-size: 14px;
+    
 }
 
 body {
     margin-bottom: 60px;
     background-image: url(/Krs.png);
+    font-size: 16px;
 }
 
 a {
@@ -22,7 +23,7 @@ a {
 .button {
     color: #ffffff;
     background-color: #1e6447;
-    font-size: 18px;
+    font-size: 16px;
     border-radius: 5px;
     display: inline-block;
     text-decoration: none;
@@ -32,7 +33,7 @@ a {
 
 .navbar {
   background-color: #1e6447;
-  padding: 12px;
+  padding: 13px;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {

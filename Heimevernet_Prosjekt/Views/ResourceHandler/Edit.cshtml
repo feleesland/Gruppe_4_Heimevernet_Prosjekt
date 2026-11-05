@@ -4,17 +4,20 @@
 @{
     ViewData["Title"] = "Endre Ressurs";
 }
+
+<h1>Endre Ressurs</h1>
+
 <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
 <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
 <form asp-controller="ResourceHandler" asp-action="Edit" method="post" enctype="multipart/form-data">
-    <div>
+    <div class="mb-3">
         <label asp-for="Name"></label>
-        <input asp-for="Name" value="@Model.Name" />
+        <input class="form-control" asp-for="Name" value="@Model.Name" />
         <span asp-validation-for="Name"></span>
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="Description"></label>
-        <input asp-for="Description" value="@Model.Description" />
+        <input class="form-control" asp-for="Description" value="@Model.Description" />
         <span asp-validation-for="Description"></span>
     </div>
 
@@ -24,9 +27,9 @@
         var currentType = Model.Type; // the Edit page always gets a resource from the controller
         var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
     }
-    <div>
+    <div class="mb-3">
         <label asp-for="Type"></label>
-        <select asp-for="Type" data-type-select>
+        <select class="form-control" asp-for="Type" data-type-select>
             <option value="">Velg type …</option>
             @foreach (var t in resourceTypes)
             {
@@ -43,7 +46,7 @@
 
 @if (User.IsInRole("admin") || User.IsInRole("operator"))
 {
-    <div>
+    <div class="mb-3">
         <label asp-for="Status"></label>
 
         <select asp-for="Status">
@@ -55,15 +58,12 @@
         <span asp-validation-for="Status"></span>
     </div>
 }
-    <!-- Free text, e.g. where the keys are -->
-    <div>
+    <div class="mb-3">
         <label asp-for="Notes"></label>
-        <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
+        <textarea class="form-control" asp-for="Notes" placeholder="F.eks. hvor nøklene ligger"></textarea>
         <span asp-validation-for="Notes"></span>
     </div>
-
-    <!-- Current picture (if any); choosing a new one replaces it, otherwise the old one is kept -->
-    <div>
+    <div class="mb-3">
         <label asp-for="Image"></label>
         @if (Model.HasImage)
         {
@@ -71,27 +71,24 @@
                 <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" style="max-width: 200px;" />
             </div>
         }
-        <input asp-for="Image" type="file" accept="image/*" capture="environment" />
+        <input class="form-control" asp-for="Image" type="file" accept="image/*" capture="environment" />
         <span asp-validation-for="Image"></span>
         <input type="hidden" asp-for="HasImage" />
     </div>
-
-    <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
-    <div>
+    <div class="mb-3">
         <label asp-for="Address"></label>
-        <input asp-for="Address" />
+        <input class="form-control" asp-for="Address" />
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="ZipCode"></label>
-        <input asp-for="ZipCode" />
+        <input class="form-control" asp-for="ZipCode" />
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="City"></label>
-        <input asp-for="City" />
+        <input class="form-control" asp-for="City" />
     </div>
-    <button type="button" id="findOnMap">Finn på kartet</button>
-    <button type="button" id="useMyLocation">Bruk min posisjon</button>
+    <button class="button" type="button" id="findOnMap">Finn på kartet</button>
+    <button class="button" type="button" id="useMyLocation">Bruk min posisjon</button>
     <span id="geoStatus"></span>
     <p>Du kan også klikke på kartet eller dra markøren.</p>
     <div id="pickMap" style="height: 300px;"></div>
@@ -99,7 +96,7 @@
     <input type="hidden" asp-for="Longitude" />
 
     <input type="hidden" asp-for="Id" value="@Model.Id" />
-    <button type="submit">Save</button>
+    <button class="button" type="submit">Lagre</button>
 </form>
 
 @section Scripts {

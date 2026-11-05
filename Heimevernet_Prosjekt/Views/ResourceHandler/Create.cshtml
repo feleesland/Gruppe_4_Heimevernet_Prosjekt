@@ -12,17 +12,19 @@
 
 @if (showForm)
 {
+    <h1>Ny Ressurs</h1>
+
     <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
     <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
     <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
-        <div>
+        <div class="mb-3">
             <label asp-for="Name"></label>
-            <input asp-for="Name" />
+            <input class="form-control" asp-for="Name" />
             <span asp-validation-for="Name"></span>
         </div>
-        <div>
+        <div class="mb-3">
             <label asp-for="Description"></label>
-            <input asp-for="Description" />
+            <input class="form-control" asp-for="Description" />
             <span asp-validation-for="Description"></span>
         </div>
 
@@ -32,9 +34,9 @@
             var currentType = Model?.Type;
             var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
         }
-        <div>
+        <div class="mb-3">
             <label asp-for="Type"></label>
-            <select asp-for="Type" data-type-select>
+            <select class="form-control" asp-for="Type" data-type-select>
                 <option value="">Velg type …</option>
                 @foreach (var t in resourceTypes)
                 {
@@ -48,50 +50,45 @@
             <small id="typeExamples"></small>
             <span asp-validation-for="Type"></span>
         </div>
-
-        <!-- Free text, e.g. where the keys are -->
-        <div>
+        <div class="mb-3">
             <label asp-for="Notes"></label>
-            <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
+            <textarea class="form-control" asp-for="Notes" placeholder="F.eks. hvor nøklene ligger"></textarea>
             <span asp-validation-for="Notes"></span>
         </div>
-
-        <!-- Picture: on a phone, capture="environment" opens the back camera -->
-        <div>
+        <div class="mb-3">
             <label asp-for="Image"></label>
-            <input asp-for="Image" type="file" accept="image/*" capture="environment" />
+            <input class="form-control" asp-for="Image" type="file" accept="image/*" capture="environment" />
             <span asp-validation-for="Image"></span>
         </div>
-
-        <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
-        <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
-        <div>
+        <div class="mb-3">
             <label asp-for="Address"></label>
-            <input asp-for="Address" />
+            <input class="form-control" asp-for="Address" />
         </div>
-        <div>
+        <div class="mb-3">
             <label asp-for="ZipCode"></label>
-            <input asp-for="ZipCode" />
+            <input class="form-control" asp-for="ZipCode" />
         </div>
-        <div>
+        <div class="mb-3">
             <label asp-for="City"></label>
-            <input asp-for="City" />
+            <input class="form-control" asp-for="City" />
         </div>
-        <button type="button" id="findOnMap">Finn på kartet</button>
-        <button type="button" id="useMyLocation">Bruk min posisjon</button>
+        <button class="button" type="button" id="findOnMap">Finn på kartet</button>
+        <button class="button" type="button" id="useMyLocation">Bruk min posisjon</button>
         <span id="geoStatus"></span>
         <p>Du kan også klikke på kartet eller dra markøren.</p>
         <div id="pickMap" style="height: 300px;"></div>
         <input type="hidden" asp-for="Latitude" />
         <input type="hidden" asp-for="Longitude" />
 
+        <button class="button" type="submit">Opprett</button>
         <button class="button" type="submit">Create</button>
     </form>
 }
 else
 {
-
     <div>
+        Du har opprettet en ny ressurs!
+        <h1>@Model.Name</h1>
         Gratulerer du har opprettet en ny ressurs!
         <h1>@Model!.Name</h1>
         <p>@Model.Description</p>

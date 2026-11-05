@@ -12,7 +12,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Heimevernet_Prosjekt</title>
+    <title>@ViewData["Title"] - Heimevernet</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -27,10 +27,13 @@
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light border-bottom box-shadow mb-3">
             <div class="container-fluid">
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                    <img width="40.4" height="50" src="/logo.svg"></img>
+                </a>
                 <a class="navbar-brand text-white"
                    asp-area=""
                    asp-controller="Home"
-                   asp-action="Index">Heimevernet_Prosjekt</a>
+                   asp-action="Index">Heimevernet</a>
 
                 <!-- Open or close the menu on small screens. -->
                 <button class="navbar-toggler"
@@ -146,7 +149,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
                                 </button>
                             </div>
-                            <span id="infoSearchStatus" class="small text-nowrap"></span>
+                            <span id="infoSearchStatus" class="small text-nowrap text-white"></span>
                         </form>
                     }
 
@@ -224,7 +227,7 @@
                                 @* Display the user's name and role. *@
                                 <span class="nav-link text-white text-end lh-sm">
                                     @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
-                                    <small class="text-muted">
+                                    <small class="text-white">
                                         @RoleNames.DisplayName(
                                             User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
                                             : User.IsInRole(RoleNames.Operator) ? RoleNames.Operator
