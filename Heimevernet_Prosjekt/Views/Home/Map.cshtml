@@ -22,7 +22,7 @@
 
 @section Scripts {
 	<script>
-		@*Ikoner*@ 
+// 		@*Ikoner til default*@ 
 var greenIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -47,6 +47,50 @@ var redIcon = new L.Icon({
     popupAnchor: [1, -34]
 });
 
+
+function getDefaultMarker(status) {
+
+    switch (status) {
+
+        case "Opptatt":
+            return yellowIcon;
+
+        case "Ugyldig":
+            return redIcon;
+
+        default:
+            return greenIcon;
+    }
+}
+
+function getResourceIcon(type, status) {
+
+//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
+    var typeMap = {
+        "Verktøy og utstyr": "tools",
+        "Motoriserte kjøretøy": "vehicle",
+        "Husly og bygg": "shelter",
+       // "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
+        "Sikkerhet og medisinsk": "medical"
+    };
+
+    var iconType = typeMap[type];
+
+    if (!iconType) {
+        return getDefaultMarker(status);
+    }
+
+    var iconStatus = (status || "Ledig")
+        .toLowerCase()
+        .replace("ø", "o");
+
+    return L.icon({
+        iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36]
+    });
+}
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
@@ -83,7 +127,7 @@ var redIcon = new L.Icon({
 					markersById = {};
 					var markers = [];
 
-					resources.forEach(resource => {
+					for (const resource of resources) {
 
 						var lat = parseFloat(resource.latitude);
 						var lng = parseFloat(resource.longitude);
@@ -94,16 +138,11 @@ var redIcon = new L.Icon({
 							return;
 						}
 
-						// Marker colour from status: green = Ledig (or no status), yellow = Opptatt, red = Ugyldig
-						var icon = greenIcon;
-						switch (resource.status) {
-							case "Opptatt":
-								icon = yellowIcon;
-								break;
-							case "Ugyldig":
-								icon = redIcon;
-								break;
-						}
+				
+						var icon = getResourceIcon(
+							resource.type,
+							resource.status
+						);
 
 						var marker = L.marker([lat, lng], { icon: icon }).addTo(markerLayer);
 
@@ -119,7 +158,7 @@ var redIcon = new L.Icon({
 						`);
 						markers.push(marker);
 						markersById[resource.id] = marker;
-					});
+					}
 					return markers;
 				})
 				.catch(error => {
