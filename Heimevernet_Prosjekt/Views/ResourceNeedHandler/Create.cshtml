@@ -1,68 +1,339 @@
-﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 @using Heimevernet_Prosjekt.Models.Entities
-@model ResourceNeedViewModel
+@model ReportNeedViewModel
 @{
-    ViewData["Title"] = "Nytt Behov";
+    ViewData["Title"] = "Meld behov";
+    var types = ViewData["ResourceTypes"] as IReadOnlyCollection<ResourceType> ?? Array.Empty<ResourceType>();
+    var isPlanned = Model.Urgency == NeedUrgency.Planlagt;
+    // Start with one empty line so it is clear what to fill in
+    var lines = Model.Lines.Count > 0 ? Model.Lines : new List<NeedLineInput> { new() };
 }
 
+<div style="max-width: 760px;">
+    <h1>Meld behov</h1>
 
-@if (Model == null || !ViewData.ModelState.IsValid)
-{
-    <form asp-controller="ResourceNeedHandler" asp-action="Create" method="post">
-        <div>
-            <label asp-for="Name"></label>
-            <input asp-for="Name" />
-            <span asp-validation-for="Name"></span>
-        </div>
-        <div>
-            <label asp-for="Description"></label>
-            <input asp-for="Description" />
-            <span asp-validation-for="Description"></span>
-        </div>
-        <div>
-            <label asp-for="Type"></label>
-            <input asp-for="Type" />
-            <span asp-validation-for="Type"></span>
+    @* Docs: Tag Helpers in forms (also adds the antiforgery token) - https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms *@
+    <form asp-controller="ResourceNeedHandler" asp-action="Create" method="post" id="needForm">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+        <input type="hidden" asp-for="ExistingNeedId" />
+
+        @* Shown only when the chosen place is inside an active need (filled by JavaScript below) *@
+        <div id="activeBox" class="alert alert-warning" hidden>
+            <div id="activeList"></div>
+            <div id="alreadyReported" class="small mt-2"></div>
         </div>
 
-        <!-- Address and position on the map (help with AI) -->
-        <div>
-            <label asp-for="Address"></label>
-            <input asp-for="Address" />
-        </div>
-        <div>
-            <label asp-for="ZipCode"></label>
-            <input asp-for="ZipCode" />
-        </div>
-        <div>
-            <label asp-for="City"></label>
-            <input asp-for="City" />
-        </div>
-        <button type="button" id="findOnMap">Finn på kartet</button>
-        <button type="button" id="useMyLocation">Bruk min posisjon</button>
-        <span id="geoStatus"></span>
-        <p>Du kan også klikke på kartet eller dra markøren.</p>
-        <div id="pickMap" style="height: 300px;"></div>
-        <input type="hidden" asp-for="Latitude" />
-        <input type="hidden" asp-for="Longitude" />
+        @* Only for a new need: hidden when adding to an existing one *@
+        <div id="newNeedFields">
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="F.eks. Flom Lund" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
 
-        <button type="submit">Create</button>
+            @* Akutt or Planlagt, right under the name. Icon + text, not colour alone *@
+            <div class="btn-group w-100 mb-3" role="radiogroup" aria-label="Akutt eller planlagt">
+                <input type="radio" class="btn-check" name="Urgency" id="urgencyAkutt" value="Akutt" checked="@(!isPlanned)" />
+                <label class="btn btn-outline-danger" for="urgencyAkutt">⏰ Akutt</label>
+                <input type="radio" class="btn-check" name="Urgency" id="urgencyPlanlagt" value="Planlagt" checked="@isPlanned" />
+                <label class="btn btn-outline-primary" for="urgencyPlanlagt">📅 Planlagt</label>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label"></label>
+                <input asp-for="Description" class="form-control" placeholder="Valgfritt, f.eks. «Elva har gått over sine bredder»" />
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div id="addingInfo" class="alert alert-secondary py-2" hidden></div>
+
+        @* The place: same fields, ids and map as on resources (location-picker.js) *@
+        <fieldset class="mb-3">
+            <legend class="form-label fs-6 fw-semibold">Hvor?</legend>
+            <div class="row g-2">
+                <div class="col-md-6"><input asp-for="Address" class="form-control" placeholder="Adresse" aria-label="Adresse" /></div>
+                <div class="col-md-2"><input asp-for="ZipCode" class="form-control" placeholder="Postnr." aria-label="Postnummer" /></div>
+                <div class="col-md-4"><input asp-for="City" class="form-control" placeholder="Poststed" aria-label="Poststed" /></div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center my-2">
+                <button type="button" id="findOnMap" class="btn btn-outline-secondary btn-sm">Finn på kartet</button>
+                <button type="button" id="useMyLocation" class="btn btn-outline-secondary btn-sm">Bruk min posisjon</button>
+                <span id="radiusWrap" class="d-flex align-items-center gap-2">
+                    <label asp-for="RadiusKm" class="small mb-0"></label>
+                    <select asp-for="RadiusKm" class="form-select form-select-sm" style="width: auto;">
+                        <option value="0.5">500 m</option>
+                        <option value="1">1 km</option>
+                        <option value="2">2 km</option>
+                        <option value="5">5 km</option>
+                        <option value="10">10 km</option>
+                    </select>
+                </span>
+                <span id="geoStatus" class="small text-muted"></span>
+            </div>
+            <div id="pickMap" style="height: 280px;" class="rounded"></div>
+            <small class="text-muted">Klikk på kartet eller dra markøren.</small>
+            <input type="hidden" asp-for="Latitude" />
+            <input type="hidden" asp-for="Longitude" />
+        </fieldset>
+
+        @* The lines. Chips fill an empty line or add a new one *@
+        <fieldset class="mb-3">
+            <legend id="linesLegend" class="form-label fs-6 fw-semibold">Hva trengs?</legend>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+                @foreach (var type in types)
+                {
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-add-type="@type.Name">+ @type.Name</button>
+                }
+            </div>
+            <div id="lines">
+                @for (var i = 0; i < lines.Count; i++)
+                {
+                    <div class="row g-2 mb-2 need-line">
+                        <div class="col">
+                            <select name="Lines[@i].Type" class="form-select" aria-label="Ressurs">
+                                <option value="">Velg type …</option>
+                                @foreach (var type in types)
+                                {
+                                    <option value="@type.Name" selected="@(type.Name == lines[i].Type)">@type.Name</option>
+                                }
+                            </select>
+                            @Html.ValidationMessage($"Lines[{i}].Type", new { @class = "text-danger" })
+                        </div>
+                        <div class="col-3 col-md-2">
+                            <input name="Lines[@i].Quantity" type="number" min="1" max="1000" value="@lines[i].Quantity" class="form-control" aria-label="Antall" />
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </fieldset>
+
+        @* Time at the bottom: Akutt = now (optional "innen"), Planlagt = from (required) and to *@
+        <fieldset id="timeFields" class="mb-3 border-top pt-3">
+            <legend class="form-label fs-6 fw-semibold">Når trengs det?</legend>
+            <p id="nowText" class="mb-2" hidden="@isPlanned">⏰ <strong>Nå</strong>. Fyll inn «Innen» bare hvis det er en frist.</p>
+            <div class="row g-2">
+                <div class="col-md-6" id="fromCol" hidden="@(!isPlanned)">
+                    <label asp-for="NeededFrom" class="form-label small"></label>
+                    <input asp-for="NeededFrom" class="form-control" />
+                    <span asp-validation-for="NeededFrom" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="NeededTo" id="toLabel" class="form-label small">@(isPlanned ? "Til (valgfritt)" : "Innen (valgfritt)")</label>
+                    <input asp-for="NeededTo" class="form-control" />
+                    <span asp-validation-for="NeededTo" class="text-danger"></span>
+                </div>
+            </div>
+        </fieldset>
+
+        <button type="submit" id="submitButton" class="btn btn-primary" style="min-height: 44px;">Meld behov</button>
+        <a asp-controller="ResourceNeed" asp-action="List" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
     </form>
-}
-else
-{
+</div>
 
-    <div>
-        Gratulerer du har opprettet et nytt behov!
-        <h1>@Model.Name</h1>
-        <p>@Model.Description</p>
-        <p>Type: @Model.Type</p>
+@* A new line, copied by JavaScript (the numbers in the names are fixed by renumber()) *@
+<template id="lineTemplate">
+    <div class="row g-2 mb-2 need-line">
+        <div class="col">
+            <select class="form-select" aria-label="Ressurs">
+                <option value="">Velg type …</option>
+                @foreach (var type in types)
+                {
+                    <option value="@type.Name">@type.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-3 col-md-2">
+            <input type="number" min="1" max="1000" value="1" class="form-control" aria-label="Antall" />
+        </div>
+        <div class="col-auto">
+            <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
+        </div>
     </div>
-}
+</template>
 
 @section Scripts {
-    @if (Model == null || !ViewData.ModelState.IsValid)
-    {
-        <script src="~/js/location-picker.js" asp-append-version="true"></script>
-    }
+    <script src="~/js/location-picker.js" asp-append-version="true"></script>
+    <script>
+        // "Meld behov": lines, akutt/planlagt and "Legg til i ..." (help with AI)
+        // Docs: Leaflet API reference (Circle, LayerGroup) - https://leafletjs.com/reference.html
+        (function () {
+            const activeUrl = '@Url.Action("ActiveAt", "ResourceNeedHandler")';
+            const latField = document.getElementById('Latitude');
+            const lngField = document.getElementById('Longitude');
+            const existingField = document.getElementById('ExistingNeedId');
+            const radiusSelect = document.getElementById('RadiusKm');
+            const linesBox = document.getElementById('lines');
+            const lineTemplate = document.getElementById('lineTemplate');
+            const submitButton = document.getElementById('submitButton');
+
+            let activeNeeds = [];
+            let chosen = null;            // the active need we add to, or null = new need
+            let userChoseNew = false;     // the user clicked "Nytt behov": don't pick for them again
+            let radiusCircle = null;
+
+            // ---- Lines ----
+            function renumber() {
+                linesBox.querySelectorAll('.need-line').forEach((row, i) => {
+                    row.querySelector('select').name = `Lines[${i}].Type`;
+                    row.querySelector('input').name = `Lines[${i}].Quantity`;
+                });
+                updateSubmit();
+            }
+
+            function addLine(type) {
+                // A chip fills the first empty line before it adds a new one
+                const empty = [...linesBox.querySelectorAll('.need-line select')].find(s => s.value === '');
+                if (empty) {
+                    empty.value = type;
+                    empty.closest('.need-line').querySelector('input').focus();
+                } else {
+                    const row = lineTemplate.content.firstElementChild.cloneNode(true);
+                    row.querySelector('select').value = type;
+                    linesBox.appendChild(row);
+                    row.querySelector('input').focus();
+                }
+                renumber();
+            }
+
+            document.querySelectorAll('[data-add-type]').forEach(chip =>
+                chip.addEventListener('click', () => addLine(chip.dataset.addType)));
+
+            linesBox.addEventListener('click', e => {
+                const remove = e.target.closest('.remove-line');
+                if (remove) {
+                    remove.closest('.need-line').remove();
+                    renumber();
+                }
+            });
+            linesBox.addEventListener('change', updateSubmit);
+
+            function lineCount() {
+                return [...linesBox.querySelectorAll('.need-line select')].filter(s => s.value !== '').length;
+            }
+
+            function updateSubmit() {
+                const n = lineCount();
+                submitButton.textContent = chosen ? `Legg til ${n} behov i ${chosen.name}` : `Meld ${n} behov`;
+            }
+
+            // ---- Akutt / Planlagt ----
+            function isPlanned() {
+                return document.getElementById('urgencyPlanlagt').checked;
+            }
+
+            function applyUrgency() {
+                const planned = isPlanned();
+                document.getElementById('fromCol').hidden = !planned;
+                document.getElementById('nowText').hidden = planned;
+                document.getElementById('toLabel').textContent = planned ? 'Til (valgfritt)' : 'Innen (valgfritt)';
+                drawRadius();
+            }
+            document.querySelectorAll('input[name="Urgency"]').forEach(r => r.addEventListener('change', applyUrgency));
+
+            // ---- The circle for a new need ----
+            function drawRadius() {
+                if (radiusCircle) {
+                    pickMap.removeLayer(radiusCircle);
+                    radiusCircle = null;
+                }
+                const lat = parseFloat(latField.value);
+                const lng = parseFloat(lngField.value);
+                if (chosen || isNaN(lat) || isNaN(lng)) return;
+                radiusCircle = L.circle([lat, lng], {
+                    radius: parseFloat(radiusSelect.value) * 1000,
+                    color: isPlanned() ? '#378ADD' : '#E24B4A',
+                    dashArray: isPlanned() ? '2 6' : '8 6',
+                    fillOpacity: 0.08
+                }).addTo(pickMap);
+            }
+            radiusSelect.addEventListener('change', drawRadius);
+
+            // ---- "Legg til i ..." or "Nytt behov" ----
+            function applyMode() {
+                existingField.value = chosen ? chosen.id : '';
+                document.getElementById('newNeedFields').hidden = !!chosen;
+                document.getElementById('timeFields').hidden = !!chosen;
+                document.getElementById('radiusWrap').hidden = !!chosen;
+                const info = document.getElementById('addingInfo');
+                info.hidden = !chosen;
+                info.textContent = chosen
+                    ? `Behovene legges til i «${chosen.name}» (${chosen.urgency.toLowerCase()}). Navn og tid hentes derfra.`
+                    : '';
+                document.getElementById('linesLegend').textContent = chosen ? 'Hva trengs i tillegg?' : 'Hva trengs?';
+                drawRadius();
+                updateSubmit();
+            }
+
+            function renderBox() {
+                const box = document.getElementById('activeBox');
+                const list = document.getElementById('activeList');
+                list.replaceChildren();
+                box.hidden = activeNeeds.length === 0;
+
+                activeNeeds.forEach(need => {
+                    const line = document.createElement('p');
+                    line.className = 'mb-2';
+                    // textContent, so names from users can't run as code (XSS)
+                    line.textContent = `⚠ ${need.name} er aktivt her (${String(need.distanceKm).replace('.', ',')} km unna).`;
+                    list.appendChild(line);
+                });
+
+                const buttons = document.createElement('div');
+                buttons.className = 'd-flex flex-wrap gap-2';
+                activeNeeds.forEach(need => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn ' + (chosen && chosen.id === need.id ? 'btn-primary' : 'btn-outline-warning');
+                    button.textContent = `Legg til i ${need.name}`;
+                    button.addEventListener('click', () => { chosen = need; userChoseNew = false; renderBox(); applyMode(); });
+                    buttons.appendChild(button);
+                });
+                const newButton = document.createElement('button');
+                newButton.type = 'button';
+                newButton.className = 'btn ' + (chosen ? 'btn-outline-warning' : 'btn-warning');
+                newButton.textContent = 'Nytt behov';
+                newButton.addEventListener('click', () => { chosen = null; userChoseNew = true; renderBox(); applyMode(); });
+                buttons.appendChild(newButton);
+                list.appendChild(buttons);
+
+                const already = document.getElementById('alreadyReported');
+                already.textContent = chosen && chosen.items.length
+                    ? 'Allerede meldt: ' + chosen.items.map(i => `${i.quantity} × ${i.type}`).join(' · ')
+                    : '';
+            }
+
+            // Ask the server: is the chosen place inside an active need?
+            async function checkPlace() {
+                const lat = parseFloat(latField.value);
+                const lng = parseFloat(lngField.value);
+                if (isNaN(lat) || isNaN(lng)) return;
+
+                try {
+                    const response = await fetch(`${activeUrl}?lat=${lat}&lng=${lng}`);
+                    activeNeeds = response.ok ? await response.json() : [];
+                } catch {
+                    activeNeeds = [];
+                }
+
+                // Keep the choice if it is still here; after a failed submit, keep the need from the server
+                const fromServer = parseInt(existingField.value);
+                if (chosen && !activeNeeds.some(n => n.id === chosen.id)) chosen = null;
+                if (!chosen && !isNaN(fromServer)) chosen = activeNeeds.find(n => n.id === fromServer) || null;
+                if (!chosen && !userChoseNew && activeNeeds.length > 0) chosen = activeNeeds[0];
+
+                renderBox();
+                applyMode();
+            }
+
+            latField.addEventListener('change', checkPlace);
+
+            applyUrgency();
+            renumber();
+            checkPlace();   // e.g. when the form opens with a place from the main map
+        })();
+    </script>
 }

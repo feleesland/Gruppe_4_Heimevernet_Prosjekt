@@ -6,7 +6,7 @@
 
 <h1>Behov</h1>
 
-<a class="btn btn-primary mb-3" asp-controller="ResourceHandler" asp-action="Create">+ Opprett nytt behov</a>
+<a class="btn btn-primary mb-3" asp-controller="ResourceNeedHandler" asp-action="Create">+ Opprett nytt behov</a>
 
 @if (!Model.Any())
 {
@@ -14,32 +14,61 @@
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Navn</th>
-                <th>Type</th>
-                <th>Beskrivelse</th>
-                <th>Handlinger</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var r in Model)
-            {
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
                 <tr>
-                    <td><a asp-action="Index" asp-route-id="@r.Id">@r.Name</a></td>
-                    <td>@r.Type</td>
-                    <td>@r.Description</td>
-                    <td>
-                        <a class="btn btn-sm btn-secondary" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
-
-                        <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
-                            <button type="submit" class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">Slett</button>
-                        </form>
-                    </td>
+                    <th scope="col">Navn</th>
+                    <th scope="col">Når</th>
+                    <th scope="col">Hva trengs</th>
+                    <th scope="col">Handlinger</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var r in Model)
+                {
+                    <tr>
+                        <td>
+                            <a asp-action="Index" asp-route-id="@r.Id">@r.Name</a>
+                            @if (r.ClosedAt != null)
+                            {
+                                <span class="badge text-bg-secondary">Avsluttet</span>
+                            }
+                        </td>
+                        <td>
+                            @* Icon + text, not colour alone *@
+                            @if (r.Urgency == Heimevernet_Prosjekt.Models.Entities.NeedUrgency.Planlagt)
+                            {
+                                <span class="badge text-bg-primary">📅 Planlagt</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-danger">⏰ Akutt</span>
+                            }
+                        </td>
+                        <td>
+                            @if (r.Items.Count == 0)
+                            {
+                                <span class="text-muted">@r.Type</span>
+                            }
+                            else
+                            {
+                                @string.Join(", ", r.Items.Select(i => $"{i.Quantity} × {i.Type}"))
+                            }
+                        </td>
+                        <td>
+                            <a class="btn btn-sm btn-secondary" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
+
+                            <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
+                                <button type="submit" class="btn btn-sm btn-danger"
+                                        onclick="return confirm('Er du sikker på at du vil slette dette behovet?');">
+                                    Slett
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 }

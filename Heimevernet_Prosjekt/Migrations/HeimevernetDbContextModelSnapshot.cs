@@ -190,6 +190,9 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
@@ -215,6 +218,12 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<DateTime?>("NeededFrom")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("NeededTo")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("OwnerId")
                         .IsRequired()
                         .HasColumnType("longtext");
@@ -222,10 +231,18 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.Property<bool>("OwnerRemoved")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<double>("RadiusKm")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double")
+                        .HasDefaultValue(2.0);
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
+
+                    b.Property<int>("Urgency")
+                        .HasColumnType("int");
 
                     b.Property<string>("ZipCode")
                         .HasMaxLength(6)
@@ -234,6 +251,35 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ResourceNeeds", (string)null);
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeedItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResourceNeedId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceNeedId");
+
+                    b.ToTable("ResourceNeedItems", (string)null);
                 });
 
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceReport", b =>
@@ -428,6 +474,17 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeedItem", b =>
+                {
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", "ResourceNeed")
+                        .WithMany("Items")
+                        .HasForeignKey("ResourceNeedId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ResourceNeed");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -477,6 +534,11 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

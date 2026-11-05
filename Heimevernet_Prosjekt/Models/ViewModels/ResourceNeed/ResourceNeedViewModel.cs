@@ -29,5 +29,15 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 
         // When the resource was registered (only shown, never typed in)
         public DateTime? CreatedAt { get; set; }
+
+        // Akutt/Planlagt, radius, time and status (only shown here)
+        public NeedUrgency Urgency { get; set; }
+        public double RadiusKm { get; set; }
+        public DateTime? NeededFrom { get; set; }
+        public DateTime? NeededTo { get; set; }
+        public DateTime? ClosedAt { get; set; }
+
+        // The lines, e.g. "2 × Motoriserte kjøretøy"
+        public List<ResourceNeedItem> Items { get; set; } = new();
     }
 }

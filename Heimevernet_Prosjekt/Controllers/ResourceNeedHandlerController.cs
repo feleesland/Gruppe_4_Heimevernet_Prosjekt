@@ -1,61 +1,128 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models.Authorization;
+using Heimevernet_Prosjekt.Models.Entities;
 using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed;
+using Heimevernet_Prosjekt.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using System.Security.Claims;
-
-
-
 
 namespace Heimevernet_Prosjekt.Controllers
 {
-    // Must be logged in; who can edit and delete is checked by ResourceAuthorizationHandler - Docs: Introduction to authorization
-    // https://learn.microsoft.com/aspnet/core/security/authorization/introduction
+    // Needs are the operators' work: only admin and operator - Docs: Role-based authorization
+    // https://learn.microsoft.com/aspnet/core/security/authorization/roles
     // [ValidateAntiForgeryToken] on all POST methods - Docs: Prevent Cross-Site Request Forgery (XSRF/CSRF) attacks
     // https://learn.microsoft.com/aspnet/core/security/anti-request-forgery
-    //[Authorize(Roles = RoleNames.Admin)]
-    [Authorize]
+    [Authorize(Roles = RoleNames.Admin + "," + RoleNames.Operator)]
     public class ResourceNeedHandlerController : Controller
     {
         private readonly IResourceNeedRepository _resourceNeedRepository;
+        private readonly IResourceTypeRepository _typeRepository;
         private readonly IAuthorizationService _authorizationService;
 
-        public ResourceNeedHandlerController(IResourceNeedRepository resourceNeedRepository, IAuthorizationService authorizationService)
+        // Times in the form are Norwegian time; they are saved as UTC like CreatedAt - Docs: Converting times between time zones
+        // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
+        private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
+        public ResourceNeedHandlerController(
+            IResourceNeedRepository resourceNeedRepository,
+            IResourceTypeRepository typeRepository,
+            IAuthorizationService authorizationService)
         {
             _resourceNeedRepository = resourceNeedRepository;
+            _typeRepository = typeRepository;
             _authorizationService = authorizationService;
         }
 
-
-        // The list is on the Resources page, which only shows what the user is allowed to see
+        // The list is on the Behov page
         [HttpGet]
         public IActionResult Index()
         {
             return RedirectToAction("List", "ResourceNeed");
         }
 
+        // "Meld behov". From the map, place and radius come in the address (?lat=..&lng=..&radius=..)
         [HttpGet]
-        public IActionResult Create()
+        public IActionResult Create(double? lat, double? lng, double? radius)
         {
-            return View();
+            LoadTypes();
+            var model = new ReportNeedViewModel
+            {
+                Latitude = lat,
+                Longitude = lng,
+                RadiusKm = radius is > 0 ? radius.Value : 2
+            };
+            return View(model);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(ResourceNeedViewModel model)
+        public async Task<IActionResult> Create(ReportNeedViewModel model)
         {
+            ValidateNeed(model);
+
+            // "Legg til i ...": the need must exist, be active and the user must be allowed to change it
+            ResourceNeed? existing = null;
+            if (model.ExistingNeedId != null)
+            {
+                existing = _resourceNeedRepository.GetById(model.ExistingNeedId.Value);
+                if (existing == null || existing.ClosedAt != null)
+                {
+                    ModelState.AddModelError(string.Empty, "Behovet finnes ikke lenger eller er avsluttet. Velg «Nytt behov».");
+                }
+                else
+                {
+                    var canUpdate = await _authorizationService.AuthorizeAsync(User, existing, ResourceNeedOperations.Update);
+                    if (!canUpdate.Succeeded)
+                    {
+                        return Forbid();
+                    }
+                }
+            }
+
             if (!ModelState.IsValid)
             {
+                LoadTypes();
                 return View(model);
             }
-            // The logged-in user owns the new resource - Docs: Claims-based authorization
-            model.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var resource = _resourceNeedRepository.Create(model);
+            if (existing != null)
+            {
+                _resourceNeedRepository.AddItems(existing.Id, model.Lines);
+                TempData["Message"] = $"{CountText(model.Lines)} lagt til i «{existing.Name}»: {Summary(model.Lines)}.";
+                return RedirectToAction("Index", "ResourceNeed", new { id = existing.Id });
+            }
 
-            return RedirectToAction("List", "ResourceNeed", new { id = resource.Id });
+            // New need: times to UTC, Akutt has no "from" (it is now)
+            if (model.Urgency == NeedUrgency.Akutt)
+            {
+                model.NeededFrom = null;
+            }
+            model.NeededFrom = ToUtc(model.NeededFrom);
+            model.NeededTo = ToUtc(model.NeededTo);
+
+            var ownerId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var need = _resourceNeedRepository.CreateWithItems(model, ownerId);
+
+            TempData["Message"] = $"«{need.Name}» er meldt med {CountText(model.Lines)}: {Summary(model.Lines)}.";
+            return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
+        }
+
+        // Asked by the form when a place is chosen: active needs whose circle contains the point (for the orange box)
+        // Docs: Return JSON from a controller action - https://learn.microsoft.com/aspnet/core/web-api/action-return-types
+        [HttpGet]
+        public IActionResult ActiveAt(double lat, double lng)
+        {
+            var needs = _resourceNeedRepository.GetActiveAt(lat, lng)
+                .Select(need => new
+                {
+                    id = need.Id,
+                    name = need.Name,
+                    urgency = need.Urgency.ToString(),
+                    distanceKm = Math.Round(GeoDistance.Km(lat, lng, need.Latitude!.Value, need.Longitude!.Value), 1),
+                    items = need.Items.Select(item => new { type = item.Type, quantity = item.Quantity })
+                });
+            return Json(needs);
         }
 
         [HttpGet]
@@ -66,7 +133,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            // Only the owner or admin can edit (not operator) - Docs: Resource-based authorization
+            // Docs: Resource-based authorization
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceNeedOperations.Update);
             if (!authorizationResult.Succeeded)
             {
@@ -89,6 +156,7 @@ namespace Heimevernet_Prosjekt.Controllers
             };
             return View(model);
         }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Edit(ResourceNeedViewModel model)
@@ -106,7 +174,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            // Only the owner or admin can save changes - Docs: Resource-based authorization
+            // Docs: Resource-based authorization
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, existing, ResourceNeedOperations.Update);
             if (!authorizationResult.Succeeded)
             {
@@ -120,6 +188,7 @@ namespace Heimevernet_Prosjekt.Controllers
             }
             return RedirectToAction("List", "ResourceNeed");
         }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<ActionResult> Delete(int id)
@@ -129,7 +198,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            // Only the owner or admin can delete - Docs: Resource-based authorization
+            // Docs: Resource-based authorization
             var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceNeedOperations.Delete);
             if (!authorizationResult.Succeeded)
             {
@@ -141,7 +210,74 @@ namespace Heimevernet_Prosjekt.Controllers
                 return NotFound();
             }
 
-            return RedirectToAction("List", "Resource");
+            // Back to the Behov list (it went to the resource list before)
+            return RedirectToAction("List", "ResourceNeed");
+        }
+
+        // Rules that depend on each other, so they can't be attributes on the ViewModel - Docs: Model validation
+        // https://learn.microsoft.com/aspnet/core/mvc/models/validation
+        private void ValidateNeed(ReportNeedViewModel model)
+        {
+            if (model.Lines.Count == 0)
+            {
+                ModelState.AddModelError(string.Empty, "Legg til minst én ting som trengs.");
+            }
+
+            for (var i = 0; i < model.Lines.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(model.Lines[i].Type) && !_typeRepository.Exists(model.Lines[i].Type))
+                {
+                    ModelState.AddModelError($"Lines[{i}].Type", "Velg en type fra listen.");
+                }
+            }
+
+            // Adding to an existing need: name, place and time come from that need
+            if (model.ExistingNeedId != null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Name))
+            {
+                ModelState.AddModelError(nameof(model.Name), "Skriv inn et navn.");
+            }
+            if (model.Latitude == null || model.Longitude == null)
+            {
+                ModelState.AddModelError(string.Empty, "Velg et sted: klikk i kartet, søk en adresse eller bruk «Bruk min posisjon».");
+            }
+            if (model.Urgency == NeedUrgency.Planlagt && model.NeededFrom == null)
+            {
+                ModelState.AddModelError(nameof(model.NeededFrom), "Velg når det trengs fra.");
+            }
+            if (model.NeededFrom != null && model.NeededTo != null && model.NeededTo < model.NeededFrom)
+            {
+                ModelState.AddModelError(nameof(model.NeededTo), "«Til» må være etter «Fra».");
+            }
+        }
+
+        // The types for the dropdowns and chips, same list as resources ("Annet" last)
+        private void LoadTypes()
+        {
+            ViewData["ResourceTypes"] = _typeRepository.GetAll();
+        }
+
+        private static DateTime? ToUtc(DateTime? norwegianTime)
+        {
+            return norwegianTime == null
+                ? null
+                : TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(norwegianTime.Value, DateTimeKind.Unspecified), Oslo);
+        }
+
+        // "1 behov" / "3 behov" (same word in singular and plural)
+        private static string CountText(List<NeedLineInput> lines)
+        {
+            return $"{lines.Count} behov";
+        }
+
+        // "1 × Husly og bygg, 2 × Motoriserte kjøretøy" for the green message
+        private static string Summary(List<NeedLineInput> lines)
+        {
+            return string.Join(", ", lines.Select(line => $"{line.Quantity} × {line.Type}"));
         }
     }
 }

@@ -1,4 +1,10 @@
 ﻿@model Heimevernet_Prosjekt.Models.PositionModel
+@using Heimevernet_Prosjekt.Models.Authorization
+@{
+    // Needs are only for admin and operator (same rule as ResourceNeedController)
+    var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+    var signedIn = User.Identity?.IsAuthenticated == true;
+}
 
 <!-- 
 	<h2>Legg til en heading her?</h2>
@@ -19,6 +25,23 @@
 	html, body {
 	overflow: hidden;
 	}
+
+	/* The square in the middle of a need: how many things are needed. Text + colour, not colour alone */
+	.need-marker {
+		display: flex; align-items: center; justify-content: center;
+		width: 26px; height: 26px; border-radius: 5px;
+		font-weight: 700; font-size: 13px; color: #fff;
+		border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4);
+	}
+	.need-akutt { background: #E24B4A; }
+	.need-planlagt { background: #378ADD; }
+	.need-label {
+		background: transparent; border: 0; box-shadow: none;
+		font-weight: 700; font-size: 12px; white-space: nowrap;
+	}
+	.need-label.akutt { color: #E24B4A; }
+	.need-label.planlagt { color: #378ADD; }
+	.map-menu a { display: block; padding: 4px 0; }
 </style>
 
 
@@ -130,6 +153,84 @@ var redIcon = new L.Icon({
 				});
 		}
 
+		// ---- Needs: circle + square with how many things are needed (only admin and operator) (help with AI) ----
+		var canNeeds = @(canNeeds ? "true" : "false");
+		var needLayer = L.layerGroup();
+		var needDetailUrl = '@Url.Content("~/ResourceNeed/Index/")';
+		var needCreateUrl = '@Url.Action("Create", "ResourceNeedHandler")';
+
+		// "12.11" for a planned need (the time is saved as UTC and shown in Norwegian time)
+		function shortDate(utc) {
+			if (!utc) return '';
+			var date = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
+			return date.toLocaleDateString('nb-NO', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Oslo' });
+		}
+
+		function loadNeeds() {
+			if (!canNeeds) return Promise.resolve();
+			return fetch('@Url.Action("MapResourceNeeds", "ResourceNeed")')
+				.then(response => response.ok ? response.json() : [])
+				.then(needs => {
+					needLayer.clearLayers();
+					needs.forEach(need => {
+						var lat = parseFloat(need.latitude);
+						var lng = parseFloat(need.longitude);
+						if (isNaN(lat) || isNaN(lng)) return;
+
+						var planned = need.urgency === 'Planlagt';
+						var colour = planned ? '#378ADD' : '#E24B4A';
+						var label = planned ? 'Planlagt ' + shortDate(need.neededFrom) : 'AKUTT';
+
+						// The circle; bubblingMouseEvents: false so a click on it doesn't open the click menu as well
+						L.circle([lat, lng], {
+							radius: need.radiusKm * 1000,
+							color: colour,
+							weight: 3,
+							dashArray: planned ? '2 6' : '8 6',
+							fillOpacity: 0.08,
+							bubblingMouseEvents: false
+						}).addTo(needLayer);
+
+						// Name and AKUTT/Planlagt as text above the square - Docs: Leaflet DivIcon
+						L.marker([lat, lng], {
+							icon: L.divIcon({
+								className: 'need-label ' + (planned ? 'planlagt' : 'akutt'),
+								html: '<span style="display:inline-block;transform:translateX(-50%);background:rgba(255,255,255,.85);padding:0 4px;border-radius:4px;">'
+								+ escapeHtml(need.name) + ' · ' + escapeHtml(label) + '</span>',
+								iconSize: null,
+								iconAnchor: [0, 38]
+							}),
+							interactive: false
+						}).addTo(needLayer);
+
+						var items = need.items.map(i => `<li>${i.quantity} × ${escapeHtml(i.type)}</li>`).join('');
+						L.marker([lat, lng], {
+							icon: L.divIcon({
+								className: '',
+								html: `<div class="need-marker ${planned ? 'need-planlagt' : 'need-akutt'}" aria-label="${need.count} trengs">${need.count}</div>`,
+								iconSize: [26, 26],
+								iconAnchor: [13, 13]
+							}),
+							keyboard: true,
+							title: need.name
+						}).bindPopup(`
+							<strong>${escapeHtml(need.name)}</strong> · ${escapeHtml(label)}
+							<ul class="mb-1 ps-3">${items}</ul>
+							<a href="${needDetailUrl}${need.id}">Åpne behovet</a><br>
+							<a href="${needCreateUrl}?lat=${lat}&lng=${lng}">+ Legg til mer</a>
+						`).addTo(needLayer);
+					});
+				})
+				.catch(error => console.error("Feil ved henting av behov:", error));
+		}
+
+		if (canNeeds) {
+			needLayer.addTo(map);
+			// Turn resources and needs on and off - Docs: Leaflet Control.Layers
+			L.control.layers(null, { 'Ressurser': markerLayer, 'Behov': needLayer }, { collapsed: false }).addTo(map);
+			loadNeeds();
+		}
+
 		// Called by the search in the menu (site.js), and when the page opens with a search in the URL (help with AI)
 		window.onResourceSearch = async function (params) {
 			var statusText = document.getElementById('globalSearchStatus');
@@ -189,13 +290,42 @@ var redIcon = new L.Icon({
 		};
 
 		// "Velg punkt på kartet" in the filter: the next click on the map becomes the centre of the circle
+		var pickingCenter = false;
 		window.startPickCenter = function (callback) {
+			pickingCenter = true;
 			map.getContainer().style.cursor = 'crosshair';
 			map.once('click', function (e) {
 				map.getContainer().style.cursor = '';
 				callback(e.latlng.lat, e.latlng.lng);
+				pickingCenter = false;
 			});
 		};
+
+		// ---- Click menu: a small menu where you clicked (help with AI) - Docs: Leaflet Popup ----
+		var resourceCreateUrl = '@Url.Action("Create", "ResourceHandler")';
+		var mapUrl = '@Url.Action("Map", "Home")';
+		var signedIn = @(signedIn ? "true" : "false");
+
+		map.on('click', function (e) {
+			// Not while "Velg punkt på kartet" is choosing the centre of the filter
+			if (pickingCenter || !signedIn) return;
+
+			var lat = e.latlng.lat.toFixed(6);
+			var lng = e.latlng.lng.toFixed(6);
+			var radius = radiusCircle ? (radiusCircle.getRadius() / 1000) : 2;
+
+			var links = '';
+			if (canNeeds) {
+				links += `<a href="${needCreateUrl}?lat=${lat}&lng=${lng}&radius=${radius}">+ Meld behov her</a>`;
+			}
+			links += `<a href="${resourceCreateUrl}?lat=${lat}&lng=${lng}">+ Registrer ressurs her</a>`;
+			links += `<a href="${mapUrl}?lat=${lat}&lng=${lng}&radius=${radius}">Vis ressurser i området</a>`;
+
+			L.popup()
+				.setLatLng(e.latlng)
+				.setContent(`<div class="map-menu">${links}</div>`)
+				.openOn(map);
+		});
 
 		// Open with the search from the URL (e.g. from another page), or show everything
 		window.onResourceSearch(Object.fromEntries(new URLSearchParams(window.location.search)));
