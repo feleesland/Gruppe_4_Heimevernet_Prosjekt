@@ -55,7 +55,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             }
         }
 
-        ModelState.AddModelError(string.Empty, "Invalid email or password.");
+        ModelState.AddModelError(string.Empty, "Ugyldig e-post eller passord.");
         return View(model);
     }
 
@@ -111,7 +111,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
                 "Account",
                 new { userId = user.Id, code = encodedCode },
                 Request.Scheme)
-                ?? throw new InvalidOperationException("Could not generate the confirmation URL.");
+                ?? throw new InvalidOperationException("Kunne ikke generere bekreftnings URL.");
 
             await emailSender.SendEmailAsync(
                 model.Email,
@@ -232,7 +232,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
     {
         if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(email))
         {
-            return BadRequest("A password reset code and email address are required.");
+            return BadRequest("En passord reset kode og e-post er nødvendig.");
         }
 
         return View(new ResetPasswordViewModel { Code = code, Email = email });

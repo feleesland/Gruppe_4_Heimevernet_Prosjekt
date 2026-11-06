@@ -4,7 +4,7 @@
     ViewData["Title"] = "Registrer";
 }
 
-<h1>Registrer</h1>
+<h1>@ViewData["Title"]</h1>
 <form asp-action="Register" method="post" class="col-md-6">
     <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
     <div class="mb-3">

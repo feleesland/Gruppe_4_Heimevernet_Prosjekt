@@ -12,7 +12,7 @@
 
 @if (showForm)
 {
-    <h1>Ny Ressurs</h1>
+    <h1>@ViewData["Title"]</h1>
 
     <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
         <div class="mb-3">

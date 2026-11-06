@@ -4,7 +4,7 @@
     ViewData["Title"] = "Logg inn";
 }
 
-<h1>Logg inn</h1>
+<h1>@ViewData["Title"]</h1>
 @if (TempData["Message"] != null)
 {
     <div class="alert alert-info">@TempData["Message"]</div>

@@ -5,7 +5,7 @@
     ViewData["Title"] = "Endre Behov";
 }
 
-<h1>Endre Behov</h1>
+<h1>@ViewData["Title"]</h1>
 <form asp-controller="ResourceNeedHandler" asp-action="Edit" method="post">
     <div class="mb-3">
         <label asp-for="Name"></label>
