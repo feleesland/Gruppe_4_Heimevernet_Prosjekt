@@ -1,27 +1,38 @@
-﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 
 @{
-    ViewData["Title"] = "Ny Ressurs";
+    ViewData["Title"] = "Ny ressurs";
 
-    // Show the form when nothing is saved yet. From the map, the model only has a position (no name),
-    // so it is still a new form - not "Gratulerer"
-    var showForm = Model == null || !ViewData.ModelState.IsValid || string.IsNullOrEmpty(Model.Name);
+    // Load the available resource types.
+    var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
+    var currentType = Model?.Type;
+    var hasOldType = !string.IsNullOrEmpty(currentType)
+        && !resourceTypes.Any(t => t.Name == currentType);
 }
 
 <h1>Opprett ny ressurs</h1>
 <p>Fyll inn informasjon om ressursen. Navn og type er obligatoriske.</p>
 
-@if (showForm)
-{
-    <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
-    <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
-        <div>
-            <label asp-for="Name"></label>
-            <input asp-for="Name" />
-            <span asp-validation-for="Name"></span>
+@* Multipart encoding allows the form to upload a picture. *@
+<form asp-controller="ResourceHandler"
+      asp-action="Create"
+      method="post"
+      enctype="multipart/form-data">
+
+    @* Show validation errors together above the fields. *@
+    <div asp-validation-summary="All"
+         class="text-danger"
+         role="alert"></div>
+
+    @* Fields stack on phones and use two columns on wider screens. *@
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Name" class="text-danger"></span>
         </div>
 
         <div class="col-12 col-md-6">
@@ -148,23 +159,25 @@
     <span asp-validation-for="Longitude"
           class="text-danger d-block"></span>
 
-        <button class="button" type="submit">Create</button>
-    </form>
-}
-else
-{
+    @* Large buttons with space between them are easier to tap. *@
+    <div class="d-flex flex-wrap gap-2 mt-3 mb-3">
+        <button type="submit"
+                class="btn btn-primary"
+                style="min-height: 44px;">
+            Opprett ressurs
+        </button>
 
-    <div>
-        Gratulerer du har opprettet en ny ressurs!
-        <h1>@Model!.Name</h1>
-        <p>@Model.Description</p>
-        <p>Type: @Model.Type</p>
+        <a asp-controller="Resource"
+           asp-action="List"
+           class="btn btn-outline-secondary d-inline-flex align-items-center"
+           style="min-height: 44px;">
+            Avbryt
+        </a>
     </div>
 </form>
 
 @section Scripts {
-    @if (showForm)
-    {
-        <script src="~/js/location-picker.js" asp-append-version="true"></script>
-    }
+    @* Enable browser validation and the existing map controls. *@
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/location-picker.js" asp-append-version="true"></script>
 }
