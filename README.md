@@ -43,10 +43,43 @@ Databasestrukturen versjonshåndteres med Entity Framework Core-migreringer. Ved
 
 Databaseforbindelsen leveres gjennom connection string-en `heimevernetdb`. I produksjon må connection string, databasebruker og passord lagres som sikre secrets, og databasen må ha regelmessig backup og testet gjenoppretting.
 
-
 ## Testing scenarioer og resultater
-Unit tester er lagt til, med flere på vei. Startet på med KI og gjennomgått før oppdatering av branch
 
+### UnitTests
+Testkjøringen inneholdt **31 testkjøringer**. Alle testene bestod: **31 bestått, 0 feilet og 0 hoppet over**.
+
+| Område | Scenario | Forventet resultat | Resultat |
+|---|---|---|---|
+| Innlogging | GET login med return URL | Login-viewmodell inneholder lokal return URL | Bestått |
+| Innlogging | POST login med ugyldig modell | Samme viewmodell returneres | Bestått |
+| Innlogging | Gyldig innlogging med lokal URL | Brukeren videresendes til lokal URL | Bestått |
+| Innlogging | Ugyldig e-post eller passord | Innloggingsside vises med generell feilmelding | Bestått |
+| Passord | Passordtilbakestilling uten kode eller e-post | `BadRequest` returneres | Bestått |
+| Hjem | GET startsiden | Standard view returneres | Bestått |
+| Kart | GET kartvisning | Standard view returneres | Bestått |
+| Kart | POST kart med gyldige koordinater | Kartvisning returneres med innsendt posisjon | Bestått |
+| Kart | POST kart med ugyldig modell | Standard view returneres uten modell | Bestått |
+| Feilhåndtering | Feil uten aktiv aktivitet | `TraceIdentifier` brukes som `RequestId` | Bestått |
+| Ressurser | Manglende ressurs-ID | HTTP 404 returneres uten repository-oppslag | Bestått |
+| Ressurser | Autorisert visning av ressurs | Ressurs mappes til korrekt viewmodell | Bestått |
+| Ressurser | Uautorisert visning av ressurs | `ForbidResult` returneres | Bestått |
+| Ressurser | Liste over ressurser | Bare lesbare ressurser vises | Bestått |
+| Sikkerhet | Admin-controller uten administratorrolle | Administratorrolle kreves | Bestått |
+| Sikkerhet | POST-metoder i admin-controller | Alle har anti-forfalskningsbeskyttelse | Bestått |
+| Sikkerhet | POST-metoder i account-controller | Alle har anti-forfalskningsbeskyttelse | Bestått |
+| Sikkerhet | Logout | Innlogging kreves | Bestått |
+| Sikkerhet | Innlogging med ekstern eller manipulert URL | Brukeren sendes til hjemmesiden, ikke ekstern URL | Bestått, 4/4 tilfeller |
+| Sikkerhet | Innlogging med lokal URL | Lokal URL brukes etter innlogging | Bestått |
+| Sikkerhet | Ukjent bruker og feil passord | Samme generelle feilmelding brukes | Bestått |
+| Sikkerhet | Innlogging for låst bruker | Generell feilmelding vises | Bestått |
+| Sikkerhet | Mislykket innlogging | Lockout aktiveres ved mislykket forsøk | Bestått |
+| Geografisk avstand | To identiske koordinater | Avstanden er 0 km | Bestått |
+| Geografisk avstand | Avstand A til B og B til A | Avstanden er symmetrisk | Bestått |
+| Geografisk avstand | Avstand Oslo–Bergen | Avstanden er mellom 305 og 306 km | Bestått |
+| Geografisk avstand | Antipodale punkter | Avstanden er omtrent halve jordens omkrets | Bestått |
+| System | Oppstart av applikasjonen | Applikasjonen starter og hjemmesiden svarer vellykket | Bestått |
+
+Den parameteriserte sikkerhetstesten kjøres med fire ulike URL-varianter. Derfor blir det **31 testkjøringer**, selv om oversikten inneholder **28 testmetoder**.
 
 ## Vår bruk av KI i prosjektet
 KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT, og Anara.
