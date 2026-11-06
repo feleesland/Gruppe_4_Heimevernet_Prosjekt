@@ -5,23 +5,20 @@
 @{
     ViewData["Title"] = "Ny ressurs";
 
-    // Load the available resource types.
     var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
     var currentType = Model?.Type;
     var hasOldType = !string.IsNullOrEmpty(currentType)
         && !resourceTypes.Any(t => t.Name == currentType);
 }
 
-<h1>Opprett ny ressurs</h1>
+<h1>@ViewData["Title"]</h1>
 <p>Fyll inn informasjon om ressursen. Navn og type er obligatoriske.</p>
 
-@* Multipart encoding allows the form to upload a picture. *@
 <form asp-controller="ResourceHandler"
       asp-action="Create"
       method="post"
       enctype="multipart/form-data">
 
-    @* Show validation errors together above the fields. *@
     <div asp-validation-summary="All"
          class="text-danger"
          role="alert"></div>
@@ -125,20 +122,9 @@
         </div>
     </div>
 
-    @* Keep the IDs used by location-picker.js. *@
     <div class="d-flex flex-wrap gap-2 mt-3">
-        <button type="button"
-                id="findOnMap"
-                class="btn btn-secondary"
-                style="min-height: 44px;">
-            Finn på kartet
-        </button>
-        <button type="button"
-                id="useMyLocation"
-                class="btn btn-outline-secondary"
-                style="min-height: 44px;">
-            Bruk min posisjon
-        </button>
+        <button type="button" id="findOnMap" class="button">Finn på kartet</button>
+        <button type="button" id="useMyLocation" class="button">Bruk min posisjon</button>
     </div>
 
     <span id="geoStatus"
@@ -159,25 +145,10 @@
     <span asp-validation-for="Longitude"
           class="text-danger d-block"></span>
 
-    @* Large buttons with space between them are easier to tap. *@
-    <div class="d-flex flex-wrap gap-2 mt-3 mb-3">
-        <button type="submit"
-                class="btn btn-primary"
-                style="min-height: 44px;">
-            Opprett ressurs
-        </button>
-
-        <a asp-controller="Resource"
-           asp-action="List"
-           class="btn btn-outline-secondary d-inline-flex align-items-center"
-           style="min-height: 44px;">
-            Avbryt
-        </a>
-    </div>
+    <button type="submit" class="button">Opprett ressurs</button>
 </form>
 
 @section Scripts {
-    @* Enable browser validation and the existing map controls. *@
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
 }

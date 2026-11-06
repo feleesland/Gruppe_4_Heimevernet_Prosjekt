@@ -1,14 +1,19 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Hjem";
 }
+
+<style>
+    body {
+        background-image: url(/images/Krs.png);
+    }
+</style>
 
 <div class="text-center">
     <h1 class="display-4">Heimevernets nettside for krise og ressurshåndtering</h1>
     <p>Vi hjelper med å gi kriseteam ressursene dem trenger.<p>
     <p>Har du noe du kan bidra med?</p>
-    <br/>
-    <a class="button" asp-controller="Account" asp-action="Login">Registrer her!</a>
+    <a class="button" asp-controller="Account" asp-action="Register">Registrer her!</a>
     <br>
     <p>Er du en internperson?</p>
-    <a class="button" asp-controller="Account" asp-action="Register">Gå til innlogging</a>
+    <a class="button" asp-controller="Account" asp-action="Login">Gå til innlogging</a>
 </div>

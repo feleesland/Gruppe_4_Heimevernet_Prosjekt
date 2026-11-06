@@ -1,30 +1,19 @@
 ﻿@model Heimevernet_Prosjekt.Models.PositionModel
 @using Heimevernet_Prosjekt.Models.Authorization
 @{
-    // Needs are only for admin and operator (same rule as ResourceNeedController)
     var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
     var signedIn = User.Identity?.IsAuthenticated == true;
 }
 
-<!-- 
-	Skjema på kartsiden kan bli lagt til her.
--->
-
-<!-- Juster kartets størrelse her.-->
-	<div id="map"></div>
-	<style>
+<div id="map"></div>
+<style>
 	#map {
 		width: 100vw;
 		margin-left: calc(50% - 50vw);
 		height: 100dvh; /* reserve, før JavaScript har regnet ut riktig høyde */
 		min-height: 300px;
+		z-index: 1 !important;
 	}
-
-	html, body {
-	overflow: hidden;
-	}
-
-	/* The square in the middle of a need: how many things are needed. Text + colour, not colour alone */
 	.need-marker {
 		display: flex; align-items: center; justify-content: center;
 		width: 26px; height: 26px; border-radius: 5px;
@@ -41,7 +30,6 @@
 	.need-label.planlagt { color: #378ADD; }
 	.map-menu a { display: block; padding: 4px 0; }
 </style>
-
 
 @section Scripts {
 	<script>
@@ -122,8 +110,6 @@ function getResourceIcon(type, status) {
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
 
-
-	
 		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
 		// https://leafletjs.com/reference.html
 		var markerLayer = L.layerGroup().addTo(map);
@@ -160,7 +146,6 @@ function getResourceIcon(type, status) {
 							console.warn("Ugyldige koordinater:", resource);
 							return;
 						}
-
 				
 						var icon = getResourceIcon(
 							resource.type,
@@ -190,13 +175,11 @@ function getResourceIcon(type, status) {
 				});
 		}
 
-		// ---- Needs: circle + square with how many things are needed (only admin and operator) (help with AI) ----
 		var canNeeds = @(canNeeds ? "true" : "false");
 		var needLayer = L.layerGroup();
 		var needDetailUrl = '@Url.Content("~/ResourceNeed/Index/")';
 		var needCreateUrl = '@Url.Action("Create", "ResourceNeedHandler")';
 
-		// "12.11" for a planned need (the time is saved as UTC and shown in Norwegian time)
 		function shortDate(utc) {
 			if (!utc) return '';
 			var date = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
@@ -268,7 +251,6 @@ function getResourceIcon(type, status) {
 			loadNeeds();
 		}
 
-		// Called by the search in the menu (site.js), and when the page opens with a search in the URL (help with AI)
 		window.onResourceSearch = async function (params) {
 			var statusText = document.getElementById('globalSearchStatus');
 
@@ -283,7 +265,6 @@ function getResourceIcon(type, status) {
 
 			var markers = await loadResources(params);
 
-			// No search: show everything with the normal view
 			if (Object.keys(params).length === 0) {
 				if (statusText) statusText.textContent = '';
 				map.setView([58.14671, 7.9956], 13);
@@ -309,10 +290,9 @@ function getResourceIcon(type, status) {
 			}
 		};
 
-		// Called when a resource is picked in the suggestion list: fly there and open its popup
 		window.onResourceSelected = async function (resource) {
 			if (resource.latitude == null || resource.longitude == null) {
-				window.location.href = detailUrl + resource.id; // no position: open the resource page instead
+				window.location.href = detailUrl + resource.id;
 				return;
 			}
 			if (radiusCircle) {
@@ -326,7 +306,7 @@ function getResourceIcon(type, status) {
 			}
 		};
 
-		// "Velg punkt på kartet" in the filter: the next click on the map becomes the centre of the circle
+		// "Velg punkt på kartet" i filter
 		var pickingCenter = false;
 		window.startPickCenter = function (callback) {
 			pickingCenter = true;
@@ -338,7 +318,6 @@ function getResourceIcon(type, status) {
 			});
 		};
 
-		// ---- Click menu: a small menu where you clicked (help with AI) - Docs: Leaflet Popup ----
 		var resourceCreateUrl = '@Url.Action("Create", "ResourceHandler")';
 		var mapUrl = '@Url.Action("Map", "Home")';
 		var signedIn = @(signedIn ? "true" : "false");
@@ -364,7 +343,6 @@ function getResourceIcon(type, status) {
 				.openOn(map);
 		});
 
-		// Open with the search from the URL (e.g. from another page), or show everything
 		window.onResourceSearch(Object.fromEntries(new URLSearchParams(window.location.search)));
 
 	</script>

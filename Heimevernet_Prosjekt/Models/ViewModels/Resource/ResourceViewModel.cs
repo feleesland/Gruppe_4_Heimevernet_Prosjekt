@@ -47,7 +47,6 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         // When the resource was registered (only shown, never typed in)
         public DateTime? CreatedAt { get; set; }
 
-        // Free text from the owner, e.g. where the keys are
         [MaxLength(2000, ErrorMessage = "Merknadene kan ikke være lengre enn 2000 tegn.")]
         [Display(Name = "Merknader")]
         public string? Notes { get; set; }
