@@ -24,14 +24,14 @@ Produksjonsutrulling og rutiner for sikkerheitskopiering er ikke dokumentert i g
 
 ## System arkitektur
 ### Oversikt
-Diagram for oversikt kommer her
+![Diagram](https://cdn.discordapp.com/attachments/1473294871182708863/1568327902620024853/System_Architecture.png?ex=6aef6aae&is=6aee192e&hm=861fbd0ff532c4176073781eda97a6c17c681ea8cb4e9d2afc11d9a5ae359f36&)
 
 ### Komponent & Bruk
 **Views og viewmodels:** Razor-visning presentere nettsidene. Viewmodels flytter og sjekker skjemaopplysning. Bootstrap og CSS gjør det mulig for visning på forskjellige skjermstørrelser.  
 **Controllers:** Tar i mot fårespørsler, behandler brukerhandling, og velger hvilken visning og svar må returneres.  
 **Repository og database:**	Repositories samler datatilgang, Entity Framework Core leser og lagrer data i MariaDB-databasen vår gjennom HeimevernetDbContext.  
 **Innlogging og tilgang:** ASP.NET Core Identity ta seg av brukerkontoer og innlogging. Roller og autorisasjonsregler styrer tilgangen.  
-**Kart og tenester:** Leaflet tegner kartet i nettleseren, og kartbildene hentes fra OpenStreetMap. Kartverkets tjenester brukes til søk på adresser og steder. E-post sendes med SendGrid (Twilio).  
+**Kart og tenester:** Leaflet brukes til visning av kart og markører. Kartverkets tjenester bidrar med søk på adresser og steder.  
 
 En typisk fårespørsel går fra viewet som vises i nettleseren til en controller, og deretter til databasen. Controlleren sender den nødvendige dataen til visning, for eksempel JSON, kartmarkører, eller ressursdata.
 Autorisasjonshandtereren gir administratorer og frivillige tilgang til ressurser. Administratorer har full tilgang, men frivillige har kun tilgang til egne ressurser.Operatører får kun lesetilgang. Ressurs og ressursbehov følger en logisk sletting; de blir skjult ved databasefilter og ikke-personlige informasjon blir ivaretatt i databasen. 
@@ -54,6 +54,15 @@ Databasestrukturen versjonshåndteres med Entity Framework Core-migreringer. Ved
 Databaseforbindelsen leveres gjennom connection string-en `heimevernetdb`. I produksjon må connection string, databasebruker og passord lagres som sikre secrets, og databasen må ha regelmessig backup og testet gjenoppretting.
 
 ## Testing scenarioer og resultater
+
+### Brukervennlighetstester
+Brukervennlighets tester ble utført til en begrenset grad grunnet tidspress. Det er planlagt å utføre flere bruker-tester videre.
+
+Det ble hovedsakelig påpekt to UX problemer:
+* Vanskelig å se enkelte knapper
+* Mobil-grensesnitt har problemer med forsvinnende elementer
+
+Disse har blitt notert og vil jobber med for å fikse videre i utviklingen.
 
 ### UnitTests
 Testkjøringen inneholdt **31 testkjøringer**. Alle testene bestod: **31 bestått, 0 feilet og 0 hoppet over**.
@@ -157,13 +166,14 @@ Se kjørende containere med:
 docker ps
 ```
 ## Vår bruk av KI i prosjektet
-KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT,Claude og Anara.
+KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT, og Anara.
 
-Disse har blitt brukt på følgende måter:
-
-* Ai Chat har vært til hjelp med å debugge og finne løsninger på problemer som har oppstått underveis. Inklusivt brukt for å raskt lage unit-tester før de ble sjekket av gruppe medlem. 
-* Ai ble også brukt for å lage en Markdown oversikt av UnitTests, samt formatering for å sette opp prosjektet på ny maskin.
-* Ai har blitt brukt for å få rask hjelp med småting som "Hvordan å endre at kartstørrelsen tilpasser seg skjermer automatisk". Den har da kommet med forslag til måter dette kunne gjøres på.
-* I Anara har tutoriels fra IS-202 som er brukt i dette prosjektet blitt lagt inn for å få bedre forståelse av hvordan koden fungerer ved å snakke med filene.
+KI har blitt brukt for følgende formål:
+* Hjelp med å debugge og finne løsninger på problemer som har oppstått underveis
+* Lage unit-tester før de ble sjekket av gruppe medlem.
+* Dokumentasjon i koden 
+* Løse større problemer, slikt som rolle-basert tilgang
+* Lage en Markdown oversikt av UnitTests, samt formatering for å sette opp prosjektet på ny maskin.
+* For å få rask hjelp med småting, slik som at kartstørrelsen tilpasser seg skjermer automatisk.
+* Tutorials fra IS-202 ble brukt som treningsdata for å gi bedre forståelse av hvordan koden fungerer.
 * Bruk av KI for å navigere mellom forskjellige mapper og instillinger i Visual Studio. 
-* KI har blitt brukt til å sette opp JavaScript-koden og til å forklare hvordan HTML fungerer og hjelpet med å sette det opp men vi har gått igjennom det selv.
