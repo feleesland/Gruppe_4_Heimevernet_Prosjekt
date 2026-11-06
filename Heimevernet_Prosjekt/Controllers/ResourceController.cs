@@ -18,15 +18,18 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IResourceRepository _resourceRepository;
         private readonly IAuthorizationService _authorizationService;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IResourceTypeRepository _typeRepository;
 
         public ResourceController(
             IResourceRepository resourceRepository,
             IAuthorizationService authorizationService,
-            UserManager<ApplicationUser> userManager)
+            UserManager<ApplicationUser> userManager,
+            IResourceTypeRepository typeRepository)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
             _userManager = userManager;
+            _typeRepository = typeRepository;
         }
 
         [HttpGet]
@@ -192,24 +195,12 @@ namespace Heimevernet_Prosjekt.Controllers
             return Json(resources);
         }
 
-        // The types of resources the user can see, for the Type dropdown in the filter
+        // The types for the Type dropdown in the filter: only the types in the list (ResourceTypes),
+        // so old or deleted types never show up. Same order as in Opprett/Rediger ("Annet" last)
         [HttpGet]
-        public async Task<IActionResult> Types()
+        public IActionResult Types()
         {
-            var types = new List<string>();
-
-            foreach (var resource in _resourceRepository.GetAll())
-            {
-                var authorizationResult = await _authorizationService
-                    .AuthorizeAsync(User, resource, ResourceOperations.Read);
-
-                if (authorizationResult.Succeeded && !string.IsNullOrWhiteSpace(resource.Type))
-                {
-                    types.Add(resource.Type.Trim());
-                }
-            }
-
-            return Json(types.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(t => t).ToList());
+            return Json(_typeRepository.GetAll().Select(t => t.Name));
         }
 
         // Search, type, radius and "only mine" shared by the list and the map (help with AI)

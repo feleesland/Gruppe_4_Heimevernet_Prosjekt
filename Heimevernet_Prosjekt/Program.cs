@@ -27,6 +27,7 @@ builder.Services.AddScoped<IResourceRepository, EfResourceRepository>();
 builder.Services.AddScoped<IResourceNeedRepository, EfResourceNeedRepository>();
 builder.Services.AddScoped<IResourceTypeRepository, EfResourceTypeRepository>();
 builder.Services.AddScoped<IResourceReportRepository, EfResourceReportRepository>();
+builder.Services.AddScoped<IResourceRequestRepository, EfResourceRequestRepository>();
 
 // Kartverket search (places and addresses) with a typed HttpClient - Docs: Make HTTP requests using IHttpClientFactory in ASP.NET Core
 // https://learn.microsoft.com/aspnet/core/fundamentals/http-requests
@@ -80,6 +81,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Handler that checks who can read, edit and delete a resource - Docs: Resource-based authorization
 // https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased
 builder.Services.AddSingleton<IAuthorizationHandler, ResourceAuthorizationHandler>();
+builder.Services.AddSingleton<IAuthorizationHandler, ResourceNeedAuthorizationHandler>();
 
 var app = builder.Build();
 
@@ -88,7 +90,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimevernetDbContext>();
     db.Database.Migrate();
-
+    
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentitySeeder.SeedRolesAsync(roleManager);
 
