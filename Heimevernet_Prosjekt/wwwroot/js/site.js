@@ -1,8 +1,6 @@
 ﻿// Please see documentation at https://learn.microsoft.com/aspnet/core/client-side/bundling-and-minification
 // for details on configuring this project to bundle and minify static web assets.
 
-// Write your JavaScript code.
-
 // Search in the menu (_Layout) like YouTube/Google Maps: suggestions while typing (our resources + places from Kartverket),
 // Enter goes to Kart, ✕ clears. The filter (type + radius) is kept in the URL, so Kart and Ressursoversikt show the same (help with AI)
 // Docs: Bootstrap Dropdowns - https://getbootstrap.com/docs/5.3/components/dropdowns/

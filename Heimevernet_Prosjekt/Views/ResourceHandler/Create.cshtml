@@ -14,8 +14,6 @@
 {
     <h1>Ny Ressurs</h1>
 
-    <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
     <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
         <div class="mb-3">
             <label asp-for="Name"></label>
@@ -81,7 +79,6 @@
         <input type="hidden" asp-for="Longitude" />
 
         <button class="button" type="submit">Opprett</button>
-        <button class="button" type="submit">Create</button>
     </form>
 }
 else

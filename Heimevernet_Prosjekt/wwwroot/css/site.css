@@ -6,8 +6,13 @@ html {
 
 body {
     margin-bottom: 60px;
-    background-image: url(/Krs.png);
     font-size: 16px;
+}
+
+header {
+    position: sticky;
+    top: 0px;
+    z-index: 1050; 
 }
 
 a {
@@ -74,7 +79,6 @@ a {
         vertical-align: top;
     }
 
-    /* Make the column headings easy to identify. */
     .resource-table thead {
         background-color: #f2f4f6;
     }
