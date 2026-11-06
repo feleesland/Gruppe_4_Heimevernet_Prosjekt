@@ -31,7 +31,7 @@ Diagram for oversikt kommer her
 **Controllers:** Tar i mot fårespørsler, behandler brukerhandling, og velger hvilken visning og svar må returneres.  
 **Repository og database:**	Repositories samler datatilgang, Entity Framework Core leser og lagrer data i MariaDB-databasen vår gjennom HeimevernetDbContext.  
 **Innlogging og tilgang:** ASP.NET Core Identity ta seg av brukerkontoer og innlogging. Roller og autorisasjonsregler styrer tilgangen.  
-**Kart og tenester:** Leaflet brukes til visning av kart og markører. Kartverkets tjenester bidrar med søk på adresser og steder.  
+**Kart og tenester:** Leaflet tegner kartet i nettleseren, og kartbildene hentes fra OpenStreetMap. Kartverkets tjenester brukes til søk på adresser og steder. E-post sendes med SendGrid (Twilio).  
 
 En typisk fårespørsel går fra viewet som vises i nettleseren til en controller, og deretter til databasen. Controlleren sender den nødvendige dataen til visning, for eksempel JSON, kartmarkører, eller ressursdata.
 Autorisasjonshandtereren gir administratorer og frivillige tilgang til ressurser. Administratorer har full tilgang, men frivillige har kun tilgang til egne ressurser.Operatører får kun lesetilgang. Ressurs og ressursbehov følger en logisk sletting; de blir skjult ved databasefilter og ikke-personlige informasjon blir ivaretatt i databasen. 
