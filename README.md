@@ -31,7 +31,7 @@ Produksjonsutrulling og rutiner for sikkerheitskopiering er ikke dokumentert i g
 **Controllers:** Tar i mot fårespørsler, behandler brukerhandling, og velger hvilken visning og svar må returneres.  
 **Repository og database:**	Repositories samler datatilgang, Entity Framework Core leser og lagrer data i MariaDB-databasen vår gjennom HeimevernetDbContext.  
 **Innlogging og tilgang:** ASP.NET Core Identity ta seg av brukerkontoer og innlogging. Roller og autorisasjonsregler styrer tilgangen.  
-**Kart og tenester:** Leaflet brukes til visning av kart og markører. Kartverkets tjenester bidrar med søk på adresser og steder.  
+**Kart og tjenester:** Leaflet tegner kartet i nettleseren, og kartbildene hentes fra OpenStreetMap. Kartverkets tjenester brukes til søk på adresser og steder. E-post sendes med SendGrid (Twilio). 
 
 En typisk fårespørsel går fra viewet som vises i nettleseren til en controller, og deretter til databasen. Controlleren sender den nødvendige dataen til visning, for eksempel JSON, kartmarkører, eller ressursdata.
 Autorisasjonshandtereren gir administratorer og frivillige tilgang til ressurser. Administratorer har full tilgang, men frivillige har kun tilgang til egne ressurser.Operatører får kun lesetilgang. Ressurs og ressursbehov følger en logisk sletting; de blir skjult ved databasefilter og ikke-personlige informasjon blir ivaretatt i databasen. 
@@ -166,14 +166,16 @@ Se kjørende containere med:
 docker ps
 ```
 ## Vår bruk av KI i prosjektet
-KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT, og Anara.
+KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT, Claude og Anara.
 
-KI har blitt brukt for følgende formål:
-* Hjelp med å debugge og finne løsninger på problemer som har oppstått underveis
+Disse har blitt brukt på følgende måter:
+
+* Hjelp med å debugge og finne løsninger på problemer som har oppstått underveis.
 * Lage unit-tester før de ble sjekket av gruppe medlem.
-* Dokumentasjon i koden 
-* Løse større problemer, slikt som rolle-basert tilgang
 * Lage en Markdown oversikt av UnitTests, samt formatering for å sette opp prosjektet på ny maskin.
 * For å få rask hjelp med småting, slik som at kartstørrelsen tilpasser seg skjermer automatisk.
 * Tutorials fra IS-202 ble brukt som treningsdata for å gi bedre forståelse av hvordan koden fungerer.
-* Bruk av KI for å navigere mellom forskjellige mapper og instillinger i Visual Studio. 
+* Bruk av KI for å navigere mellom forskjellige mapper og instillinger i Visual Studio.
+* Løse større problemer, slikt som rolle-basert tilgang
+* Forbedre dokumentasjon i koden 
+* Sette opp JavaScript-koden og til å forklare hvordan HTML fungerer og hjelpet med å sette det opp men vi har gått igjennom det selv.
