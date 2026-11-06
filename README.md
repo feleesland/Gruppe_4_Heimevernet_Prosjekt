@@ -157,12 +157,13 @@ Se kjørende containere med:
 docker ps
 ```
 ## Vår bruk av KI i prosjektet
-KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT, og Anara.
+KI verktøyene gruppen har brukt har vært blant annet GitHub Copilot Chat, ChatGPT,Claude og Anara.
 
 Disse har blitt brukt på følgende måter:
 
-* GitHub Copilot Chat har vært til hjelp med å debugge og finne løsninger på problemer som har oppstått underveis. Inklusivt brukt for å raskt lage unit-tester før de ble sjekket av gruppe medlem. 
-* Copilot ble også brukt for å lage en Markdown oversikt av UnitTests, samt formatering for å sette opp prosjektet på ny maskin.
-* ChatGPT har blitt brukt for å få rask hjelp med småting som "Hvordan å endre at kartstørrelsen tilpasser seg skjermer automatisk". Den har da kommet med forslag til måter dette kunne gjøres på.
+* Ai Chat har vært til hjelp med å debugge og finne løsninger på problemer som har oppstått underveis. Inklusivt brukt for å raskt lage unit-tester før de ble sjekket av gruppe medlem. 
+* Ai ble også brukt for å lage en Markdown oversikt av UnitTests, samt formatering for å sette opp prosjektet på ny maskin.
+* Ai har blitt brukt for å få rask hjelp med småting som "Hvordan å endre at kartstørrelsen tilpasser seg skjermer automatisk". Den har da kommet med forslag til måter dette kunne gjøres på.
 * I Anara har tutoriels fra IS-202 som er brukt i dette prosjektet blitt lagt inn for å få bedre forståelse av hvordan koden fungerer ved å snakke med filene.
 * Bruk av KI for å navigere mellom forskjellige mapper og instillinger i Visual Studio. 
+* KI har blitt brukt til å sette opp JavaScript-koden og til å forklare hvordan HTML fungerer og hjelpet med å sette det opp men vi har gått igjennom det selv.
