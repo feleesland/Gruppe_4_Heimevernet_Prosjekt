@@ -14,6 +14,9 @@ using IdentitySignInResult = Microsoft.AspNetCore.Identity.SignInResult;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 
+/// <summary>
+/// Provides tests for account controller authentication and password reset behavior.
+/// </summary>
 public sealed class AccountControllerTests
 {
     [Fact]
