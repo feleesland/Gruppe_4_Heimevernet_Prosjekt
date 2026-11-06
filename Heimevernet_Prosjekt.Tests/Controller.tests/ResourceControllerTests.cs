@@ -101,18 +101,7 @@ public sealed class ResourceControllerTests
         repository
             .Setup(repository => repository.GetAll())
             .Returns(new[] { allowedResource, deniedResource });
-        //var authorization = new Mock<IAuthorizationService>();
-        //authorization
-        //    .Setup(service => service.AuthorizeAsync(
-        //        It.IsAny<ClaimsPrincipal>(), allowedResource,
-        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
-        //            requirements.Contains(ResourceOperations.Read))))
-        //    .ReturnsAsync(AuthorizationResult.Success());
-        //authorization
-        //    .Setup(service => service.AuthorizeAsync(
-        //        It.IsAny<ClaimsPrincipal>(), deniedResource,
-        //        It.Is<IEnumerable<IAuthorizationRequirement>>(requirements =>
-        //            requirements.Contains(ResourceOperations.Read))))
+
         var authorization = new Mock<IAuthorizationService>();
         // Default answer "not allowed" for everything else: List also checks Update/Delete for the Rediger/Slett buttons (help with AI)
         authorization
@@ -147,21 +136,7 @@ public sealed class ResourceControllerTests
         Assert.Equal(allowedResource.Type, returnedResource.Type);
     }
 
-    //private static ResourceController CreateController(
-    //    Mock<IResourceRepository> repository,
-    //    Mock<IAuthorizationService> authorization)
-    //{
-    //    return new ResourceController(repository.Object, authorization.Object)
-    //    {
-    //        ControllerContext = new ControllerContext
-    //        {
-    //            HttpContext = new DefaultHttpContext
-    //            {
-    //                User = new ClaimsPrincipal(new ClaimsIdentity())
-    //            }
-    //        }
-    //    };
-    //} se linje 137 til 156
+
     private static ResourceController CreateController(
     Mock<IResourceRepository> repository,
     Mock<IAuthorizationService> authorization)

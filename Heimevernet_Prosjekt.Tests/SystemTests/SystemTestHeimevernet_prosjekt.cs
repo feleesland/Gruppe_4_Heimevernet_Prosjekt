@@ -4,7 +4,7 @@ using Xunit;
 namespace SystemTestHeimevernet_prosjekt;
 
 //summary//
-// this is a system test for the project made quickly with some assistance from AI fixing failures.
+// this is a system test for the project made quickly with some assistance from AI fixing failures that arose in the workflow.
 // "DistributedApplicationTestingBuilder" builds the project, "startasync" starts the project, "WaitForResourceHealthyAsync" waits for the project to be healthy,
 // GetAsync("/") gets the home page, and "IsSuccessStatusCode" checks if the response is successful. The test will fail if the project does not start or the home page does not load successfully.
 // "Assert.True" checks if the test is successful.
