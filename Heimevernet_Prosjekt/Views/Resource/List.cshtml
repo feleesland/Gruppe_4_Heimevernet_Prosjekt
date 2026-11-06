@@ -8,9 +8,9 @@
     ViewData["Title"] = "Ressurser";
 }
 
-<h1>Ressurser</h1>
+<h1>@ViewData["Title"]</h1>
 
-<a class="btn btn-primary mb-3"
+<a class="button"
    asp-controller="ResourceHandler"
    asp-action="Create">
     + Opprett ny ressurs
@@ -62,7 +62,7 @@
                 <span>· innen @query["radius"] km fra @(activeWhere == "" ? "valgt punkt" : activeWhere)</span>
             }
         </span>
-        <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="btn btn-sm btn-primary">Vis på kart</a>
+        <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="button">Vis på kart</a>
         <a asp-action="List" class="btn btn-sm btn-outline-secondary">Nullstill</a>
     </div>
 }

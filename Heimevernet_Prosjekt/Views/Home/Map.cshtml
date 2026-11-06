@@ -1,32 +1,19 @@
 ﻿@model Heimevernet_Prosjekt.Models.PositionModel
 @using Heimevernet_Prosjekt.Models.Authorization
 @{
-    // Needs are only for admin and operator (same rule as ResourceNeedController)
     var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
     var signedIn = User.Identity?.IsAuthenticated == true;
 }
 
-<!-- 
-	<h2>Legg til en heading her?</h2>
-
-	Skjema på kartsiden kan bli lagt til her.
--->
-
-<!-- Juster kartets størrelse her.-->
-	<div id="map"></div>
-	<style>
+<div id="map"></div>
+<style>
 	#map {
 		width: 100vw;
 		margin-left: calc(50% - 50vw);
 		height: 100dvh; /* reserve, før JavaScript har regnet ut riktig høyde */
 		min-height: 300px;
+		z-index: 1 !important;
 	}
-
-	html, body {
-	overflow: hidden;
-	}
-
-	/* The square in the middle of a need: how many things are needed. Text + colour, not colour alone */
 	.need-marker {
 		display: flex; align-items: center; justify-content: center;
 		width: 26px; height: 26px; border-radius: 5px;
@@ -44,10 +31,9 @@
 	.map-menu a { display: block; padding: 4px 0; }
 </style>
 
-
 @section Scripts {
 	<script>
-		@*Ikoner*@ 
+// 		@*Ikoner til default*@ 
 var greenIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -72,6 +58,50 @@ var redIcon = new L.Icon({
     popupAnchor: [1, -34]
 });
 
+
+function getDefaultMarker(status) {
+
+    switch (status) {
+
+        case "Opptatt":
+            return yellowIcon;
+
+        case "Ugyldig":
+            return redIcon;
+
+        default:
+            return greenIcon;
+    }
+}
+
+function getResourceIcon(type, status) {
+
+//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
+    var typeMap = {
+        "Verktøy og utstyr": "tools",
+        "Motoriserte kjøretøy": "vehicle",
+        "Husly og bygg": "shelter",
+       // "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
+        "Sikkerhet og medisinsk": "medical"
+    };
+
+    var iconType = typeMap[type];
+
+    if (!iconType) {
+        return getDefaultMarker(status);
+    }
+
+    var iconStatus = (status || "Ledig")
+        .toLowerCase()
+        .replace("ø", "o");
+
+    return L.icon({
+        iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 36],
+        popupAnchor: [0, -36]
+    });
+}
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
@@ -80,8 +110,6 @@ var redIcon = new L.Icon({
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
 
-
-	
 		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
 		// https://leafletjs.com/reference.html
 		var markerLayer = L.layerGroup().addTo(map);
@@ -108,7 +136,7 @@ var redIcon = new L.Icon({
 					markersById = {};
 					var markers = [];
 
-					resources.forEach(resource => {
+					for (const resource of resources) {
 
 						var lat = parseFloat(resource.latitude);
 						var lng = parseFloat(resource.longitude);
@@ -118,17 +146,11 @@ var redIcon = new L.Icon({
 							console.warn("Ugyldige koordinater:", resource);
 							return;
 						}
-
-						// Marker colour from status: green = Ledig (or no status), yellow = Opptatt, red = Ugyldig
-						var icon = greenIcon;
-						switch (resource.status) {
-							case "Opptatt":
-								icon = yellowIcon;
-								break;
-							case "Ugyldig":
-								icon = redIcon;
-								break;
-						}
+				
+						var icon = getResourceIcon(
+							resource.type,
+							resource.status
+						);
 
 						var marker = L.marker([lat, lng], { icon: icon }).addTo(markerLayer);
 
@@ -144,7 +166,7 @@ var redIcon = new L.Icon({
 						`);
 						markers.push(marker);
 						markersById[resource.id] = marker;
-					});
+					}
 					return markers;
 				})
 				.catch(error => {
@@ -153,13 +175,11 @@ var redIcon = new L.Icon({
 				});
 		}
 
-		// ---- Needs: circle + square with how many things are needed (only admin and operator) (help with AI) ----
 		var canNeeds = @(canNeeds ? "true" : "false");
 		var needLayer = L.layerGroup();
 		var needDetailUrl = '@Url.Content("~/ResourceNeed/Index/")';
 		var needCreateUrl = '@Url.Action("Create", "ResourceNeedHandler")';
 
-		// "12.11" for a planned need (the time is saved as UTC and shown in Norwegian time)
 		function shortDate(utc) {
 			if (!utc) return '';
 			var date = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
@@ -231,7 +251,6 @@ var redIcon = new L.Icon({
 			loadNeeds();
 		}
 
-		// Called by the search in the menu (site.js), and when the page opens with a search in the URL (help with AI)
 		window.onResourceSearch = async function (params) {
 			var statusText = document.getElementById('globalSearchStatus');
 
@@ -246,7 +265,6 @@ var redIcon = new L.Icon({
 
 			var markers = await loadResources(params);
 
-			// No search: show everything with the normal view
 			if (Object.keys(params).length === 0) {
 				if (statusText) statusText.textContent = '';
 				map.setView([58.14671, 7.9956], 13);
@@ -272,10 +290,9 @@ var redIcon = new L.Icon({
 			}
 		};
 
-		// Called when a resource is picked in the suggestion list: fly there and open its popup
 		window.onResourceSelected = async function (resource) {
 			if (resource.latitude == null || resource.longitude == null) {
-				window.location.href = detailUrl + resource.id; // no position: open the resource page instead
+				window.location.href = detailUrl + resource.id;
 				return;
 			}
 			if (radiusCircle) {
@@ -289,7 +306,7 @@ var redIcon = new L.Icon({
 			}
 		};
 
-		// "Velg punkt på kartet" in the filter: the next click on the map becomes the centre of the circle
+		// "Velg punkt på kartet" i filter
 		var pickingCenter = false;
 		window.startPickCenter = function (callback) {
 			pickingCenter = true;
@@ -301,7 +318,6 @@ var redIcon = new L.Icon({
 			});
 		};
 
-		// ---- Click menu: a small menu where you clicked (help with AI) - Docs: Leaflet Popup ----
 		var resourceCreateUrl = '@Url.Action("Create", "ResourceHandler")';
 		var mapUrl = '@Url.Action("Map", "Home")';
 		var signedIn = @(signedIn ? "true" : "false");
@@ -327,7 +343,6 @@ var redIcon = new L.Icon({
 				.openOn(map);
 		});
 
-		// Open with the search from the URL (e.g. from another page), or show everything
 		window.onResourceSearch(Object.fromEntries(new URLSearchParams(window.location.search)));
 
 	</script>

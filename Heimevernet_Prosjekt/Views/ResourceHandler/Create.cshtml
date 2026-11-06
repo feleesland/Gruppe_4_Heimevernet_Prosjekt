@@ -1,107 +1,154 @@
-﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
+﻿﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
-@{
-    ViewData["Title"] = "Ny Ressurs";
 
-    // Show the form when nothing is saved yet. From the map, the model only has a position (no name),
-    // so it is still a new form - not "Gratulerer"
-    var showForm = Model == null || !ViewData.ModelState.IsValid || string.IsNullOrEmpty(Model.Name);
+@{
+    ViewData["Title"] = "Ny ressurs";
+
+    var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
+    var currentType = Model?.Type;
+    var hasOldType = !string.IsNullOrEmpty(currentType)
+        && !resourceTypes.Any(t => t.Name == currentType);
 }
 
+<h1>@ViewData["Title"]</h1>
+<p>Fyll inn informasjon om ressursen. Navn og type er obligatoriske.</p>
 
-@if (showForm)
-{
-    <!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
-    <form asp-controller="ResourceHandler" asp-action="Create" method="post" enctype="multipart/form-data">
-        <div>
-            <label asp-for="Name"></label>
-            <input asp-for="Name" />
-            <span asp-validation-for="Name"></span>
-        </div>
-        <div>
-            <label asp-for="Description"></label>
-            <input asp-for="Description" />
-            <span asp-validation-for="Description"></span>
+<form asp-controller="ResourceHandler"
+      asp-action="Create"
+      method="post"
+      enctype="multipart/form-data">
+
+    <div asp-validation-summary="All"
+         class="text-danger"
+         role="alert"></div>
+
+    @* Fields stack on phones and use two columns on wider screens. *@
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Name" class="text-danger"></span>
         </div>
 
-        @* Type is chosen from a fixed list (admin can add more), so the filter can find every resource *@
-        @{
-            var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
-            var currentType = Model?.Type;
-            var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
-        }
-        <div>
-            <label asp-for="Type"></label>
-            <select asp-for="Type" data-type-select>
+        <div class="col-12 col-md-6">
+            <label asp-for="Type" class="form-label"></label>
+            <select asp-for="Type"
+                    class="form-select"
+                    style="min-height: 44px;"
+                    data-type-select
+                    aria-describedby="typeExamples">
                 <option value="">Velg type …</option>
                 @foreach (var t in resourceTypes)
                 {
-                    <option value="@t.Name" data-examples="@t.Examples">@t.Name</option>
+                    <option value="@t.Name" data-examples="@t.Examples">
+                        @t.Name
+                    </option>
                 }
                 @if (hasOldType)
                 {
-                    <option value="@currentType">@currentType (gammel type – velg en ny)</option>
+                    <option value="@currentType">
+                        @currentType (gammel type – velg en ny)
+                    </option>
                 }
             </select>
-            <small id="typeExamples"></small>
-            <span asp-validation-for="Type"></span>
+            <small id="typeExamples"
+                   class="form-text d-block"
+                   aria-live="polite"></small>
+            <span asp-validation-for="Type" class="text-danger"></span>
         </div>
 
-        <!-- Free text, e.g. where the keys are -->
-        <div>
-            <label asp-for="Notes"></label>
-            <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
-            <span asp-validation-for="Notes"></span>
+        <div class="col-12">
+            <label asp-for="Description" class="form-label"></label>
+            <textarea asp-for="Description"
+                      class="form-control"
+                      rows="3"></textarea>
+            <span asp-validation-for="Description" class="text-danger"></span>
         </div>
 
-        <!-- Picture: on a phone, capture="environment" opens the back camera -->
-        <div>
-            <label asp-for="Image"></label>
-            <input asp-for="Image" type="file" accept="image/*" capture="environment" />
-            <span asp-validation-for="Image"></span>
+        <div class="col-12">
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes"
+                      class="form-control"
+                      rows="3"
+                      placeholder="F.eks. hvor nøklene ligger"></textarea>
+            <span asp-validation-for="Notes" class="text-danger"></span>
         </div>
 
-        <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
-        <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
-        <div>
-            <label asp-for="Address"></label>
-            <input asp-for="Address" />
-        </div>
-        <div>
-            <label asp-for="ZipCode"></label>
-            <input asp-for="ZipCode" />
-        </div>
-        <div>
-            <label asp-for="City"></label>
-            <input asp-for="City" />
-        </div>
-        <button type="button" id="findOnMap">Finn på kartet</button>
-        <button type="button" id="useMyLocation">Bruk min posisjon</button>
-        <span id="geoStatus"></span>
-        <p>Du kan også klikke på kartet eller dra markøren.</p>
-        <div id="pickMap" style="height: 300px;"></div>
-        <input type="hidden" asp-for="Latitude" />
-        <input type="hidden" asp-for="Longitude" />
+        <div class="col-12">
+            <label asp-for="Image" class="form-label"></label>
 
-        <button class="button" type="submit">Create</button>
-    </form>
-}
-else
-{
+            @* Match the file picker to the types allowed by the controller. *@
+            <input asp-for="Image"
+                   type="file"
+                   class="form-control"
+                   style="min-height: 44px;"
+                   accept="image/jpeg,image/png,image/webp"
+                   capture="environment"
+                   aria-describedby="imageHelp" />
 
-    <div>
-        Gratulerer du har opprettet en ny ressurs!
-        <h1>@Model!.Name</h1>
-        <p>@Model.Description</p>
-        <p>Type: @Model.Type</p>
+            <small id="imageHelp" class="form-text d-block">
+                Valgfritt bilde: JPG, PNG eller WebP. Maksimalt 5 MB.
+                Ved feil i skjemaet må bildet velges på nytt.
+            </small>
+            <span asp-validation-for="Image" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <h2 class="h4 mt-3">Adresse og posisjon</h2>
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address"
+                   class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Address" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label asp-for="ZipCode" class="form-label"></label>
+            <input asp-for="ZipCode"
+                   class="form-control"
+                   style="min-height: 44px;"
+                   inputmode="numeric" />
+            <span asp-validation-for="ZipCode" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-8">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City"
+                   class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="City" class="text-danger"></span>
+        </div>
     </div>
-}
+
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button" id="findOnMap" class="button">Finn på kartet</button>
+        <button type="button" id="useMyLocation" class="button">Bruk min posisjon</button>
+    </div>
+
+    <span id="geoStatus"
+          class="d-block mt-2"
+          role="status"
+          aria-live="polite"></span>
+
+    <p>Du kan også klikke på kartet eller dra markøren.</p>
+
+    @* Let the map fit the available screen width. *@
+    <div id="pickMap"
+         style="height: 300px; width: 100%;"></div>
+
+    <input type="hidden" asp-for="Latitude" />
+    <input type="hidden" asp-for="Longitude" />
+    <span asp-validation-for="Latitude"
+          class="text-danger d-block"></span>
+    <span asp-validation-for="Longitude"
+          class="text-danger d-block"></span>
+
+    <button type="submit" class="button">Opprett ressurs</button>
+</form>
 
 @section Scripts {
-    @if (showForm)
-    {
-        <script src="~/js/location-picker.js" asp-append-version="true"></script>
-    }
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/location-picker.js" asp-append-version="true"></script>
 }

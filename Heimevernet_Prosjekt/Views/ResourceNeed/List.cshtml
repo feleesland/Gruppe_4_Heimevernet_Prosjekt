@@ -4,9 +4,9 @@
     ViewData["Title"] = "Behov";
 }
 
-<h1>Behov</h1>
+<h1>@ViewData["Title"]</h1>
 
-<a class="btn btn-primary mb-3" asp-controller="ResourceNeedHandler" asp-action="Create">+ Opprett nytt behov</a>
+<a class="button" asp-controller="ResourceNeedHandler" asp-action="Create">+ Opprett nytt behov</a>
 
 @if (!Model.Any())
 {

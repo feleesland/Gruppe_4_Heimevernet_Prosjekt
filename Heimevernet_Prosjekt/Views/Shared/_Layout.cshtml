@@ -12,13 +12,12 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Heimevernet_Prosjekt</title>
+    <title>@ViewData["Title"] - Heimevernet</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/Heimevernet_Prosjekt.styles.css" asp-append-version="true" />
 
-    <!-- Load the map stylesheet. -->
     <link rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -26,12 +25,15 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light border-bottom box-shadow">
             <div class="container-fluid">
-                <a class="navbar-brand"
+                <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                    <img width="40.4" height="50" src="/logo.svg"></img>
+                </a>
+                <a class="navbar-brand text-white"
                    asp-area=""
                    asp-controller="Home"
-                   asp-action="Index">Heimevernet_Prosjekt</a>
+                   asp-action="Index">Heimevernet</a>
 
                 <!-- Open or close the menu on small screens. -->
                 <button class="navbar-toggler"
@@ -44,43 +46,36 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <!-- This ID connects the menu to the button above. -->
                 <div id="mainNavigation"
                      class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Home"
                                asp-action="Index">Hjem</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Home"
                                asp-action="Map">Kart</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link text-dark"
-                               asp-area=""
-                               asp-controller="Home"
-                               asp-action="Privacy">Privacy</a>
-                        </li>
-                        <li class="nav-item">
                             @* The controller checks which resources the user can see. *@
-                            <a class="nav-link text-dark"
+                            <a class="nav-link text-white"
                                asp-area=""
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
-                         <li class="nav-item">
-     <a class="nav-link text-dark" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
- </li>
+                        <li class="nav-item">
+                             <a class="nav-link text-white" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+                        </li>
                           @* Show the user management link to administrators. *@
                         @if (User.IsInRole(RoleNames.Admin))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-area=""
                                    asp-controller="Admin"
                                    asp-action="Index">Brukere</a>
@@ -104,10 +99,10 @@
                                 <div id="globalSearchSuggestions" class="search-suggestions d-none"></div>
                             </div>
 
-                            @* Filter: type and radius. "Filter" (outline icon, grey) or "Filter på" (filled icon, blue), so it doesn't rely on color alone - Docs: Bootstrap Dropdowns *@
+                            @* Filter: type and radius. "Filter" or "Filter på" (filled icon, blue), so it doesn't rely on color alone - Docs: Bootstrap Dropdowns *@
                             @* https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
                             <div class="dropdown">
-                                <button type="button" id="filterButton" class="btn btn-outline-secondary rounded-pill text-nowrap d-flex align-items-center gap-1"
+                                <button type="button" id="filterButton" class="btn btn-outline-light rounded-pill text-nowrap d-flex align-items-center gap-1"
                                         data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
                                     <svg class="filter-icon-off" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2z" /></svg>
                                     <svg class="filter-icon-on d-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>
@@ -139,7 +134,7 @@
                                 </div>
                             </div>
 
-                            <span id="globalSearchStatus" class="small text-nowrap"></span>
+                            <span id="globalSearchStatus" class="small text-nowrap text-white"></span>
                         </form>
                     }
                     else
@@ -153,7 +148,7 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
                                 </button>
                             </div>
-                            <span id="infoSearchStatus" class="small text-nowrap"></span>
+                            <span id="infoSearchStatus" class="small text-nowrap text-white"></span>
                         </form>
                     }
 
@@ -165,7 +160,7 @@
                             var currentUser = await UserManager.GetUserAsync(User);
                             var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
 
-                            // 🔔 for everyone: requests waiting for my answer, and (admin) open messages from operators
+                            // bell for everyone: requests waiting for my answer, and (admin) open messages from operators
                             var nowUtc = DateTime.UtcNow;
                             var myRequests = currentUser == null
                                 ? new List<OwnerRequest>()
@@ -176,10 +171,10 @@
 
                             @* The bell and its list - Docs: Bootstrap Dropdowns. Number + text, not only color *@
                             <li class="nav-item dropdown">
-                                <button type="button" class="nav-link btn btn-link text-dark position-relative"
+                                <button type="button" class="nav-link text-white btn btn-link position-relative"
                                         data-bs-toggle="dropdown" aria-expanded="false"
                                         aria-label="@(openCount == 0 ? "Ingen nye varsler" : openCount + (openCount == 1 ? " nytt varsel" : " nye varsler"))">
-                                    🔔
+                                    <img width="25px" src="/bell.svg" />
                                     @if (openCount > 0)
                                     {
                                         <span class="badge rounded-pill bg-danger">@openCount</span>
@@ -229,9 +224,9 @@
 
                             <li class="nav-item">
                                 @* Display the user's name and role. *@
-                                <span class="nav-link text-dark text-end lh-sm">
+                                <span class="nav-link text-white text-end lh-sm">
                                     @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
-                                    <small class="text-muted">
+                                    <small class="text-white">
                                         @RoleNames.DisplayName(
                                             User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
                                             : User.IsInRole(RoleNames.Operator) ? RoleNames.Operator
@@ -247,7 +242,7 @@
                                       method="post"
                                       class="d-inline">
                                     <button type="submit"
-                                            class="nav-link btn btn-link text-dark">
+                                            class="nav-link text-white btn btn-link">
                                         Logg ut
                                     </button>
                                 </form>
@@ -256,12 +251,12 @@
                         else
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-controller="Account"
                                    asp-action="Login">Logg inn</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark"
+                                <a class="nav-link text-white"
                                    asp-controller="Account"
                                    asp-action="Register">Registrer</a>
                             </li>
@@ -272,27 +267,24 @@
         </nav>
     </header>
 
-    <!-- Display the content of the current page. -->
     <div class="container">
-        <main role="main" class="pb-3">
+        <main role="main">
             @RenderBody()
         </main>
     </div>
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; 2026 - Heimevernet_Prosjekt -
+            &copy; 2026 UiA Gruppe 4 - Heimevernet_Prosjekt -
             <a asp-area=""
                asp-controller="Home"
-               asp-action="Privacy">Privacy</a>
+               asp-action="Privacy">Personvern</a>
         </div>
     </footer>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
-    <!-- Load the map library. -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>

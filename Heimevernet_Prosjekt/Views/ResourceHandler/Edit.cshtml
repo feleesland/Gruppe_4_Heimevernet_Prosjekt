@@ -1,109 +1,164 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
+
 @{
     ViewData["Title"] = "Endre Ressurs";
+
+    var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
+    var currentType = Model.Type;
+    var hasOldType = !string.IsNullOrEmpty(currentType)
+        && !resourceTypes.Any(t => t.Name == currentType);
 }
-<!-- enctype="multipart/form-data" is needed to send the picture - Docs: Upload files in ASP.NET Core -->
-<!-- https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads -->
-<form asp-controller="ResourceHandler" asp-action="Edit" method="post" enctype="multipart/form-data">
-    <div>
-        <label asp-for="Name"></label>
-        <input asp-for="Name" value="@Model.Name" />
-        <span asp-validation-for="Name"></span>
-    </div>
-    <div>
-        <label asp-for="Description"></label>
-        <input asp-for="Description" value="@Model.Description" />
-        <span asp-validation-for="Description"></span>
-    </div>
 
-    @* Type is chosen from a fixed list (admin can add more), so the filter can find every resource *@
-    @{
-        var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
-        var currentType = Model.Type; // the Edit page always gets a resource from the controller
-        var hasOldType = !string.IsNullOrEmpty(currentType) && !resourceTypes.Any(t => t.Name == currentType);
-    }
-    <div>
-        <label asp-for="Type"></label>
-        <select asp-for="Type" data-type-select>
-            <option value="">Velg type …</option>
-            @foreach (var t in resourceTypes)
-            {
-                <option value="@t.Name" data-examples="@t.Examples">@t.Name</option>
-            }
-            @if (hasOldType)
-            {
-                <option value="@currentType">@currentType (gammel type – velg en ny)</option>
-            }
-        </select>
-        <small id="typeExamples"></small>
-        <span asp-validation-for="Type"></span>
-    </div>
+<h1>@ViewData["Title"]</h1>
 
-@if (User.IsInRole("admin") || User.IsInRole("operator"))
-{
-    <div>
-        <label asp-for="Status"></label>
+@* Keep multipart encoding for picture uploads. *@
+<form asp-controller="ResourceHandler"
+      asp-action="Edit"
+      method="post"
+      enctype="multipart/form-data">
 
-        <select asp-for="Status">
-            <option value="Ledig">Ledig</option>
-            <option value="Opptatt">Opptatt</option>
-            <option value="Ugyldig">Ugyldig</option>
-        </select>
+    @* Stack fields on phones and use two columns on wider screens. *@
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name"
+                   class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
 
-        <span asp-validation-for="Status"></span>
-    </div>
-}
-    <!-- Free text, e.g. where the keys are -->
-    <div>
-        <label asp-for="Notes"></label>
-        <textarea asp-for="Notes" rows="3" placeholder="F.eks. hvor nøklene ligger"></textarea>
-        <span asp-validation-for="Notes"></span>
-    </div>
+        <div class="col-12 col-md-6">
+            <label asp-for="Type" class="form-label"></label>
+            <select asp-for="Type"
+                    class="form-select"
+                    style="min-height: 44px;"
+                    data-type-select
+                    aria-describedby="typeExamples">
+                <option value="">Velg type …</option>
 
-    <!-- Current picture (if any); choosing a new one replaces it, otherwise the old one is kept -->
-    <div>
-        <label asp-for="Image"></label>
-        @if (Model.HasImage)
+                @foreach (var t in resourceTypes)
+                {
+                    <option value="@t.Name" data-examples="@t.Examples">
+                        @t.Name
+                    </option>
+                }
+
+                @if (hasOldType)
+                {
+                    <option value="@currentType">
+                        @currentType (gammel type – velg en ny)
+                    </option>
+                }
+            </select>
+            <small id="typeExamples" class="form-text d-block"></small>
+            <span asp-validation-for="Type" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label asp-for="Description" class="form-label"></label>
+            <input asp-for="Description"
+                   class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Description" class="text-danger"></span>
+        </div>
+
+        @* Keep the existing role check and status options. *@
+        @if (User.IsInRole("admin") || User.IsInRole("operator"))
         {
-            <div>
-                <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" style="max-width: 200px;" />
+            <div class="col-12 col-md-6">
+                <label asp-for="Status" class="form-label"></label>
+                <select asp-for="Status"
+                        class="form-select"
+                        style="min-height: 44px;">
+                    <option value="Ledig">Ledig</option>
+                    <option value="Opptatt">Opptatt</option>
+                    <option value="Ugyldig">Ugyldig</option>
+                </select>
+                <span asp-validation-for="Status" class="text-danger"></span>
             </div>
         }
-        <input asp-for="Image" type="file" accept="image/*" capture="environment" />
-        <span asp-validation-for="Image"></span>
-        <input type="hidden" asp-for="HasImage" />
+
+        <div class="col-12">
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes"
+                      class="form-control"
+                      rows="3"
+                      placeholder="F.eks. hvor nøklene ligger"></textarea>
+            <span asp-validation-for="Notes" class="text-danger"></span>
+        </div>
+
+        <div class="col-12">
+            <label asp-for="Image" class="form-label"></label>
+
+            @* Keep the picture preview within the screen width. *@
+            @if (Model.HasImage)
+            {
+                <div class="mb-2">
+                    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })"
+                         alt="@Model.Name"
+                         class="img-fluid"
+                         style="max-width: 200px; width: 100%;" />
+                </div>
+            }
+
+            <input asp-for="Image"
+                   type="file"
+                   accept="image/*"
+                   capture="environment"
+                   class="form-control"
+                   style="min-height: 44px;" />
+            <span asp-validation-for="Image" class="text-danger"></span>
+            <input type="hidden" asp-for="HasImage" />
+        </div>
+
+        <div class="col-12">
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address"
+                   class="form-control"
+                   style="min-height: 44px;" />
+        </div>
+
+        <div class="col-12 col-md-4">
+            <label asp-for="ZipCode" class="form-label"></label>
+            <input asp-for="ZipCode"
+                   class="form-control"
+                   style="min-height: 44px;" />
+        </div>
+
+        <div class="col-12 col-md-8">
+            <label asp-for="City" class="form-label"></label>
+            <input asp-for="City"
+                   class="form-control"
+                   style="min-height: 44px;" />
+        </div>
     </div>
 
-    <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
-    <div>
-        <label asp-for="Address"></label>
-        <input asp-for="Address" />
+    @* Allow the larger map buttons to wrap on narrow screens. *@
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <button type="button"
+                id="findOnMap"
+                class="button"
+                style="min-height: 44px;">
+            Finn på kartet
+        </button>
+
+        <button type="button" id="useMyLocation" class="button">Bruk min posisjon</button>
     </div>
-    <div>
-        <label asp-for="ZipCode"></label>
-        <input asp-for="ZipCode" />
-    </div>
-    <div>
-        <label asp-for="City"></label>
-        <input asp-for="City" />
-    </div>
-    <button type="button" id="findOnMap">Finn på kartet</button>
-    <button type="button" id="useMyLocation">Bruk min posisjon</button>
-    <span id="geoStatus"></span>
+
+    <span id="geoStatus" class="d-block mt-2"></span>
     <p>Du kan også klikke på kartet eller dra markøren.</p>
-    <div id="pickMap" style="height: 300px;"></div>
+
+    <div id="pickMap" style="height: 300px; width: 100%;"></div>
+
     <input type="hidden" asp-for="Latitude" />
     <input type="hidden" asp-for="Longitude" />
+    <input type="hidden" asp-for="Id" />
 
-    <input type="hidden" asp-for="Id" value="@Model.Id" />
-    <button type="submit">Save</button>
+    <button type="submit" class="button mt-3 mb-3">Lagre</button>
 </form>
 
 @section Scripts {
-    <!-- Loads the map script only on this page - Docs: Layout in ASP.NET Core (Sections) -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/layout -->
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
 }

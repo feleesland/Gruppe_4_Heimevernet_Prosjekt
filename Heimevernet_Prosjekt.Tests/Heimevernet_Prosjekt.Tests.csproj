@@ -9,6 +9,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Aspire.Hosting.Testing" Version="13.6.4" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.22">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -24,6 +25,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\Heimevernet_Prosjekt.AppHost\Heimevernet_Prosjekt.AppHost.csproj" />
 		<ProjectReference Include="..\Heimevernet_Prosjekt\Heimevernet_Prosjekt.csproj" />
 	</ItemGroup>
 

@@ -7,7 +7,14 @@ var mariadb = builder.AddMySql("mariadb")
 
 var db = mariadb.AddDatabase("heimevernetdb");
 
-builder.AddProject<Projects.Heimevernet_Prosjekt>("heimevernet-prosjekt")
+var launchProfileName = string.Equals(
+    System.Environment.GetEnvironmentVariable("CI"),
+    "true",
+    StringComparison.OrdinalIgnoreCase)
+    ? "http"
+    : "https";
+
+builder.AddProject<Projects.Heimevernet_Prosjekt>("heimevernet-prosjekt", launchProfileName: launchProfileName)
     .WithReference(db)          // gives the website the connection string
     .WaitFor(db);               // waits until the database is ready
 

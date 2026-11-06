@@ -7,7 +7,7 @@
     ViewData["Title"] = "Brukere";
 }
 
-<h1>Brukere</h1>
+<h1>@ViewData["Title"]</h1>
 
 @if (TempData["Message"] != null)
 {
@@ -50,7 +50,7 @@ else
                                     <option value="@role" selected="@(role == u.Role)">@RoleNames.DisplayName(role)</option>
                                 }
                             </select>
-                            <button type="submit" class="btn btn-primary btn-sm">Lagre</button>
+                            <button type="submit" class="button">Lagre</button>
                         </form>
                     </td>
                 </tr>

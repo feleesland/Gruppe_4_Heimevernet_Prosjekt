@@ -4,34 +4,33 @@
 @{
     ViewData["Title"] = "Endre Behov";
 }
+
+<h1>@ViewData["Title"]</h1>
 <form asp-controller="ResourceNeedHandler" asp-action="Edit" method="post">
-    <div>
+    <div class="mb-3">
         <label asp-for="Name"></label>
         <input asp-for="Name" value="@Model.Name" />
         <span asp-validation-for="Name"></span>
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="Description"></label>
         <input asp-for="Description" value="@Model.Description" />
         <span asp-validation-for="Description"></span>
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="Type"></label>
         <input asp-for="Type" value="@Model.Type" />
         <span asp-validation-for="Type"></span>
     </div>
-
-    <!-- Address and position, map is in wwwroot/js/location-picker.js - Docs: Tag Helpers in forms -->
-    <!-- https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms -->
-    <div>
+    <div class="mb-3">
         <label asp-for="Address"></label>
         <input asp-for="Address" />
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="ZipCode"></label>
         <input asp-for="ZipCode" />
     </div>
-    <div>
+    <div class="mb-3">
         <label asp-for="City"></label>
         <input asp-for="City" />
     </div>

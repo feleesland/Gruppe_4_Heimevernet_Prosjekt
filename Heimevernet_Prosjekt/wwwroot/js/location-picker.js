@@ -1,4 +1,4 @@
-﻿// Velg plassering for en ressurs: adressesøk, egen posisjon eller klikk på kartet (help with AI) - Docs: Leaflet API reference
+// Velg plassering for en ressurs: adressesøk, egen posisjon eller klikk på kartet (help with AI) - Docs: Leaflet API reference
 // https://leafletjs.com/reference.html
 
 // 1. Lag kartet (starter i Kristiansand)
