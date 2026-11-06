@@ -1,6 +1,16 @@
-# Gruppe 4 , Kartverket/Heimevernet
-Dette er gruppe 4 sitt repo for 3. semester prosjektet i IS-20x.
-Prosjektet går ut på å lage en webapplikasjon med kart som skal hjelpe til med å håndtere krisesituasjoner gjennom å registrere tilgjengelige ressurser og deres posisjoner.
+# Kriseberedskap – ressurs- og behovsportal for Totalforsvaret
+
+Dette er gruppe 4 sin løsning for tredje semester prosjektet i IS-20x ved UiA.
+
+Prosjektet går ut på å utvikle en webbasert løsning for støtte til kriseberedskap og samhandling i Totalforsvaret.
+
+Løsningen skal bidra til å koble behov fra offentlige aktører med tilgjengelige ressurser fra innbyggere, frivillige organisasjoner og næringsliv ved større hendelser eller kriser.
+
+#### Forfattere
+
+Gruppe 4 består av følgende medlemmer:
+
+Hans Georg Hjelmeland, Christian W. Bjåland, Peter Eikenes, Astrid E. Skadberg, Filip Emil Leesland, og Ali Mirzaei
 
 ## Drift
 Applikasjonen vår kjøres på .NET 10 og gjennom .NET Aspire for oppstart og sammenkobling av nettløsningen og databasen. 
@@ -32,7 +42,7 @@ Autorisasjonshandtereren gir administratorer og frivillige tilgang til ressurser
 **Heimevernet_Prosjekt.ServiceDefaults:** felles Aspire-oppsett for health checks, service discovery, HTTP-resiliens og OpenTelemetry.  
 **Heimevernet_Prosjekt.Tests:** xUnit-tester for controllerlogikk og sikkerhetsregler.  
 
-## Databaselæøsning
+## Databaseløsning
 Applikasjonen bruker MariaDB som relasjonsdatabase. Entity Framework Core fungerer som ORM og kobler applikasjonen til databasen gjennom `HeimevernetDbContext`. Datatilgang er samlet i repository-klasser, blant annet for ressurser, ressursbehov, ressurstyper og ressursrapporter.
 
 Databasen inneholder både applikasjonsdata og brukerinformasjon fra ASP.NET Core Identity. 
