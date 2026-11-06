@@ -13,6 +13,11 @@ using Xunit;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 
+/// <summary>
+///this is several unit tests for the resource controller
+/// Provides unit tests for resource controller actions.
+/// <remarks>Verifies resource lookup, authorization, result types, and view model mapping.</remarks>'
+///  <summary>
 public sealed class ResourceControllerTests
 {
     [Fact]

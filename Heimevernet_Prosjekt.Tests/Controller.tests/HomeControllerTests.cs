@@ -6,6 +6,11 @@ using Xunit;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 
+/// <summary>
+/// Contains tests for the home controller actions.
+/// </summary>
+/// <remarks>Verifies default views, map submission handling, model validation, and request identifier
+/// preservation.</remarks>
 public sealed class HomeControllerTests
 {
     [Fact]
