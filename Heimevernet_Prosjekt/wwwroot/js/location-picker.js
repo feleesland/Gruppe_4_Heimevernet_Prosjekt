@@ -38,22 +38,23 @@ function showPosition(lat, lng, message) {
     statusText.textContent = message;
 }
 
-// 5. Finner adressen til et punkt og fyller inn skjemaet (help with AI) - Docs: Nominatim Reverse API
-// https://nominatim.org/release-docs/latest/api/Reverse/
+// 5. Finner nærmeste adresse til et punkt og fyller inn skjemaet (help with AI) - Docs: Kartverket Adresse-API, punktsok
+// https://ws.geonorge.no/adresser/v1/#/default/get_punktsok
 async function fillAddress(lat, lng) {
     try {
-        const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`;
+        const url = `https://ws.geonorge.no/adresser/v1/punktsok?lat=${lat}&lon=${lng}&radius=200&treffPerSide=1&utkoordsys=4258`;
         const result = await (await fetch(url)).json();
-        const a = result.address;
-        if (!a) return;
+        const a = result.adresser?.[0];
+        if (!a) return; // Ingen adresse i nærheten, koordinatene lagres uansett
 
-        document.getElementById('Address').value = [a.road, a.house_number].filter(x => x).join(' ');
-        document.getElementById('ZipCode').value = a.postcode ?? '';
-        document.getElementById('City').value = a.city ?? a.town ?? a.village ?? a.municipality ?? '';
+        document.getElementById('Address').value = a.adressetekst ?? '';
+        document.getElementById('ZipCode').value = a.postnummer ?? '';
+        document.getElementById('City').value = a.poststed ?? '';
     } catch {
         // Ingen adresse funnet, koordinatene lagres uansett
     }
 }
+
 
 // Måte A: klikk på kartet
 pickMap.on('click', (e) => {
@@ -62,8 +63,8 @@ pickMap.on('click', (e) => {
     statusText.textContent = 'Plassering valgt på kartet.';
 });
 
-// Måte B: søk etter adressen (help with AI) - Docs: Nominatim Search API
-// https://nominatim.org/release-docs/latest/api/Search/
+// Måte B: søk etter adressen (help with AI) - Docs: Kartverket Adresse-API, sok
+// https://ws.geonorge.no/adresser/v1/#/default/get_sok
 document.getElementById('findOnMap').addEventListener('click', async () => {
     const address = document.getElementById('Address').value;
     const zip = document.getElementById('ZipCode').value;
@@ -77,15 +78,16 @@ document.getElementById('findOnMap').addEventListener('click', async () => {
 
     statusText.textContent = 'Søker...';
     try {
-        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=no&q='
+        const url = 'https://ws.geonorge.no/adresser/v1/sok?fuzzy=true&treffPerSide=1&utkoordsys=4258&sok='
             + encodeURIComponent(query);
-        const results = await (await fetch(url)).json();
+        const result = await (await fetch(url)).json();
+        const a = result.adresser?.[0];
 
-        if (results.length === 0) {
+        if (!a || !a.representasjonspunkt) {
             statusText.textContent = 'Fant ikke adressen. Klikk på kartet i stedet.';
             return;
         }
-        showPosition(parseFloat(results[0].lat), parseFloat(results[0].lon),
+        showPosition(a.representasjonspunkt.lat, a.representasjonspunkt.lon,
             'Adressen ble funnet. Sjekk at markøren står riktig.');
     } catch {
         statusText.textContent = 'Klarte ikke å søke nå. Klikk på kartet i stedet.';
