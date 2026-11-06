@@ -10,17 +10,13 @@
 <p>Her finner du registrerte ressurser.</p>
 
 <p>
-    <a asp-controller="ResourceHandler" asp-action="Create">
-        Opprett ny ressurs
-    </a>
+    <a asp-controller="ResourceHandler" asp-action="Create">Opprett ny ressurs</a>
 </p>
 
-@* Shows number of resources in the list. *@
 <p>Antall ressurser: @Model.Count</p>
 
 @if (Model.Count == 0)
 {
-    @* Explanation; why the list is empty. *@
     <p>Ingen ressurser er registrert ennå.</p>
 }
 else
@@ -31,7 +27,6 @@ else
          aria-labelledby="resourceTableCaption"
          tabindex="0">
 
-        @* Apply the resource table styles from site.css. *@
         <table class="resource-table">
             <caption id="resourceTableCaption">Registrerte ressurser</caption>
 
@@ -93,7 +88,5 @@ else
             }
         </tbody>
     </table>
-
-    @* End of scrolling around the table. *@
     </div>
 }

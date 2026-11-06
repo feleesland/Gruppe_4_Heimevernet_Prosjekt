@@ -139,38 +139,26 @@
     <div class="d-flex flex-wrap gap-2 mt-3">
         <button type="button"
                 id="findOnMap"
-                class="btn btn-secondary"
+                class="button"
                 style="min-height: 44px;">
             Finn på kartet
         </button>
 
-        <button type="button"
-                id="useMyLocation"
-                class="btn btn-secondary"
-                style="min-height: 44px;">
-            Bruk min posisjon
-        </button>
+        <button type="button" id="useMyLocation" class="button">Bruk min posisjon</button>
     </div>
 
     <span id="geoStatus" class="d-block mt-2"></span>
     <p>Du kan også klikke på kartet eller dra markøren.</p>
 
-    @* Keep the map inside the available page width. *@
     <div id="pickMap" style="height: 300px; width: 100%;"></div>
 
     <input type="hidden" asp-for="Latitude" />
     <input type="hidden" asp-for="Longitude" />
     <input type="hidden" asp-for="Id" />
 
-    @* Increase the save button's tap area and spacing. *@
-    <button type="submit"
-            class="btn btn-primary mt-3 mb-3"
-            style="min-height: 44px;">
-        Save
-    </button>
+    <button type="submit" class="button mt-3 mb-3">Lagre</button>
 </form>
 
 @section Scripts {
-    @* Keep the existing map script. *@
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
 }
