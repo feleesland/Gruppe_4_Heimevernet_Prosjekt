@@ -134,7 +134,7 @@
                                 </div>
                             </div>
 
-                            <span id="globalSearchStatus" class="small text-nowrap"></span>
+                            <span id="globalSearchStatus" class="small text-nowrap text-white"></span>
                         </form>
                     }
                     else
@@ -160,7 +160,7 @@
                             var currentUser = await UserManager.GetUserAsync(User);
                             var displayName = $"{currentUser?.FirstName} {currentUser?.LastName}".Trim();
 
-                            // 🔔 for everyone: requests waiting for my answer, and (admin) open messages from operators
+                            // bell for everyone: requests waiting for my answer, and (admin) open messages from operators
                             var nowUtc = DateTime.UtcNow;
                             var myRequests = currentUser == null
                                 ? new List<OwnerRequest>()
@@ -174,7 +174,7 @@
                                 <button type="button" class="nav-link text-white btn btn-link position-relative"
                                         data-bs-toggle="dropdown" aria-expanded="false"
                                         aria-label="@(openCount == 0 ? "Ingen nye varsler" : openCount + (openCount == 1 ? " nytt varsel" : " nye varsler"))">
-                                    🔔
+                                    <img width="25px" src="/bell.svg" />
                                     @if (openCount > 0)
                                     {
                                         <span class="badge rounded-pill bg-danger">@openCount</span>
