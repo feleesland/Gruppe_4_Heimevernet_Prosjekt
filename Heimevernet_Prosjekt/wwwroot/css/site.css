@@ -215,3 +215,9 @@ a {
 .notification-item {
     white-space: normal;
 }
+
+/* The footer follows light/dark mode (the layout's own CSS gives it a fixed light colour) */
+footer.footer {
+    background-color: var(--bs-body-bg) !important;
+    color: var(--bs-secondary-color) !important;
+}

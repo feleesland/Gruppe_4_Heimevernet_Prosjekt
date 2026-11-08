@@ -7,13 +7,24 @@
 
 <div id="map"></div>
 <style>
+	/* The map fills the screen under the menu, without scrolling. The footer is hidden on this page */
+	body:has(#map) {
+		overflow: hidden;
+		margin-bottom: 0;
+	}
+
+		body:has(#map) footer {
+			display: none;
+		}
+
 	#map {
 		width: 100vw;
 		margin-left: calc(50% - 50vw);
-		height: 100dvh; /* reserve, før JavaScript har regnet ut riktig høyde */
+		height: calc(100dvh - 76px); /* reserve, before JavaScript has measured the menu */
 		min-height: 300px;
 		z-index: 1 !important;
 	}
+
 	.need-marker {
 		display: flex; align-items: center; justify-content: center;
 		width: 26px; height: 26px; border-radius: 5px;
@@ -109,6 +120,16 @@ function getResourceIcon(type, status) {
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 		}).addTo(map);
+	
+		// Exact height: the window minus the menu, also when the window changes size (help with AI)
+		// Docs: Leaflet invalidateSize - https://leafletjs.com/reference.html#map-invalidatesize
+		function fitMapToScreen() {
+			var headerHeight = document.querySelector('header').offsetHeight;
+			document.getElementById('map').style.height = (window.innerHeight - headerHeight) + 'px';
+			map.invalidateSize();
+		}
+		window.addEventListener('resize', fitMapToScreen);
+		fitMapToScreen();
 
 		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
 		// https://leafletjs.com/reference.html
