@@ -1,0 +1,170 @@
+﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
+@using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.Models.Authorization
+@inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
+@model OverviewViewModel
+@{
+    ViewData["Title"] = "Oversikt";
+}
+@functions {
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <h1 class="mb-0">Oversikt</h1>
+    <div class="d-flex gap-2 align-items-center">
+        <a class="btn btn-outline-secondary" asp-controller="Home" asp-action="Map">🗺 Vis på kartet</a>
+        <a class="button m-0" asp-controller="ResourceNeedHandler" asp-action="Create">+ Meld behov</a>
+    </div>
+</div>
+
+@* Admin extras: no own page, just a box here - only admin sees it *@
+@if (User.IsInRole(RoleNames.Admin))
+{
+    var reports = ReportRepository.GetOpenNotifications().ToList();
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <h2 class="h5 mb-0 me-auto">Admin</h2>
+                <a class="btn btn-sm btn-outline-secondary" asp-controller="Admin" asp-action="Index">👥 Brukere</a>
+                <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceType" asp-action="Index">🏷 Ressurstyper</a>
+            </div>
+
+            <h3 class="h6 mt-3">⚑ Feil info (@reports.Count)</h3>
+            @if (reports.Count == 0)
+            {
+                <p class="small text-body-secondary mb-0">Ingen åpne meldinger om feil.</p>
+            }
+            else
+            {
+                <div class="list-group">
+                    @foreach (var n in reports)
+                    {
+                        <a class="list-group-item list-group-item-action small"
+                           asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
+                            <strong>@n.ResourceName</strong> · «@n.Message»
+                            <span class="text-body-secondary">– @n.ReporterEmail, @OsloShort(n.CreatedAt)</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* The number strip: number + text, uses Bootstrap's colours so it works in light and dark mode *@
+<div class="row g-2 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-body-secondary">Aktive behov</div>
+                <div class="fs-3 fw-semibold">@Model.ActiveNeeds</div>
+                @if (Model.ActiveAkutt > 0)
+                {
+                    <div class="small text-danger">⏰ @Model.ActiveAkutt akutt</div>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-body-secondary">Venter på svar</div>
+                <div class="fs-3 fw-semibold">@Model.Waiting</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card h-100 @(Model.Overdue > 0 ? "border-warning" : "")">
+            <div class="card-body">
+                <div class="small text-body-secondary">Frist gått</div>
+                <div class="fs-3 fw-semibold">@(Model.Overdue > 0 ? "⏱ " : "")@Model.Overdue</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="small text-body-secondary">Ute nå</div>
+                <div class="fs-3 fw-semibold">@Model.OutNow</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* What the operator should do something about *@
+<h2 class="h4">⚠ Krever oppmerksomhet</h2>
+@if (Model.Attention.Count == 0)
+{
+    <p class="text-body-secondary">✓ Ingenting krever oppmerksomhet nå.</p>
+}
+else
+{
+    <div class="list-group mb-4">
+        @foreach (var a in Model.Attention)
+        {
+            <a class="list-group-item list-group-item-action d-flex gap-2 align-items-start"
+               asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@a.NeedId">
+                <span aria-hidden="true">@a.Icon</span>
+                <span class="flex-grow-1">@a.Text</span>
+                <span class="small text-body-secondary text-nowrap">Åpne →</span>
+            </a>
+        }
+    </div>
+}
+
+@* The active needs *@
+<h2 class="h4">Aktive behov</h2>
+@if (Model.Needs.Count == 0)
+{
+    <p class="text-body-secondary">Ingen aktive behov.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Navn</th>
+                    <th scope="col">Når</th>
+                    <th scope="col">Dekket</th>
+                    <th scope="col">Venter</th>
+                    <th scope="col"><span class="visually-hidden">Handlinger</span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var n in Model.Needs)
+                {
+                    var done = n.Quantity > 0 && n.Covered >= n.Quantity;
+                    <tr>
+                        <td>@n.Name</td>
+                        <td>
+                            @if (n.Urgency == NeedUrgency.Akutt)
+                            {
+                                <span class="badge text-bg-danger">⏰ Akutt</span>
+                            }
+                            else
+                            {
+                                <span class="badge text-bg-primary">📅 Planlagt</span>
+                                @if (n.NeededFrom != null)
+                                {
+                                    <span class="small text-body-secondary">fra @OsloShort(n.NeededFrom.Value)</span>
+                                }
+                            }
+                        </td>
+                        <td>
+                            <span class="badge @(done ? "text-bg-success" : "text-bg-warning")">
+                                @(done ? "✓ Dekket" : $"{n.Covered} av {n.Quantity}")
+                            </span>
+                        </td>
+                        <td>@(n.Waiting == 0 ? "–" : n.Waiting.ToString())</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">Åpne</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

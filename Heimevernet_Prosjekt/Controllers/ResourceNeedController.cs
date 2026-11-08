@@ -34,6 +34,80 @@ namespace Heimevernet_Prosjekt.Controllers
             _authorizationService = authorizationService;
         }
 
+        // "Oversikt": the operator's main page. Built from needs and their requests (help with AI)
+        [HttpGet]
+        public IActionResult Overview()
+        {
+            var now = DateTime.UtcNow;
+            var model = new OverviewViewModel();
+            var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+            string Time(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, oslo).ToString("dd.MM HH:mm");
+            string ResourceName(int id) => _resourceRepository.GetById(id)?.Name ?? $"Ressurs #{id}";
+
+            foreach (var need in _resourceNeedRepository.GetAll())
+            {
+                var requests = _requestRepository.GetForNeed(need.Id);
+
+                // Resources that are out right now - also on closed needs, so nothing is forgotten
+                foreach (var r in requests.Where(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt != null && r.ReturnedAt == null))
+                {
+                    model.OutNow++;
+                    if (need.ClosedAt != null)
+                    {
+                        model.Attention.Add(new AttentionItem(need.Id, "📦",
+                            $"«{ResourceName(r.ResourceId)}» er fortsatt ute. «{need.Name}» ble avsluttet {Time(need.ClosedAt.Value)}.", need.ClosedAt));
+                    }
+                }
+
+                if (need.ClosedAt != null)
+                {
+                    continue;
+                }
+
+                var waiting = requests.Count(r => r.Status == RequestStatus.Sendt && !r.IsUnanswered(now));
+                var overdue = requests.Where(r => r.IsUnanswered(now)).ToList();
+
+                // Covered per line, never more than the line asks for
+                var covered = need.Items.Sum(item => Math.Min(item.Quantity,
+                    requests.Count(r => r.ResourceNeedItemId == item.Id && r.Status == RequestStatus.Godtatt)));
+                var quantity = need.Items.Sum(item => item.Quantity);
+
+                model.ActiveNeeds++;
+                if (need.Urgency == NeedUrgency.Akutt) model.ActiveAkutt++;
+                model.Waiting += waiting;
+                model.Overdue += overdue.Count;
+
+                foreach (var r in overdue)
+                {
+                    model.Attention.Add(new AttentionItem(need.Id, "⏱",
+                        $"«{ResourceName(r.ResourceId)}» har ikke svart på «{need.Name}». Fristen gikk {Time(r.AnswerBy)}.", r.AnswerBy));
+                }
+
+                // Not covered, and nobody is being asked: the operator must send more requests
+                if (covered < quantity && waiting == 0)
+                {
+                    model.Attention.Add(new AttentionItem(need.Id, need.Urgency == NeedUrgency.Akutt ? "⏰" : "📅",
+                        $"«{need.Name}»: {covered} av {quantity} dekket, ingen venter på svar.", need.CreatedAt));
+                }
+
+                model.Needs.Add(new OverviewNeedRow
+                {
+                    Id = need.Id,
+                    Name = need.Name,
+                    Urgency = need.Urgency,
+                    NeededFrom = need.NeededFrom,
+                    Covered = covered,
+                    Quantity = quantity,
+                    Waiting = waiting
+                });
+            }
+
+            // Akutt first, then the oldest
+            model.Needs = model.Needs.OrderBy(n => n.Urgency).ThenBy(n => n.Id).ToList();
+            model.Attention = model.Attention.OrderBy(a => a.When).ToList();
+            return View(model);
+        }
+
         // The need's page, with its lines, requests and suggestions
         public async Task<IActionResult> Index(int? id)
         {
