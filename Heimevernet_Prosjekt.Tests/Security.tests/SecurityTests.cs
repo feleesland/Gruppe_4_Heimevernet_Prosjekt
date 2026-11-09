@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Heimevernet_Prosjekt.Controllers;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,6 +14,7 @@ using Microsoft.AspNetCore.Routing;
 using Moq;
 using Xunit;
 using IdentitySignInResult = Microsoft.AspNetCore.Identity.SignInResult;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 

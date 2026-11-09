@@ -1,5 +1,5 @@
 ﻿@model Heimevernet_Prosjekt.Models.PositionModel
-@using Heimevernet_Prosjekt.Models.Authorization
+@using Heimevernet_Prosjekt.Security.Authorization
 @{
     var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
     var signedIn = User.Identity?.IsAuthenticated == true;

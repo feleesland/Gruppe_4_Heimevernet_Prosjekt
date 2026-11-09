@@ -1,5 +1,5 @@
-﻿using Heimevernet_Prosjekt.Models.Authorization;
-using Heimevernet_Prosjekt.Models.Entities;
+﻿using Heimevernet_Prosjekt.Models.Entities;
+using Heimevernet_Prosjekt.Security.Authorization;
 using Microsoft.AspNetCore.Identity;
 
 namespace Heimevernet_Prosjekt.Services;

@@ -4,9 +4,9 @@ using Heimevernet_Prosjekt.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using System.Globalization;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 
 var builder = WebApplication.CreateBuilder(args);
