@@ -140,7 +140,24 @@ public sealed class ResourceControllerTests
         Assert.Equal(allowedResource.Description, returnedResource.Description);
         Assert.Equal(allowedResource.Type, returnedResource.Type);
     }
+    [Fact]
+    public async Task Index_WhenResourceDoesNotExist_ReturnsNotFound()
+    {
+        var repository = new Mock<IResourceRepository>();
+        repository
+            .Setup(repo => repo.GetById(999))
+            .Returns((Resource?)null);
 
+        var authorization = new Mock<IAuthorizationService>();
+        var controller = CreateController(repository, authorization);
+
+        var result = await controller.Index(999);
+
+        Assert.IsType<NotFoundResult>(result);
+
+        repository.Verify(repo => repo.GetById(999), Times.Once);
+        authorization.VerifyNoOtherCalls();
+    }
 
     private static ResourceController CreateController(
     Mock<IResourceRepository> repository,
