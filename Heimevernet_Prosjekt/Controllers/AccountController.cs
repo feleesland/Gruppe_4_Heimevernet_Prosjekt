@@ -1,5 +1,4 @@
 ﻿using Heimevernet_Prosjekt.Models.ViewModels.Account;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -8,6 +7,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 using System.Text.Encodings.Web;
 using Heimevernet_Prosjekt.Models.Entities;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 namespace Heimevernet_Prosjekt.Controllers;
 

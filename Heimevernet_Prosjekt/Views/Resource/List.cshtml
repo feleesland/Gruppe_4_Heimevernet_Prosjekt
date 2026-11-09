@@ -1,5 +1,5 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
-@using Heimevernet_Prosjekt.Models.Authorization
+@using Heimevernet_Prosjekt.Security.Authorization
 @using Microsoft.AspNetCore.WebUtilities
 @inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
 @model List<ResourceViewModel>
@@ -8,7 +8,7 @@
     ViewData["Title"] = "Ressurser";
 }
 
-<h1>Ressurser</h1>
+<h1>@ViewData["Title"]</h1>
 
 <a class="button"
    asp-controller="ResourceHandler"
@@ -110,7 +110,7 @@ else
                         <td>
                             @* Keep space between buttons and allow wrapping. *@
                             <div class="d-flex flex-wrap gap-2">
-                                @* Buttons only show if the user is allowed (CanEdit/CanDelete set in ResourceController) *@
+                                @* Rediger only shows if the user is allowed (CanEdit set in ResourceController). Slett is on the resource page (Resource/Index) *@
                                 @if (r.CanEdit)
                                 {
                                     @* A minimum height of 44px makes tapping easier. *@
@@ -121,23 +121,6 @@ else
                                        asp-route-id="@r.Id">
                                         Rediger
                                     </a>
-                                }
-
-                                @if (r.CanDelete)
-                                {
-                                    @* Keep deletion as a POST with confirmation. *@
-                                    <form asp-controller="ResourceHandler"
-                                          asp-action="Delete"
-                                          asp-route-id="@r.Id"
-                                          method="post"
-                                          class="m-0">
-                                        <button type="submit"
-                                                class="btn btn-danger"
-                                                style="min-height: 44px; min-width: 44px;"
-                                                onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
-                                            Slett
-                                        </button>
-                                    </form>
                                 }
 
                                 @* Admin: open messages from operators - icon + text, so it doesn't rely on color alone *@

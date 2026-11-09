@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Heimevernet_Prosjekt.Controllers;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Account;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,20 +14,35 @@ using Microsoft.AspNetCore.Routing;
 using Moq;
 using Xunit;
 using IdentitySignInResult = Microsoft.AspNetCore.Identity.SignInResult;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 
+/// <summary>
+/// this was set up with help from AI.
+/// Security tests for AdminController and AccountController.
+/// Part 1 (reflection): checks that protections are declared in code, i.e.
+/// the admin area requires the Admin role, every POST action has an
+/// anti-forgery token, and Logout requires a logged-in user.
+///
+/// Part 2 (behaviour): calls AccountController.Login with mocked Identity
+/// services and checks that it
+///   - never redirects to an external site after login (open redirect),
+///   - gives the same error for unknown user, wrong password and lockout
+///     (prevents user enumeration),
+///   - asks Identity to count failed attempts (brute-force lockout).
+/// No database is used. UserManager and SignInManager are mocked with Moq.
+/// </summary>
 public sealed class SecurityTests
 {
     // ---------------------------------------------------------------
     // PART 1: Reflection tests. They check that the protections are
-    // DECLARED. They don't call any controller code, so they are fast.
     // ---------------------------------------------------------------
 
     [Fact]
     public void AdminController_RequiresAdminRole()
     {
-        // GetCustomAttribute reads the [Authorize(...)] sitting on the class
+        // GetCustomAttribute reads the [Authorize] sitting in the class
         var attr = typeof(AdminController).GetCustomAttribute<AuthorizeAttribute>();
 
         Assert.NotNull(attr);
@@ -190,10 +204,6 @@ public sealed class SecurityTests
             Times.Once);
     }
 
-    // ---------------------------------------------------------------
-    // Setup helper. If your existing test file already has a
-    // CreateController(), you can reuse that instead.
-    // ---------------------------------------------------------------
     // IdentityUser changed to ApplicationUser: the app uses ApplicationUser (FirstName/LastName) since the merge
     private static (AccountController controller,
                     Mock<UserManager<ApplicationUser>> userManager,

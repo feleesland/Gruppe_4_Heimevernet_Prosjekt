@@ -1,0 +1,96 @@
+﻿@using Heimevernet_Prosjekt.DataAccess
+@using Heimevernet_Prosjekt.Models.Entities
+@model IReadOnlyList<OwnerRequest>
+@{
+    ViewData["Title"] = "Mine forespørsler";
+    var now = DateTime.UtcNow;
+    var open = Model.Where(r => r.IsOpen(now)).ToList();
+    var earlier = Model.Where(r => !r.IsOpen(now)).ToList();
+}
+@functions {
+    // Times are saved as UTC and shown in Norwegian time
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+
+    // Status as text + colour (not colour alone)
+    private static (string Text, string Css) Status(OwnerRequest r) => r.Status switch
+    {
+        RequestStatus.Godtatt => (r.Delivery == DeliveryMethod.Hentes ? "✓ Du sa ja · blir hentet" : "✓ Du sa ja · du leverer", "text-bg-success"),
+        RequestStatus.Avslatt => ("Du sa nei", "text-bg-secondary"),
+        RequestStatus.IkkeLengerNodvendig => ("Ikke lenger nødvendig – takk!", "text-bg-light"),
+        RequestStatus.Avbrutt => ("Avbrutt", "text-bg-secondary"),
+        _ => ("Fristen gikk ut", "text-bg-secondary")
+    };
+}
+
+<h1>@ViewData["Title"]</h1>
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success" role="status">@TempData["Message"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-warning" role="alert">@TempData["Error"]</div>
+}
+
+@if (open.Count == 0)
+{
+    <p class="text-muted">Ingen forespørsler venter på svar fra deg.</p>
+}
+
+@foreach (var r in open)
+{
+    var akutt = r.Urgency == NeedUrgency.Akutt;
+    <section class="card mb-3" aria-labelledby="req-@r.Id">
+        <div class="card-body">
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+                <h2 id="req-@r.Id" class="h5 mb-0">@r.ResourceName trengs</h2>
+                @* Icon + text, not colour alone *@
+                @if (akutt)
+                {
+                    <span class="badge text-bg-danger">⏰ Trengs nå · svar innen @OsloShort(r.AnswerBy)</span>
+                }
+                else
+                {
+                    <span class="badge text-bg-primary">📅 Fra @(r.NeededFrom != null ? OsloShort(r.NeededFrom.Value) : "–") · svar innen @OsloShort(r.AnswerBy)</span>
+                }
+            </div>
+            <p class="text-muted small mt-1 mb-3">
+                @r.NeedName@(string.IsNullOrEmpty(r.NeedPlace) ? "" : " · " + r.NeedPlace)
+            </p>
+
+            @* Three answers in one form: the button pressed is sent as "answer" *@
+            <form asp-action="Answer" asp-route-id="@r.Id" method="post">
+                <label for="comment-@r.Id" class="form-label small">Kommentar (valgfritt)</label>
+                <input id="comment-@r.Id" name="comment" maxlength="500" class="form-control mb-2" placeholder="F.eks. «kan være der 15:30»" />
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" name="answer" value="leverer" class="btn btn-success" style="min-height: 44px;">🚚 Ja, jeg leverer</button>
+                    <button type="submit" name="answer" value="hentes" class="btn btn-success" style="min-height: 44px;">📍 Ja, må hentes</button>
+                    <button type="submit" name="answer" value="nei" class="btn btn-outline-secondary" style="min-height: 44px;">Nei, kan ikke</button>
+                </div>
+            </form>
+        </div>
+    </section>
+}
+
+@if (earlier.Count > 0)
+{
+    <h2 class="h5 mt-4">Tidligere</h2>
+    <div class="list-group">
+        @foreach (var r in earlier)
+        {
+            var status = Status(r);
+            <div class="list-group-item d-flex justify-content-between flex-wrap gap-2">
+                <span>
+                    @r.ResourceName <span class="text-muted small">· @r.NeedName · @OsloShort(r.SentAt)</span>
+                    @if (!string.IsNullOrEmpty(r.Comment))
+                    {
+                        <span class="d-block small text-muted">«@r.Comment»</span>
+                    }
+                </span>
+                <span class="badge @status.Css align-self-center">@status.Text</span>
+            </div>
+        }
+    </div>
+}

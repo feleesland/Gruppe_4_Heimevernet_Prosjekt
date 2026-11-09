@@ -64,16 +64,17 @@ public class EfResourceTypeRepository(HeimevernetDbContext dbContext) : IResourc
         return true;
     }
 
-    // How many resources use this type (also soft-deleted ones) - used to block deleting a type that is in use
+    // How many resources use this type (also soft-deleted ones) - shown on the Ressurstyper page
     public int CountResourcesUsing(string name)
     {
         return dbContext.Resources.IgnoreQueryFilters().Count(r => r.Type == name);
     }
 
+    // Resources keep the old name; they are marked "Gammel type" until the owner picks a new type
     public bool Delete(int id)
     {
         var type = dbContext.ResourceTypes.Find(id);
-        if (type is null || CountResourcesUsing(type.Name) > 0)
+        if (type == null)
         {
             return false;
         }

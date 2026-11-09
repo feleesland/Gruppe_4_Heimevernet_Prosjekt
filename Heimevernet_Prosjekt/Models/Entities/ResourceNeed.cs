@@ -23,5 +23,21 @@
 
         // When the resource was registered
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        // Akutt or Planlagt - decides colour on the map and the answer deadline
+        public NeedUrgency Urgency { get; set; } = NeedUrgency.Akutt;
+
+        // The circle on the map; a new need on a spot inside it is offered "Legg til i ..."
+        public double RadiusKm { get; set; } = 2;
+
+        // When it is needed. Empty NeededFrom = now (Akutt)
+        public DateTime? NeededFrom { get; set; }
+        public DateTime? NeededTo { get; set; }
+
+        // Empty = active. Set when the operator closes the need, it then shows in Historikk
+        public DateTime? ClosedAt { get; set; }
+
+        // The lines: "2 traktorer", "1 båt" - Docs: Relationships (one-to-many)
+        // https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many
+        public List<ResourceNeedItem> Items { get; set; } = new();
     }
 }

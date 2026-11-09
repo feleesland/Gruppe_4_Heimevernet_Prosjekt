@@ -2,10 +2,17 @@
 using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed;
 
 
+
 namespace Heimevernet_Prosjekt.DataAccess
 {
     public class ResourceNeedRepository : IResourceNeedRepository
+
     {
+        // Not used anymore - EfResourceNeedRepository is used
+        public bool Close(int id) => throw new NotSupportedException();
+        public bool UpdateWithItems(int id, ReportNeedViewModel model) => throw new NotSupportedException();
+        public void AddLog(int needId, string userId, string userName, string text) => throw new NotSupportedException();
+        public IReadOnlyList<ResourceNeedLog> GetLog(int needId) => throw new NotSupportedException();
         private readonly Dictionary<int, ResourceNeed> _resourceNeeds = new();
         private int _nextId = 1;
 
@@ -85,5 +92,22 @@ namespace Heimevernet_Prosjekt.DataAccess
             return resources.Count;
         }
 
+        // The in-memory version is not used by the app (Program.cs uses EfResourceNeedRepository).
+        // These only exist so the class still matches the interface - Docs: NotSupportedException
+        // https://learn.microsoft.com/dotnet/api/system.notsupportedexception
+        public ResourceNeed CreateWithItems(ReportNeedViewModel model, string ownerId)
+            => throw new NotSupportedException("Bruk EfResourceNeedRepository.");
+
+        public bool AddItems(int needId, IEnumerable<NeedLineInput> lines)
+            => throw new NotSupportedException("Bruk EfResourceNeedRepository.");
+
+        public ResourceNeed? GetWithItems(int id)
+            => throw new NotSupportedException("Bruk EfResourceNeedRepository.");
+
+        public IReadOnlyCollection<ResourceNeed> GetActiveAt(double latitude, double longitude)
+            => throw new NotSupportedException("Bruk EfResourceNeedRepository.");
+
+
     }
+
 }

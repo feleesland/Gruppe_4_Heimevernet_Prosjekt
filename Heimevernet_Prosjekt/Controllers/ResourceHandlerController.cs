@@ -1,6 +1,6 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
+using Heimevernet_Prosjekt.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
@@ -42,12 +42,12 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             return RedirectToAction("List", "Resource");
         }
-
+        // From the map's click menu, the place comes in the address (?lat=..&lng=..)
         [HttpGet]
-        public IActionResult Create()
+        public IActionResult Create(double? lat, double? lng)
         {
             LoadTypes();
-            return View();
+            return View(new ResourceViewModel { Latitude = lat, Longitude = lng });
         }
 
         [HttpPost]

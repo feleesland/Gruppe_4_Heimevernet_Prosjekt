@@ -8,6 +8,8 @@ namespace Heimevernet_Prosjekt.DataAccess
     {
         private readonly Dictionary<int, Resource> _resources = new();
         private int _nextId = 1;
+        public bool SetStatus(int id, string status) => throw new NotSupportedException();
+        public bool SetUnavailable(int id, string? reason, DateTime? untilUtc) => throw new NotSupportedException();
 
         public ResourceRepository()
         {

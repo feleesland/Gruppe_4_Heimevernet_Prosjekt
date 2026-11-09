@@ -24,6 +24,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         [Display(Name = "Type")]
         public string Type { get; set; } = string.Empty;
         public string? Status { get; set; } = "Ledig";
+        // "Ikke tilgjengelig": why, and when it is free again (UTC)
+        public string? UnavailableReason { get; set; }
+        public DateTime? UnavailableUntil { get; set; }
 
         // The owner's contact info, read from the account (AspNetUsers) - not saved on the resource
         public string? OwnerName { get; set; }
@@ -47,7 +50,6 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         // When the resource was registered (only shown, never typed in)
         public DateTime? CreatedAt { get; set; }
 
-        // Free text from the owner, e.g. where the keys are
         [MaxLength(2000, ErrorMessage = "Merknadene kan ikke være lengre enn 2000 tegn.")]
         [Display(Name = "Merknader")]
         public string? Notes { get; set; }
