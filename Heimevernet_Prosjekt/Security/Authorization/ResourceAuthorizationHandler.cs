@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using System.Security.Claims;
 
-namespace Heimevernet_Prosjekt.Models.Authorization
+namespace Heimevernet_Prosjekt.Security.Authorization
 {
     // Admin: everything, owner: everything, operator: read only - Docs: Resource-based authorization (Operational requirements)
     // https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased

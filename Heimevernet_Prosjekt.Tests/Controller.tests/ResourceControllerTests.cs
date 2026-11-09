@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Heimevernet_Prosjekt.Controllers;
 using Heimevernet_Prosjekt.DataAccess;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Identity;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
@@ -10,6 +9,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 

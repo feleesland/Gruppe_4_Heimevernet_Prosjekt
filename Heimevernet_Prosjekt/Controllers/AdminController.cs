@@ -1,11 +1,11 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
-using Heimevernet_Prosjekt.Models.Authorization;
 using Heimevernet_Prosjekt.Models.ViewModels.Admin;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Heimevernet_Prosjekt.Models.Entities;
+using Heimevernet_Prosjekt.Security.Authorization;
 
 namespace Heimevernet_Prosjekt.Controllers
 {

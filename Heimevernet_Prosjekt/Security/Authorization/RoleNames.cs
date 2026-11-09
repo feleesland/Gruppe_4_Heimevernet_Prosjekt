@@ -1,4 +1,4 @@
-﻿namespace Heimevernet_Prosjekt.Models.Authorization
+﻿namespace Heimevernet_Prosjekt.Security.Authorization
 {
     public static class RoleNames
     {
