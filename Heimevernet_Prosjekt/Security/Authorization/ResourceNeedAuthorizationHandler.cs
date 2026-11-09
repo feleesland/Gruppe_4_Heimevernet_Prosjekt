@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 
-namespace Heimevernet_Prosjekt.Models.Authorization
+namespace Heimevernet_Prosjekt.Security.Authorization
 {
     // Needs are the operators' work: admin and operator can do everything, other users nothing
     // Operators work together, so one operator can add lines to a need another operator reported (help with AI)
