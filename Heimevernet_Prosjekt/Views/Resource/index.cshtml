@@ -5,13 +5,13 @@
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 @{
-    ViewData["Title"] = "Ressurs";
+    ViewData["Title"] = Model.Name;
 }
-
+<h1 class="text-break">@Model.Name</h1>
 @* Rediger/Slett only show when the user is allowed (CanEdit/CanDelete set in ResourceController.Index) *@
 @if (Model.CanEdit || Model.CanDelete)
 {
-    <h1>@ViewData["Title"]</h1>
+    
     <div class="d-flex flex-wrap gap-2 mb-3">
         @if (Model.CanEdit)
         {
