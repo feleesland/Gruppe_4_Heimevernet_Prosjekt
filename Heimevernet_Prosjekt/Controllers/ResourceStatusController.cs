@@ -1,5 +1,5 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
-using Heimevernet_Prosjekt.Models.Authorization;
+using Heimevernet_Prosjekt.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
