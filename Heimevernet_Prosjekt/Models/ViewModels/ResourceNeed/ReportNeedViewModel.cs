@@ -4,11 +4,15 @@ using System.ComponentModel.DataAnnotations;
 namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 {
     // The "Meld behov" form: the need (name, place, akutt/planlagt, time) and its lines (help with AI)
-    // Docs: Model binding to collections - https://learn.microsoft.com/aspnet/core/mvc/models/model-binding#collections
+    // Also used by "Rediger" (EditNeedId is set) - Docs: Model binding to collections
+    // https://learn.microsoft.com/aspnet/core/mvc/models/model-binding#collections
     public class ReportNeedViewModel
     {
         // Set when the operator picks "Legg til i Flom Lund"; empty = a new need
         public int? ExistingNeedId { get; set; }
+
+        // Rediger: the need being edited (null = new need)
+        public int? EditNeedId { get; set; }
 
         // Required for a new need (checked in the controller, not when adding to an existing one)
         [Display(Name = "Navn")]
@@ -64,6 +68,10 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         [Display(Name = "Antall")]
         [Range(1, 1000, ErrorMessage = "Antall må være mellom 1 og 1000.")]
         public int Quantity { get; set; } = 1;
+
+        // Rediger: the saved line (null = new line), how many said yes, and if requests are sent (then it is locked)
+        public int? ItemId { get; set; }
+        public int Accepted { get; set; }
+        public bool HasRequests { get; set; }
     }
 }
-

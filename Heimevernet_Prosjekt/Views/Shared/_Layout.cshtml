@@ -13,6 +13,24 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Heimevernet</title>
+
+        @* Light or dark mode: set before the page is drawn, so it doesn't flash. The choice is remembered;
+       the first time it follows the computer's setting - Docs: Bootstrap Color modes
+       https://getbootstrap.com/docs/5.3/customize/color-modes/ *@
+    @* The site has its own dark mode, so dark-mode extensions (e.g. Dark Reader) leave it alone *@
+    <meta name="color-scheme" content="light dark" />
+    <meta name="darkreader-lock" />
+    <script>
+        (function () {
+            var theme = null;
+            try { theme = localStorage.getItem('theme'); } catch (e) { }
+            if (theme !== 'light' && theme !== 'dark') {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
+
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
@@ -55,6 +73,16 @@
                                asp-controller="Home"
                                asp-action="Index">Hjem</a>
                         </li>
+                                                @* The operator's main page - only operator and admin *@
+                        @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-white"
+                                   asp-area=""
+                                   asp-controller="ResourceNeed"
+                                   asp-action="Overview">Oversikt</a>
+                            </li>
+                        }
                         <li class="nav-item">
                             <a class="nav-link text-white"
                                asp-area=""
@@ -154,6 +182,13 @@
 
                                        @* Show account controls based on login status. *@
                     <ul class="navbar-nav align-items-center">
+                                                @* The light/dark button: icon + text, not only an icon *@
+                        <li class="nav-item">
+                            <button type="button" id="themeToggle" class="nav-link text-white btn btn-link text-nowrap">
+                                <span id="themeIcon" aria-hidden="true">🌙</span>
+                                <span id="themeText" class="d-none d-lg-inline">Mørk modus</span>
+                            </button>
+                        </li>
                         @if (SignInManager.IsSignedIn(User))
                         {
                             // Show first and last name; fall back to email for users without a name
@@ -289,6 +324,29 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
+                <script>
+        // The light/dark button shows what you switch TO, and saves the choice (help with AI)
+        (function () {
+            var button = document.getElementById('themeToggle');
+            if (!button) return;
+            var root = document.documentElement;
+
+            function show() {
+                var dark = root.getAttribute('data-bs-theme') === 'dark';
+                document.getElementById('themeIcon').textContent = dark ? '🌙' : '☀️';
+                document.getElementById('themeText').textContent = dark ? 'Mørk modus' : 'Lys modus';
+                button.setAttribute('aria-label', dark ? 'Bytt til lys modus' : 'Bytt til mørk modus');
+            }
+
+            button.addEventListener('click', function () {
+                var next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-bs-theme', next);
+                try { localStorage.setItem('theme', next); } catch (e) { }
+                show();
+            });
+            show();
+        })();
+    </script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

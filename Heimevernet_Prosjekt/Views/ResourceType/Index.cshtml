@@ -1,0 +1,77 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@model IEnumerable<ResourceType>
+@{
+    ViewData["Title"] = "Ressurstyper";
+    var counts = ViewData["Counts"] as Dictionary<int, int> ?? new();
+}
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success" role="status">@TempData["Message"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger" role="alert">@TempData["Error"]</div>
+}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h1 class="mb-0 me-auto">Ressurstyper</h1>
+    <a class="btn btn-outline-secondary" asp-controller="ResourceNeed" asp-action="Overview">← Tilbake til oversikt</a>
+</div>
+
+@* New type: name + examples shown under the type in the forms *@
+<form asp-action="Create" method="post" class="card card-body mb-4">
+    <h2 class="h5">Ny type</h2>
+    <div class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <label for="name" class="form-label">Navn</label>
+            <input id="name" name="name" class="form-control" maxlength="100" required placeholder="F.eks. Båter" />
+        </div>
+        <div class="col-md-6">
+            <label for="examples" class="form-label">Eksempler (valgfritt)</label>
+            <input id="examples" name="examples" class="form-control" maxlength="300" placeholder="F.eks. robåt, gummibåt, kajakk" />
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="button m-0 w-100 border-0">Legg til</button>
+        </div>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table align-middle">
+        <thead>
+            <tr>
+                <th scope="col">Navn</th>
+                <th scope="col">Eksempler</th>
+                <th scope="col">I bruk</th>
+                <th scope="col"><span class="visually-hidden">Handlinger</span></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var t in Model)
+            {
+                var count = counts.TryGetValue(t.Id, out var c) ? c : 0;
+                <tr>
+                    <td>@t.Name</td>
+                    <td class="text-body-secondary small">@t.Examples</td>
+                    <td>@(count == 1 ? "1 ressurs" : $"{count} ressurser")</td>
+                    <td class="text-end text-nowrap">
+                        <a class="btn btn-sm btn-outline-secondary" asp-action="Edit" asp-route-id="@t.Id">Rediger</a>
+                        @if (t.Name != "Annet")
+                        {
+                            <form asp-action="Delete" asp-route-id="@t.Id" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        data-confirm="@(count == 0
+                                            ? $"Slette «{t.Name}»?"
+                                            : $"Slette «{t.Name}»? {count} ressurs(er) bruker den og må få ny type.")"
+                                        onclick="return confirm(this.dataset.confirm);">
+                                    Slett
+                                </button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

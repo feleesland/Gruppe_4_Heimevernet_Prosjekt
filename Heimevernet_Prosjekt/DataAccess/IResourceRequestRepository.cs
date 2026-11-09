@@ -44,6 +44,7 @@ public interface IResourceRequestRepository
 
     // Which need the request belongs to (to check access)
     int? GetNeedId(int requestId);
+    IReadOnlyList<ResourceLoan> GetLoansForResource(int resourceId);
 }
 
 // One request as the owner sees it
@@ -57,3 +58,8 @@ public record OwnerRequest(
 }
 
 public enum AnswerResult { Accepted, Declined, AlreadyCovered, NotOpen, NotFound }
+
+
+// One loan of a resource: which need it was lent to, and when it was delivered and returned
+public record ResourceLoan(int NeedId, string NeedName, bool NeedClosed, DeliveryMethod? Delivery,
+    DateTime? AnsweredAt, DateTime? DeliveredAt, DateTime? ReturnedAt);

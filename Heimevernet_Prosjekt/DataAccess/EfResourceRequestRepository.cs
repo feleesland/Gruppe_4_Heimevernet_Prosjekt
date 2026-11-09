@@ -347,4 +347,21 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
         dbContext.SaveChanges();
         return AnswerResult.Accepted;
     }
+    // The resource's loans (accepted requests), newest first - for "Utlån" on the resource page
+    public IReadOnlyList<ResourceLoan> GetLoansForResource(int resourceId)
+    {
+        return dbContext.ResourceRequests
+            .AsNoTracking()
+            .Where(r => r.ResourceId == resourceId && r.Status == RequestStatus.Godtatt)
+            .OrderByDescending(r => r.AnsweredAt)
+            .Select(r => new ResourceLoan(
+                r.ResourceNeedItem.ResourceNeedId,
+                r.ResourceNeedItem.ResourceNeed.Name,
+                r.ResourceNeedItem.ResourceNeed.ClosedAt != null,
+                r.Delivery,
+                r.AnsweredAt,
+                r.DeliveredAt,
+                r.ReturnedAt))
+            .ToList();
+    }
 }

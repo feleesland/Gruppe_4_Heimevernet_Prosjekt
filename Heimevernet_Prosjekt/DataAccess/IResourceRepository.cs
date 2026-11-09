@@ -13,6 +13,8 @@ namespace Heimevernet_Prosjekt.DataAccess
         bool Update(int id, ResourceViewModel model);
         int RemoveOwner(string ownerId);
         int DeleteAllByOwner(string ownerId);
+        bool SetStatus(int id, string status);
+        bool SetUnavailable(int id, string? reason, DateTime? untilUtc);
 
     }
 }

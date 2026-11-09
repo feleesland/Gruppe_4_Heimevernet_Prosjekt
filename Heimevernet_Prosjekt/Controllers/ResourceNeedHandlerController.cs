@@ -106,7 +106,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 _resourceNeedRepository.AddItems(existing.Id, model.Lines);
                 TempData["Message"] = $"{CountText(model.Lines)} lagt til i «{existing.Name}»: {Summary(model.Lines)}.";
                 Log(existing.Id, $"La til {Summary(model.Lines)}");
-                return RedirectToAction("Index", "ResourceNeed", new { id = existing.Id });
+                return DoneOrRedirect(existing.Id);
             }
 
             // New need: times to UTC, Akutt has no "from" (it is now)
@@ -122,7 +122,7 @@ namespace Heimevernet_Prosjekt.Controllers
 
             TempData["Message"] = $"«{need.Name}» er meldt med {CountText(model.Lines)}: {Summary(model.Lines)}.";
             Log(need.Id, $"Meldte behovet ({need.Urgency}): {Summary(model.Lines)}");
-            return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
+            return DoneOrRedirect(need.Id);
         }
 
         // Asked by the form when a place is chosen: active needs whose circle contains the point (for the orange box)
@@ -203,7 +203,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 }
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // One e-mail per request, with a link to "Mine forespørsler" - Docs: Account confirmation and password recovery (IEmailSender)
@@ -285,7 +285,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Forespørselen er ikke åpen lenger.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // "↩ Angre": undo an answer the operator registered by phone (back to "Venter")
@@ -309,7 +309,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Kan bare angre svar som ble registrert på telefon.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // "Trekk tilbake forespørselen" (waiting) / "Avbryt bekreftelsen" (accepted)
@@ -333,7 +333,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Forespørselen kan ikke avbrytes lenger.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // "Marker som levert": the resource has arrived
@@ -357,7 +357,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Kan bare markere godtatte forespørsler som levert.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // "Marker som levert tilbake": the resource is back with the owner and becomes free again
@@ -381,7 +381,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Ressursen er allerede levert tilbake.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // Close the need. The operator must write why, and the reason is saved in the log
@@ -393,7 +393,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (string.IsNullOrEmpty(closeNote))
             {
                 TempData["Error"] = "Skriv hvorfor behovet avsluttes.";
-                return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+                return BackToNeed(needId);
             }
             if (closeNote.Length > 400)
             {
@@ -410,7 +410,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Behovet finnes ikke, eller er allerede avsluttet.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // "+30 min / +1 t": more time to answer
@@ -440,7 +440,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 TempData["Error"] = "Forespørselen venter ikke på svar lenger.";
             }
 
-            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+            return BackToNeed(needId);
         }
 
         // The request must belong to this need, and the user must be allowed to change the need
@@ -473,69 +473,100 @@ namespace Heimevernet_Prosjekt.Controllers
             return true;
         }
 
+        // "Rediger": the same form as "Meld behov", filled in. Lines with requests are locked (help with AI)
         [HttpGet]
-        public async Task<ActionResult> Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
-            var resource = _resourceNeedRepository.GetById(id);
-            if (resource == null)
+            var need = _resourceNeedRepository.GetWithItems(id);
+            if (need == null)
             {
                 return NotFound();
             }
             // Docs: Resource-based authorization
-            var authorizationResult = await _authorizationService.AuthorizeAsync(User, resource, ResourceNeedOperations.Update);
-            if (!authorizationResult.Succeeded)
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
             {
                 return Forbid();
             }
-            var model = new ResourceNeedViewModel
+            if (need.ClosedAt != null)
             {
-                Id = resource.Id,
-                Name = resource.Name,
-                Description = resource.Description,
-                Type = resource.Type,
+                TempData["Error"] = "Et avsluttet behov kan ikke endres.";
+                return RedirectToAction("Index", "ResourceNeed", new { id });
+            }
 
-                // Address and position on the map
-                Address = resource.Address,
-                City = resource.City,
-                ZipCode = resource.ZipCode,
-                Latitude = resource.Latitude,
-                Longitude = resource.Longitude,
-                CreatedAt = resource.CreatedAt
+            var requests = _requestRepository.GetForNeed(id);
+            var model = new ReportNeedViewModel
+            {
+                EditNeedId = need.Id,
+                Name = need.Name,
+                Description = need.Description,
+                Urgency = need.Urgency,
+                RadiusKm = need.RadiusKm,
+                Address = need.Address,
+                ZipCode = need.ZipCode,
+                City = need.City,
+                Latitude = need.Latitude,
+                Longitude = need.Longitude,
+                NeededFrom = ToOslo(need.NeededFrom),
+                NeededTo = ToOslo(need.NeededTo),
+                Lines = need.Items.Select(item => new NeedLineInput
+                {
+                    ItemId = item.Id,
+                    Type = item.Type,
+                    Quantity = item.Quantity,
+                    Accepted = requests.Count(r => r.ResourceNeedItemId == item.Id && r.Status == RequestStatus.Godtatt),
+                    HasRequests = requests.Any(r => r.ResourceNeedItemId == item.Id)
+                }).ToList()
             };
-            return View(model);
+
+            LoadTypes();
+            return View("Create", model);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Edit(ResourceNeedViewModel model)
+        public async Task<IActionResult> Edit(ReportNeedViewModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-            if (model.Id == null)
+            if (model.EditNeedId == null)
             {
                 return BadRequest();
             }
-            var existing = _resourceNeedRepository.GetById(model.Id.Value);
-            if (existing == null)
+            var need = _resourceNeedRepository.GetById(model.EditNeedId.Value);
+            if (need == null)
             {
                 return NotFound();
             }
-            // Docs: Resource-based authorization
-            var authorizationResult = await _authorizationService.AuthorizeAsync(User, existing, ResourceNeedOperations.Update);
-            if (!authorizationResult.Succeeded)
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
             {
                 return Forbid();
             }
-            var success = _resourceNeedRepository.Update(model.Id.Value, model);
-
-            if (!success)
+            if (need.ClosedAt != null)
             {
-                return NotFound();
+                TempData["Error"] = "Et avsluttet behov kan ikke endres.";
+                return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
             }
-            Log(model.Id.Value, "Endret navn, beskrivelse eller sted");
-            return RedirectToAction("List", "ResourceNeed");
+
+            // Same rules as "Meld behov" (name, place, time, types)
+            model.ExistingNeedId = null;
+            ValidateNeed(model);
+            if (!ModelState.IsValid)
+            {
+                LoadTypes();
+                return View("Create", model);
+            }
+
+            if (model.Urgency == NeedUrgency.Akutt)
+            {
+                model.NeededFrom = null;
+            }
+            model.NeededFrom = ToUtc(model.NeededFrom);
+            model.NeededTo = ToUtc(model.NeededTo);
+
+            _resourceNeedRepository.UpdateWithItems(need.Id, model);
+            TempData["Message"] = "Endringene er lagret.";
+            Log(need.Id, $"Endret behovet: {Summary(model.Lines)}");
+            return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
         }
 
         [HttpPost]
@@ -618,6 +649,12 @@ namespace Heimevernet_Prosjekt.Controllers
                 : TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(norwegianTime.Value, DateTimeKind.Unspecified), Oslo);
         }
 
+        // The other way: saved UTC to Norwegian time for the form
+        private static DateTime? ToOslo(DateTime? utc)
+        {
+            return utc == null ? null : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, Oslo);
+        }
+
         // "1 behov" / "3 behov" (same word in singular and plural)
         private static string CountText(List<NeedLineInput> lines)
         {
@@ -636,6 +673,31 @@ namespace Heimevernet_Prosjekt.Controllers
             var name = request == null ? null : _resourceRepository.GetById(request.ResourceId)?.Name;
             return name != null ? $"«{name}»" : $"forespørsel #{requestId}";
         }
+        // After saving: normally go to the need's page. From the side panel on the map (embed=1),
+        // tell the map instead, so it can close the panel and draw the new circle (help with AI)
+        // Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
+        private IActionResult DoneOrRedirect(int needId)
+        {
+            if (Request.HasFormContentType && Request.Form["embed"] == "1")
+            {
+                TempData.Remove("Message");
+                var url = Url.Action("Index", "ResourceNeed", new { id = needId });
+                return Content(
+                    $"<script>parent.postMessage({{ type: 'need-created', id: {needId}, url: '{url}' }}, location.origin);</script>",
+                    "text/html");
+            }
+            return BackToNeed(needId);
+        }
+        // Back to the need page. From the side panel on the map (embed=1) it stays in the panel (help with AI)
+        private IActionResult BackToNeed(int needId)
+        {
+            if (Request.HasFormContentType && Request.Form["embed"] == "1")
+            {
+                return RedirectToAction("Index", "ResourceNeed", new { id = needId, embed = 1 });
+            }
+            return RedirectToAction("Index", "ResourceNeed", new { id = needId });
+        }
+
         // Writes who did what in the need's log (who and when). The name is saved as text, so it stays if the user is deleted
         private void Log(int needId, string text)
         {

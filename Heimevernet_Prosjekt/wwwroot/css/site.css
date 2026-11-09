@@ -1,3 +1,22 @@
+
+
+/* Our colours for light and dark mode. Bootstrap changes its own colours; these are ours - Docs: Bootstrap Color modes
+   https://getbootstrap.com/docs/5.3/customize/color-modes/ */
+:root,
+[data-bs-theme="light"] {
+    --hv-green: #1e6447;
+    --hv-link: #1e6447;
+    --hv-table-head: #f2f4f6;
+    --hv-table-border: #d9d9d9;
+}
+
+[data-bs-theme="dark"] {
+    --hv-green: #1e6447;
+    --hv-link: #6fcf9f; /* the dark green is too dark to read on a dark background */
+    --hv-table-head: var(--bs-tertiary-bg);
+    --hv-table-border: var(--bs-border-color);
+}
+
 html {
     position: relative;
     min-height: 100%;
@@ -16,7 +35,7 @@ header {
 }
 
 a {
-    color: #1e6447;
+    color: var(--hv-link);
 }
 
 @media (min-width: 768px) {
@@ -61,7 +80,7 @@ a {
 }
 
     .resource-table-scroll:focus-visible {
-        outline: 3px solid #1e6447;
+        outline: 3px solid var(--hv-link);
         outline-offset: 3px;
     }
 
@@ -74,13 +93,13 @@ a {
     .resource-table th,
     .resource-table td {
         padding: 0.75rem;
-        border-bottom: 1px solid #d9d9d9;
+        border-bottom: 1px solid var(--hv-table-border);
         text-align: left;
         vertical-align: top;
     }
 
     .resource-table thead {
-        background-color: #f2f4f6;
+        background-color: var(--hv-table-head);
     }
 
     /* Wrap long text so it does not create very wide columns. */
@@ -214,4 +233,10 @@ a {
 
 .notification-item {
     white-space: normal;
+}
+
+/* The footer follows light/dark mode (the layout's own CSS gives it a fixed light colour) */
+footer.footer {
+    background-color: var(--bs-body-bg) !important;
+    color: var(--bs-secondary-color) !important;
 }

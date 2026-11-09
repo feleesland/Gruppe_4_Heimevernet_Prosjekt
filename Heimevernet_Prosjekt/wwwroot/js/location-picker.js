@@ -112,7 +112,13 @@ document.getElementById('useMyLocation').addEventListener('click', () => {
     );
 });
 
-// Hvis ressursen allerede har en plassering (f.eks. på Rediger-siden), vis den
+// Hvis plasseringen allerede er valgt (f.eks. klikket på kartet, eller Rediger-siden), vis den.
+// Er adressefeltet tomt, henter vi adressen fra Kartverket med en gang
 if (latInput.value && lngInput.value) {
-    showPosition(parseFloat(latInput.value), parseFloat(lngInput.value), '');
+    const startLat = parseFloat(latInput.value);
+    const startLng = parseFloat(lngInput.value);
+    showPosition(startLat, startLng, '');
+    if (!document.getElementById('Address').value) {
+        fillAddress(startLat, startLng);
+    }
 }

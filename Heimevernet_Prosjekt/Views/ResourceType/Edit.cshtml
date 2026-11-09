@@ -1,0 +1,38 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@model ResourceType
+@{
+    ViewData["Title"] = "Rediger ressurstype";
+    var isOther = Model.Name == "Annet";
+}
+
+<h1>Rediger ressurstype</h1>
+
+@* Errors from the controller (empty name, name already exists, "Annet" can't be renamed) *@
+<div asp-validation-summary="All" class="text-danger mb-3"></div>
+
+<form asp-action="Edit" asp-route-id="@Model.Id" method="post" class="card card-body" style="max-width: 640px;">
+    <div class="mb-3">
+        <label for="name" class="form-label">Navn</label>
+        <input id="name" name="name" value="@Model.Name" class="form-control" maxlength="100" required readonly="@isOther" />
+        @if (isOther)
+        {
+            <div class="form-text">«Annet» kan ikke få nytt navn, men du kan endre eksemplene.</div>
+        }
+        else
+        {
+            <div class="form-text">Ressurser som bruker denne typen, får det nye navnet automatisk.</div>
+        }
+    </div>
+
+    <div class="mb-3">
+        <label for="examples" class="form-label">Eksempler (valgfritt)</label>
+        <input id="examples" name="examples" value="@Model.Examples" class="form-control" maxlength="300"
+               placeholder="F.eks. robåt, gummibåt, kajakk" />
+        <div class="form-text">Vises under typen i skjemaene, så folk vet hva som hører hjemme her.</div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="button m-0 border-0">Lagre</button>
+        <a asp-action="Index" class="btn btn-outline-secondary">Avbryt</a>
+    </div>
+</form>

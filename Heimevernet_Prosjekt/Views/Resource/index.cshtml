@@ -1,6 +1,8 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @using Heimevernet_Prosjekt.Security.Authorization
 @inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
+@inject Heimevernet_Prosjekt.DataAccess.IResourceRequestRepository RequestRepository
+@using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 @{
     ViewData["Title"] = "Ressurs";
@@ -25,6 +27,90 @@
             </form>
         }
     </div>
+}
+@* Status with one click: icon + text, not colour alone. Only those who may edit (owner, admin) *@
+@if (Model.CanEdit && Model.Id != null)
+{
+    var activeLoan = RequestRepository.GetLoansForResource(Model.Id.Value).FirstOrDefault(l => l.ReturnedAt == null);
+    var unavailable = Model.Status == "Ikke tilgjengelig";
+    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
+    if (activeLoan != null)
+    {
+        <div class="alert alert-info py-2 mb-3">
+            📦 Utlånt til «@activeLoan.NeedName». Den blir ledig når den er markert som levert tilbake.
+        </div>
+    }
+    else
+    {
+        <form asp-controller="ResourceStatus" asp-action="Set" method="post" class="mb-2">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <div class="small text-body-secondary mb-1">Status</div>
+            <div class="btn-group flex-wrap" role="group" aria-label="Status">
+                <button type="submit" name="status" value="Ledig"
+                        class="btn @(Model.Status == "Ledig" ? "btn-success" : "btn-outline-success")"
+                        aria-pressed="@(Model.Status == "Ledig" ? "true" : "false")">
+                    ✓ Ledig
+                </button>
+                <button type="submit" name="status" value="Opptatt"
+                        class="btn @(Model.Status == "Opptatt" ? "btn-warning" : "btn-outline-warning")"
+                        aria-pressed="@(Model.Status == "Opptatt" ? "true" : "false")">
+                    ● Opptatt
+                </button>
+                @* Opens the small form below instead of saving straight away *@
+                <button type="button" data-bs-toggle="collapse" data-bs-target="#unavailableForm"
+                        aria-expanded="false" aria-controls="unavailableForm"
+                        class="btn @(unavailable ? "btn-secondary" : "btn-outline-secondary")"
+                        aria-pressed="@(unavailable ? "true" : "false")">
+                    ⏸ Ikke tilgjengelig
+                </button>
+                <button type="submit" name="status" value="Ugyldig"
+                        class="btn @(Model.Status == "Ugyldig" ? "btn-danger" : "btn-outline-danger")"
+                        aria-pressed="@(Model.Status == "Ugyldig" ? "true" : "false")">
+                    ✗ Ugyldig
+                </button>
+            </div>
+        </form>
+
+        @* Why, and when it's free again. The time is Norwegian time *@
+        <div class="collapse mb-3" id="unavailableForm">
+            <form asp-controller="ResourceStatus" asp-action="SetUnavailable" method="post" class="card card-body" style="max-width: 520px;">
+                <input type="hidden" name="id" value="@Model.Id" />
+                <label for="unavailableReason" class="form-label">Hvorfor? <span class="text-body-secondary">(valgfritt)</span></label>
+                <input id="unavailableReason" name="reason" class="form-control mb-3" maxlength="200"
+                       placeholder="F.eks. på verksted" value="@Model.UnavailableReason" />
+
+                <label for="unavailableUntil" class="form-label">Ledig igjen</label>
+                <input id="unavailableUntil" name="until" type="datetime-local" class="form-control mb-2" />
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="unavailableUnknown" name="unknown" value="true"
+                           onchange="document.getElementById('unavailableUntil').disabled = this.checked;" />
+                    <label class="form-check-label" for="unavailableUnknown">Vet ikke når</label>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="button m-0 border-0">Lagre</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#unavailableForm">Avbryt</button>
+                </div>
+            </form>
+        </div>
+
+        @* Shown while it is unavailable: icon + text *@
+        @if (unavailable)
+        {
+            <div class="alert alert-secondary py-2 mb-3">
+                ⏸ Ikke tilgjengelig@(string.IsNullOrEmpty(Model.UnavailableReason) ? "" : $" – {Model.UnavailableReason}").
+                @if (Model.UnavailableUntil != null)
+                {
+                    <text>Ledig igjen @TimeZoneInfo.ConvertTimeFromUtc(Model.UnavailableUntil.Value, oslo).ToString("dd.MM.yyyy 'kl' HH:mm"). Blir ledig av seg selv da.</text>
+                }
+                else
+                {
+                    <text>Ukjent når den er ledig igjen.</text>
+                }
+            </div>
+        }
+    }
 }
 
 @* Confirmation after "Meld til admin" *@
@@ -80,7 +166,7 @@
 }
 
 <p>@Model.Description</p>
-<p>Type: @Model.Type</p
+<p>Type: @Model.Type</p>
 @if (Model.HasImage)
 {
     <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="img-fluid mb-3" style="max-height: 300px;" />
@@ -121,6 +207,75 @@ else if (Model.OwnerEmail != null)
 {
     var osloTime = TimeZoneInfo.ConvertTimeFromUtc(Model.CreatedAt.Value, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
     <p>Registrert: @osloTime.ToString("dd.MM.yyyy HH:mm")</p>
+}
+
+@* "Utlån": which needs the resource has been lent to. Only operator, admin and the owner (CanEdit) see it *@
+@if (Model.Id != null && (Model.CanEdit || User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)))
+{
+    var loans = RequestRepository.GetLoansForResource(Model.Id.Value);
+    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    string When(DateTime? utc) => utc == null ? "–" : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, oslo).ToString("dd.MM.yyyy HH:mm");
+
+    <h2 class="h5 mt-4">📦 Utlån (@loans.Count)</h2>
+    @if (loans.Count == 0)
+    {
+        <p class="text-body-secondary">Ressursen har ikke vært utlånt ennå.</p>
+    }
+    else
+    {
+        <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">Behov</th>
+                        <th scope="col">Sa ja</th>
+                        <th scope="col">Levert</th>
+                        <th scope="col">Levert tilbake</th>
+                        <th scope="col">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var loan in loans)
+                    {
+                        <tr>
+                            <td>
+                                @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+                                {
+                                    <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@loan.NeedId">@loan.NeedName</a>
+                                }
+                                else
+                                {
+                                    @loan.NeedName
+                                }
+                                <div class="small text-body-secondary">@(loan.Delivery == DeliveryMethod.Hentes ? "Hentes" : "Eieren leverer")</div>
+                            </td>
+                            <td class="small">@When(loan.AnsweredAt)</td>
+                            <td class="small">@When(loan.DeliveredAt)</td>
+                            <td class="small">@When(loan.ReturnedAt)</td>
+                            <td>
+                                @if (loan.ReturnedAt != null)
+                                {
+                                    <span class="badge text-bg-secondary">↩ Levert tilbake</span>
+                                }
+                                else if (loan.DeliveredAt != null)
+                                {
+                                    <span class="badge text-bg-info">📦 I bruk</span>
+                                }
+                                else
+                                {
+                                    <span class="badge text-bg-success">✓ Avtalt</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+@if (Model.Latitude != null && Model.Longitude != null)
+{
+    <a class="btn btn-sm btn-outline-secondary mb-2" asp-controller="Home" asp-action="Map" asp-route-focus="@Model.Id">🗺 Vis på hovedkartet</a>
 }
 
 @if (Model.Latitude != null && Model.Longitude != null)

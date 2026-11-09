@@ -24,6 +24,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         [Display(Name = "Type")]
         public string Type { get; set; } = string.Empty;
         public string? Status { get; set; } = "Ledig";
+        // "Ikke tilgjengelig": why, and when it is free again (UTC)
+        public string? UnavailableReason { get; set; }
+        public DateTime? UnavailableUntil { get; set; }
 
         // The owner's contact info, read from the account (AspNetUsers) - not saved on the resource
         public string? OwnerName { get; set; }

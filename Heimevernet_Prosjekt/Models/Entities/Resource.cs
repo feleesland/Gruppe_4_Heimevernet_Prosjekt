@@ -9,6 +9,11 @@ namespace Heimevernet_Prosjekt.Models.Entities
         public string Description { get; set; } = string.Empty;
         public string Type { get; set; } = string.Empty;
         public string Status { get; set; } = "Ledig";
+        // "Ikke tilgjengelig": why, and when it is free again (UTC). Null = "vet ikke når"
+        [MaxLength(200)]
+        public string? UnavailableReason { get; set; }
+
+        public DateTime? UnavailableUntil { get; set; }
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;

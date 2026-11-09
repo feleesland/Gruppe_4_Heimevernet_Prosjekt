@@ -2,22 +2,36 @@
 @using Heimevernet_Prosjekt.Models.Entities
 @model ReportNeedViewModel
 @{
-    ViewData["Title"] = "Meld behov";
+    // The same form for "Meld behov" and "Rediger behov" (EditNeedId is set)
+    var editing = Model.EditNeedId != null;
+    ViewData["Title"] = editing ? "Rediger behov" : "Meld behov";
     var types = ViewData["ResourceTypes"] as IReadOnlyCollection<ResourceType> ?? Array.Empty<ResourceType>();
     var isPlanned = Model.Urgency == NeedUrgency.Planlagt;
     // Start with one empty line so it is clear what to fill in
     var lines = Model.Lines.Count > 0 ? Model.Lines : new List<NeedLineInput> { new() };
+    // In the side panel on the map (?embed=1): no menu, and the panel closes after saving
+    var embed = Context.Request.Query["embed"] == "1"
+                || (Context.Request.HasFormContentType && Context.Request.Form["embed"] == "1");
+    if (embed)
+    {
+        Layout = "_EmbedLayout";
+    }
 }
 
 <div style="max-width: 760px;">
     <h1>@ViewData["Title"]</h1>
 
     @* Docs: Tag Helpers in forms (also adds the antiforgery token) - https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms *@
-    <form asp-controller="ResourceNeedHandler" asp-action="Create" method="post" id="needForm">
+    <form asp-controller="ResourceNeedHandler" asp-action="@(editing ? "Edit" : "Create")" method="post" id="needForm">
         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
         <input type="hidden" asp-for="ExistingNeedId" />
+        <input type="hidden" asp-for="EditNeedId" />
+        @if (embed)
+        {
+            <input type="hidden" name="embed" value="1" />
+        }
 
-        @* Shown only when the chosen place is inside an active need (filled by JavaScript below) *@
+        @* Shown only when the chosen place is inside an active need (filled by JavaScript below). Not when editing *@
         <div id="activeBox" class="alert alert-warning" hidden>
             <div id="activeList"></div>
             <div id="alreadyReported" class="small mt-2"></div>
@@ -89,22 +103,53 @@
             <div id="lines">
                 @for (var i = 0; i < lines.Count; i++)
                 {
+                    var locked = lines[i].HasRequests;
                     <div class="row g-2 mb-2 need-line">
+                        @* Rediger: which saved line this is, so the server knows what changed *@
+                        @if (lines[i].ItemId != null)
+                        {
+                            <input type="hidden" name="Lines[@i].ItemId" value="@lines[i].ItemId" />
+                            <input type="hidden" name="Lines[@i].Accepted" value="@lines[i].Accepted" />
+                            <input type="hidden" name="Lines[@i].HasRequests" value="@(locked ? "true" : "false")" />
+                        }
                         <div class="col">
-                            <select name="Lines[@i].Type" class="form-select" aria-label="Ressurs">
-                                <option value="">Velg type …</option>
-                                @foreach (var type in types)
-                                {
-                                    <option value="@type.Name" selected="@(type.Name == lines[i].Type)">@type.Name</option>
-                                }
-                            </select>
+                            @if (locked)
+                            {
+                                @* Requests are sent for this line: the type can't change (a disabled field isn't sent, so a hidden one is) *@
+                                <input type="hidden" name="Lines[@i].Type" value="@lines[i].Type" />
+                                <select class="form-select" aria-label="Ressurs" disabled>
+                                    <option selected>@lines[i].Type</option>
+                                </select>
+                                <div class="small text-body-secondary">
+                                    🔒 Forespørsler er sendt@(lines[i].Accepted > 0 ? $", {lines[i].Accepted} har sagt ja" : "")
+                                </div>
+                            }
+                            else
+                            {
+                                <select name="Lines[@i].Type" class="form-select" aria-label="Ressurs">
+                                    <option value="">Velg type …</option>
+                                    @foreach (var type in types)
+                                    {
+                                        <option value="@type.Name" selected="@(type.Name == lines[i].Type)">@type.Name</option>
+                                    }
+                                </select>
+                            }
                             @Html.ValidationMessage($"Lines[{i}].Type", new { @class = "text-danger" })
                         </div>
                         <div class="col-3 col-md-2">
-                            <input name="Lines[@i].Quantity" type="number" min="1" max="1000" value="@lines[i].Quantity" class="form-control" aria-label="Antall" />
+                            @* The quantity can't be lower than how many already said yes *@
+                            <input name="Lines[@i].Quantity" type="number" min="@Math.Max(1, lines[i].Accepted)" max="1000"
+                                   value="@lines[i].Quantity" class="form-control" aria-label="Antall" />
                         </div>
                         <div class="col-auto">
-                            <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
+                            @if (locked)
+                            {
+                                <span class="btn btn-outline-secondary disabled" title="Kan ikke fjernes: forespørsler er sendt" aria-label="Låst">🔒</span>
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
+                            }
                         </div>
                     </div>
                 }
@@ -129,8 +174,23 @@
             </div>
         </fieldset>
 
-        <button type="submit" id="submitButton" class="btn btn-primary" style="min-height: 44px;">Meld behov</button>
-        <a asp-controller="ResourceNeed" asp-action="List" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
+        <button type="submit" id="submitButton" class="btn btn-primary" style="min-height: 44px;">@(editing ? "Lagre endringer" : "Meld behov")</button>
+        @if (embed)
+        {
+            @* In the side panel: tell the map to close the panel *@
+            <button type="button" class="btn btn-outline-secondary" style="min-height: 44px;"
+                    onclick="parent.postMessage({ type: 'need-close' }, location.origin);">
+                Avbryt
+            </button>
+        }
+        else if (editing)
+        {
+            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@Model.EditNeedId" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
+        }
+        else
+        {
+            <a asp-controller="ResourceNeed" asp-action="List" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
+        }
     </form>
 </div>
 
@@ -138,7 +198,7 @@
 <template id="lineTemplate">
     <div class="row g-2 mb-2 need-line">
         <div class="col">
-            <select class="form-select" aria-label="Ressurs">
+            <select name="Lines[0].Type" class="form-select" aria-label="Ressurs">
                 <option value="">Velg type …</option>
                 @foreach (var type in types)
                 {
@@ -147,7 +207,7 @@
             </select>
         </div>
         <div class="col-3 col-md-2">
-            <input type="number" min="1" max="1000" value="1" class="form-control" aria-label="Antall" />
+            <input name="Lines[0].Quantity" type="number" min="1" max="1000" value="1" class="form-control" aria-label="Antall" />
         </div>
         <div class="col-auto">
             <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
@@ -158,9 +218,10 @@
 @section Scripts {
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
     <script>
-        // "Meld behov": lines, akutt/planlagt and "Legg til i ..." (help with AI)
+        // "Meld behov" / "Rediger behov": lines, akutt/planlagt and "Legg til i ..." (help with AI)
         // Docs: Leaflet API reference (Circle, LayerGroup) - https://leafletjs.com/reference.html
         (function () {
+            const editing = @(editing ? "true" : "false");
             const activeUrl = '@Url.Action("ActiveAt", "ResourceNeedHandler")';
             const latField = document.getElementById('Latitude');
             const lngField = document.getElementById('Longitude');
@@ -176,25 +237,27 @@
             let radiusCircle = null;
 
             // ---- Lines ----
+            // Every field in a line is named Lines[i]..., so the numbers are fixed after adding or removing a line
             function renumber() {
                 linesBox.querySelectorAll('.need-line').forEach((row, i) => {
-                    row.querySelector('select').name = `Lines[${i}].Type`;
-                    row.querySelector('input').name = `Lines[${i}].Quantity`;
+                    row.querySelectorAll('[name^="Lines["]').forEach(el => {
+                        el.name = el.name.replace(/^Lines\[\d+\]/, `Lines[${i}]`);
+                    });
                 });
                 updateSubmit();
             }
 
             function addLine(type) {
                 // A chip fills the first empty line before it adds a new one
-                const empty = [...linesBox.querySelectorAll('.need-line select')].find(s => s.value === '');
+                const empty = [...linesBox.querySelectorAll('.need-line select:not([disabled])')].find(s => s.value === '');
                 if (empty) {
                     empty.value = type;
-                    empty.closest('.need-line').querySelector('input').focus();
+                    empty.closest('.need-line').querySelector('input[type=number]').focus();
                 } else {
                     const row = lineTemplate.content.firstElementChild.cloneNode(true);
                     row.querySelector('select').value = type;
                     linesBox.appendChild(row);
-                    row.querySelector('input').focus();
+                    row.querySelector('input[type=number]').focus();
                 }
                 renumber();
             }
@@ -216,6 +279,10 @@
             }
 
             function updateSubmit() {
+                if (editing) {
+                    submitButton.textContent = 'Lagre endringer';
+                    return;
+                }
                 const n = lineCount();
                 submitButton.textContent = chosen ? `Legg til ${n} behov i ${chosen.name}` : `Meld ${n} behov`;
             }
@@ -234,7 +301,7 @@
             }
             document.querySelectorAll('input[name="Urgency"]').forEach(r => r.addEventListener('change', applyUrgency));
 
-            // ---- The circle for a new need ----
+            // ---- The circle for the need ----
             function drawRadius() {
                 if (radiusCircle) {
                     pickMap.removeLayer(radiusCircle);
@@ -306,8 +373,12 @@
                     : '';
             }
 
-            // Ask the server: is the chosen place inside an active need?
+            // Ask the server: is the chosen place inside an active need? (not when editing: the need would find itself)
             async function checkPlace() {
+                if (editing) {
+                    drawRadius();
+                    return;
+                }
                 const lat = parseFloat(latField.value);
                 const lng = parseFloat(lngField.value);
                 if (isNaN(lat) || isNaN(lng)) return;

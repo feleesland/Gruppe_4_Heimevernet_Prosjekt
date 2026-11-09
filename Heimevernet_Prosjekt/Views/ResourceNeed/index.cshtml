@@ -4,7 +4,14 @@
 @{
     ViewData["Title"] = Model.Name;
     var planned = Model.Urgency == NeedUrgency.Planlagt;
+    // In the side panel on the map (?embed=1): no menu
+    var embed = Context.Request.Query["embed"] == "1";
+    if (embed)
+    {
+        Layout = "_EmbedLayout";
+    }
 }
+
 @functions {
     // Times are saved as UTC and shown in Norwegian time - Docs: Converting times between time zones
     // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
@@ -146,6 +153,10 @@
 @* One form for all lines, so the operator ticks on several lines and sends once *@
 <form asp-controller="ResourceNeedHandler" asp-action="SendRequests" method="post" id="requestForm">
     <input type="hidden" name="needId" value="@Model.Id" />
+    @if (embed)
+    {
+        <input type="hidden" name="embed" value="1" />
+    }
 
     @foreach (var line in Model.Lines)
     {
@@ -373,6 +384,11 @@
 
 @if (Model.ClosedAt == null)
 {
+    <a class="btn btn-outline-secondary mb-3" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@Model.Id">✎ Rediger</a>
+}
+
+@if (Model.ClosedAt == null)
+{
     // The button opens a small box where the reason must be written - Docs: Bootstrap Collapse
     var stillOut = Model.Lines.SelectMany(l => l.Requests)
         .Count(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null);
@@ -384,6 +400,11 @@
     <div class="collapse mb-3" id="closeBox">
         <form asp-controller="ResourceNeedHandler" asp-action="Close" method="post" class="card card-body">
             <input type="hidden" name="needId" value="@Model.Id" />
+            @if (embed)
+            {
+                <input type="hidden" name="embed" value="1" />
+            }
+            
             @if (stillOut > 0)
             {
                 <div class="alert alert-warning py-2 small" role="alert">
@@ -401,7 +422,7 @@
     </div>
 }
 
-@if (Model.Latitude != null && Model.Longitude != null)
+@if (!embed && Model.Latitude != null && Model.Longitude != null)
 {
     <div id="detailMap" style="height: 300px;" class="rounded"
          data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
@@ -478,6 +499,37 @@
                 bounds.extend(pos);
             });
             detailMap.fitBounds(bounds, { padding: [20, 20] });
+        }
+
+        // In the side panel on the map: tell the map which resources can be chosen and which are ticked,
+        // and tick a resource when the map asks (help with AI) - Docs: Window.postMessage (MDN)
+        // https://developer.mozilla.org/docs/Web/API/Window/postMessage
+        if (window.parent !== window) {
+            const needName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Name));
+            const picks = () => [...document.querySelectorAll('#requestForm .pick')];
+            const idOf = box => parseInt(box.value.split(':')[1], 10);
+
+            function tellMap() {
+                parent.postMessage({
+                    type: 'need-open',
+                    name: needName,
+                    suggestions: picks().map(idOf),
+                    picked: picks().filter(b => b.checked).map(idOf)
+                }, location.origin);
+            }
+
+            window.addEventListener('message', e => {
+                if (e.origin !== location.origin || !e.data || e.data.type !== 'need-pick') return;
+                const box = picks().find(b => idOf(b) === e.data.resourceId);
+                if (box) {
+                    box.checked = !box.checked;
+                    box.dispatchEvent(new Event('change', { bubbles: true }));
+                    box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+            });
+
+            document.getElementById('requestForm')?.addEventListener('change', tellMap);
+            tellMap();
         }
     </script>
 }
