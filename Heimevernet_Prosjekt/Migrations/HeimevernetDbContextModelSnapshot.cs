@@ -165,6 +165,13 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("UnavailableReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("UnavailableUntil")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("ZipCode")
                         .HasMaxLength(6)
                         .HasColumnType("varchar(6)");

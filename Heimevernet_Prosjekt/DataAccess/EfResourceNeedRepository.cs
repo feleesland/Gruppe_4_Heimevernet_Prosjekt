@@ -255,5 +255,59 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             .OrderByDescending(log => log.At)
             .ToList();
     }
+    // Rediger: the need and its lines in one save. Lines with requests keep their type and can't be removed,
+    // and the quantity is never lower than how many said yes (help with AI)
+    public bool UpdateWithItems(int id, ReportNeedViewModel model)
+    {
+        var need = dbContext.ResourceNeeds.Include(n => n.Items).FirstOrDefault(n => n.Id == id);
+        if (need is null)
+        {
+            return false;
+        }
+
+        need.Name = model.Name?.Trim() ?? string.Empty;
+        need.Description = model.Description?.Trim() ?? string.Empty;
+        need.Address = model.Address ?? string.Empty;
+        need.City = model.City ?? string.Empty;
+        need.ZipCode = model.ZipCode ?? string.Empty;
+        need.Latitude = model.Latitude;
+        need.Longitude = model.Longitude;
+        need.Urgency = model.Urgency;
+        need.RadiusKm = model.RadiusKm;
+        need.NeededFrom = model.NeededFrom;
+        need.NeededTo = model.NeededTo;
+
+        foreach (var item in need.Items.ToList())
+        {
+            var hasRequests = dbContext.ResourceRequests.Any(r => r.ResourceNeedItemId == item.Id);
+            var line = model.Lines.FirstOrDefault(l => l.ItemId == item.Id);
+
+            if (line == null)
+            {
+                // Removed in the form: only if nobody has been asked, so the history stays
+                if (!hasRequests)
+                {
+                    dbContext.ResourceNeedItems.Remove(item);
+                }
+                continue;
+            }
+
+            var accepted = dbContext.ResourceRequests.Count(r => r.ResourceNeedItemId == item.Id && r.Status == RequestStatus.Godtatt);
+            item.Quantity = Math.Max(line.Quantity, Math.Max(accepted, 1));
+            if (!hasRequests && !string.IsNullOrWhiteSpace(line.Type))
+            {
+                item.Type = line.Type;
+            }
+        }
+
+        foreach (var line in model.Lines.Where(l => l.ItemId == null && !string.IsNullOrWhiteSpace(l.Type)))
+        {
+            need.Items.Add(new ResourceNeedItem { Type = line.Type, Quantity = line.Quantity });
+        }
+
+        need.Type = need.Items.FirstOrDefault()?.Type ?? need.Type;
+        dbContext.SaveChanges();
+        return true;
+    }
 
 }

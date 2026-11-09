@@ -83,7 +83,10 @@ namespace Heimevernet_Prosjekt.Controllers
                 CreatedAt = resource.CreatedAt,
                 OwnerRemoved = resource.OwnerRemoved,
                 CanEdit = canEdit.Succeeded,
-                CanDelete = canDelete.Succeeded
+                CanDelete = canDelete.Succeeded,
+                Status = resource.Status,
+                UnavailableReason = resource.UnavailableReason,
+                UnavailableUntil = resource.UnavailableUntil,
             };
 
             // Owner's name, email and phone come from the account, so they are always up to date - Docs: Introduction to Identity on ASP.NET Core

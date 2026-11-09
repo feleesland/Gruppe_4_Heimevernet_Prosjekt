@@ -10,6 +10,7 @@ namespace Heimevernet_Prosjekt.DataAccess
     {
         // Not used anymore - EfResourceNeedRepository is used
         public bool Close(int id) => throw new NotSupportedException();
+        public bool UpdateWithItems(int id, ReportNeedViewModel model) => throw new NotSupportedException();
         public void AddLog(int needId, string userId, string userName, string text) => throw new NotSupportedException();
         public IReadOnlyList<ResourceNeedLog> GetLog(int needId) => throw new NotSupportedException();
         private readonly Dictionary<int, ResourceNeed> _resourceNeeds = new();

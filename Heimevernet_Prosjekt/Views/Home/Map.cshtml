@@ -6,7 +6,56 @@
 }
 
 <div id="map"></div>
+@* Side panel: "Meld behov" opens here, with the map still visible. The form is the same page, shown with ?embed=1 *@
+<aside id="needPanel" class="need-panel" hidden aria-label="Meld behov">
+	@* Drag the left edge to change the width (also ← → with the keyboard) *@
+	<div id="needPanelResize" class="need-panel-resize" role="separator" aria-orientation="vertical"
+		 aria-label="Endre bredden på panelet" tabindex="0"></div>
+	<div class="need-panel-head">
+		<span id="needPanelTitle" class="small fw-semibold"></span>
+		<a id="needPanelFull" href="#" class="small me-auto">Åpne på egen side ↗</a>
+		<button type="button" class="btn-close" onclick="closeNeedPanel()" aria-label="Lukk panelet"></button>
+	</div>
+	<iframe id="needPanelFrame" title="Meld behov"></iframe>
+</aside>
+
 <style>
+	/* Thin black outline around the resource icons, so they stand out on the map (only images, not the need squares) */
+	.leaflet-marker-pane img.leaflet-marker-icon {
+		filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+	}
+	/* The side panel: on the right, under the menu, colours follow light/dark mode */
+	.need-panel {
+		position: fixed;
+		right: 0;
+		bottom: 0;
+		top: 76px;
+		width: min(480px, 100vw);
+		z-index: 1000;
+		display: flex;
+		flex-direction: column;
+		background: var(--bs-body-bg);
+		border-left: 1px solid var(--bs-border-color);
+		box-shadow: -4px 0 16px rgba(0,0,0,.25);
+	}
+
+		.need-panel[hidden] {
+			display: none;
+		}
+
+	.need-panel-head {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 12px;
+		border-bottom: 1px solid var(--bs-border-color);
+	}
+
+	.need-panel iframe {
+		flex: 1;
+		width: 100%;
+		border: 0;
+	}
 	/* The map fills the screen under the menu, without scrolling. The footer is hidden on this page */
 	body:has(#map) {
 		overflow: hidden;
@@ -40,6 +89,25 @@
 	.need-label.akutt { color: #E24B4A; }
 	.need-label.planlagt { color: #378ADD; }
 	.map-menu a { display: block; padding: 4px 0; }
+
+	.need-panel-resize {
+		position: absolute;
+		left: -4px;
+		top: 0;
+		bottom: 0;
+		width: 8px;
+		cursor: ew-resize;
+		z-index: 1;
+	}
+
+		.need-panel-resize:hover, .need-panel-resize:focus-visible, .need-panel.resizing .need-panel-resize {
+			background: var(--hv-link);
+			outline: none;
+		}
+	/* While dragging, the form in the panel must not catch the mouse */
+	.need-panel.resizing iframe {
+		pointer-events: none;
+	}
 </style>
 
 @section Scripts {
@@ -69,6 +137,14 @@ var redIcon = new L.Icon({
     popupAnchor: [1, -34]
 });
 
+		var greyIcon = new L.Icon({
+			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+			iconSize: [25, 41],
+			iconAnchor: [12, 41],
+			popupAnchor: [1, -34]
+		});
+
 
 function getDefaultMarker(status) {
 
@@ -95,6 +171,10 @@ function getResourceIcon(type, status) {
        // "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
         "Sikkerhet og medisinsk": "medical"
     };
+			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
+			if (status === "Ikke tilgjengelig") {
+				return greyIcon;
+			}
 
     var iconType = typeMap[type];
 
@@ -187,7 +267,9 @@ function getResourceIcon(type, status) {
 						`);
 						markers.push(marker);
 						markersById[resource.id] = marker;
+						marker.resourceId = resource.id;
 					}
+					if (needMode) showNeedMode();
 					return markers;
 				})
 				.catch(error => {
@@ -257,7 +339,7 @@ function getResourceIcon(type, status) {
 						}).bindPopup(`
 							<strong>${escapeHtml(need.name)}</strong> · ${escapeHtml(label)}
 							<ul class="mb-1 ps-3">${items}</ul>
-							<a href="${needDetailUrl}${need.id}">Åpne behovet</a><br>
+							<a href="${needDetailUrl}${need.id}" onclick="return openNeedPanel(this.href);">Åpne behovet</a><br>
 							<a href="${needCreateUrl}?lat=${lat}&lng=${lng}">+ Legg til mer</a>
 						`).addTo(needLayer);
 					});
@@ -353,7 +435,7 @@ function getResourceIcon(type, status) {
 
 			var links = '';
 			if (canNeeds) {
-				links += `<a href="${needCreateUrl}?lat=${lat}&lng=${lng}&radius=${radius}">+ Meld behov her</a>`;
+				links += `<a href="${needCreateUrl}?lat=${lat}&lng=${lng}&radius=${radius}" onclick="return openNeedPanel(this.href);">+ Meld behov her</a>`;
 			}
 			links += `<a href="${resourceCreateUrl}?lat=${lat}&lng=${lng}">+ Registrer ressurs her</a>`;
 			links += `<a href="${mapUrl}?lat=${lat}&lng=${lng}&radius=${radius}">Vis ressurser i området</a>`;
@@ -364,7 +446,149 @@ function getResourceIcon(type, status) {
 				.openOn(map);
 		});
 
-		window.onResourceSearch(Object.fromEntries(new URLSearchParams(window.location.search)));
+		// ?focus=12 (from "Vis på hovedkartet"): zoom to that resource and open its popup
+		var startParams = Object.fromEntries(new URLSearchParams(window.location.search));
+		var focusId = startParams.focus;
+		delete startParams.focus;
+		window.onResourceSearch(startParams).then(function () {
+			if (focusId && markersById[focusId]) {
+				map.setView(markersById[focusId].getLatLng(), 16);
+				markersById[focusId].openPopup();
+			}
+		});
+
+		
+		// Side panel for "Meld behov" (help with AI) - Docs: Window.postMessage (MDN)
+		// https://developer.mozilla.org/docs/Web/API/Window/postMessage
+		function openNeedPanel(url) {
+			exitNeedMode();
+			var panel = document.getElementById('needPanel');
+			panel.style.top = document.querySelector('header').offsetHeight + 'px';
+			document.getElementById('needPanelFrame').src = url + (url.includes('?') ? '&' : '?') + 'embed=1';
+			document.getElementById('needPanelFull').href = url;
+			panel.hidden = false;
+			map.closePopup();
+			return false; // don't follow the link, the panel shows the form instead
+		}
+
+		function closeNeedPanel() {
+			exitNeedMode();
+			document.getElementById('needPanel').hidden = true;
+			document.getElementById('needPanelFrame').src = 'about:blank';
+		}
+
+		// The form in the panel tells us when it is saved or cancelled. Only messages from our own site are trusted
+		window.addEventListener('message', function (e) {
+			if (e.origin !== window.location.origin || !e.data) return;
+			if (e.data.type === 'need-open') {
+				needMode = { name: e.data.name, suggestions: e.data.suggestions || [], picked: e.data.picked || [] };
+				document.getElementById('needPanelTitle').textContent = 'Du jobber med: ' + e.data.name;
+				showNeedMode();
+			}
+			if (e.data.type === 'need-close') {
+				closeNeedPanel();
+			}
+			if (e.data.type === 'need-created') {
+				closeNeedPanel();
+				loadNeeds(); // the new circle shows up right away
+			}
+		});
+
+		// Esc closes the panel
+		document.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && !document.getElementById('needPanel').hidden) closeNeedPanel();
+		});
+
+		
+				//Change the panel's width by dragging the left edge; the width is remembered (help with AI)
+				// Docs: Pointer events (MDN) - https://developer.mozilla.org/docs/Web/API/Pointer_events
+				(function () {
+					var panel = document.getElementById('needPanel');
+					var handle = document.getElementById('needPanelResize');
+
+					function setWidth(px) {
+						var max = Math.max(320, window.innerWidth * 0.8);
+						px = Math.min(Math.max(px, 320), max);
+						panel.style.width = px + 'px';
+						try { localStorage.setItem('needPanelWidth', px); } catch (e) { }
+					}
+
+					var saved = null;
+					try { saved = parseInt(localStorage.getItem('needPanelWidth'), 10); } catch (e) { }
+					if (saved) setWidth(saved);
+
+					handle.addEventListener('pointerdown', function (e) {
+						e.preventDefault();
+						panel.classList.add('resizing');
+						function move(ev) { setWidth(window.innerWidth - ev.clientX); }
+						function up() {
+							panel.classList.remove('resizing');
+							window.removeEventListener('pointermove', move);
+							window.removeEventListener('pointerup', up);
+						}
+						window.addEventListener('pointermove', move);
+						window.addEventListener('pointerup', up);
+					});
+
+					// Keyboard: ← makes it wider, → narrower
+					handle.addEventListener('keydown', function (e) {
+						if (e.key === 'ArrowLeft') { setWidth(panel.offsetWidth + 40); e.preventDefault(); }
+						if (e.key === 'ArrowRight') { setWidth(panel.offsetWidth - 40); e.preventDefault(); }
+					});
+				})();
+
+		// "Behovsmodus": while a need is open in the panel, the resources it can use get a ring,
+		// the others fade, and the popup can tick them in the panel (help with AI)
+		// Docs: Leaflet CircleMarker and popupopen - https://leafletjs.com/reference.html
+		var needMode = null;
+		var needModeLayer = L.layerGroup().addTo(map);
+
+		function showNeedMode() {
+			needModeLayer.clearLayers();
+			Object.keys(markersById).forEach(function (id) {
+				var marker = markersById[id];
+				var rid = parseInt(id, 10);
+				// Not in need mode: every resource is shown, as normal
+				if (!needMode) { markerLayer.addLayer(marker); return; }
+				var suggested = needMode.suggestions.includes(rid);
+				var picked = needMode.picked.includes(rid);
+				// In need mode: only the resources this need can use are shown, like a filter
+				if (suggested) markerLayer.addLayer(marker); else markerLayer.removeLayer(marker);
+				if (suggested) {
+					// Green ring = can be chosen, blue filled = chosen (also the popup says it in text)
+					L.circleMarker(marker.getLatLng(), {
+						radius: 20, weight: 3, interactive: false,
+						color: picked ? '#378ADD' : '#639922',
+						fillColor: '#378ADD', fillOpacity: picked ? 0.35 : 0
+					}).addTo(needModeLayer);
+				}
+			});
+		}
+
+		function exitNeedMode() {
+			needMode = null;
+			showNeedMode();
+			document.getElementById('needPanelTitle').textContent = '';
+		}
+
+		// The resource's popup gets "Velg til ..." while a need is open
+		map.on('popupopen', function (e) {
+			var marker = e.popup._source;
+			if (!needMode || !marker || marker.resourceId == null) return;
+			if (!needMode.suggestions.includes(marker.resourceId)) return;
+
+			var picked = needMode.picked.includes(marker.resourceId);
+			var button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'btn btn-sm mt-2 ' + (picked ? 'btn-outline-secondary' : 'btn-success');
+			button.textContent = (picked ? '✕ Fjern fra ' : '✓ Velg til ') + needMode.name;
+			button.addEventListener('click', function () {
+				document.getElementById('needPanelFrame').contentWindow.postMessage(
+					{ type: 'need-pick', resourceId: marker.resourceId }, window.location.origin);
+				map.closePopup();
+			});
+			e.popup.getElement().querySelector('.leaflet-popup-content').appendChild(button);
+		});
 
 	</script>
 }

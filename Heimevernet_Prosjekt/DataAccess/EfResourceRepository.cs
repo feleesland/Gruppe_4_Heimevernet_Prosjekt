@@ -151,5 +151,36 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         image.CopyTo(memoryStream);
         return memoryStream.ToArray();
     }
+    // One click on the resource page: Ledig / Opptatt / Ugyldig, without the whole edit form
+    public bool SetStatus(int id, string status)
+    {
+        var resource = dbContext.Resources.Find(id);
+        if (resource is null)
+        {
+            return false;
+        }
+
+        resource.Status = status;
+        // A normal status clears "Ikke tilgjengelig"
+        resource.UnavailableReason = null;
+        resource.UnavailableUntil = null;
+        dbContext.SaveChanges();
+        return true;
+    }
+    // "Ikke tilgjengelig" with why and when it's free again (null = "vet ikke når")
+    public bool SetUnavailable(int id, string? reason, DateTime? untilUtc)
+    {
+        var resource = dbContext.Resources.Find(id);
+        if (resource is null)
+        {
+            return false;
+        }
+
+        resource.Status = "Ikke tilgjengelig";
+        resource.UnavailableReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
+        resource.UnavailableUntil = untilUtc;
+        dbContext.SaveChanges();
+        return true;
+    }
 
 }
