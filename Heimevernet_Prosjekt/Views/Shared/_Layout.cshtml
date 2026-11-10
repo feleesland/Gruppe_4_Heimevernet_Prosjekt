@@ -14,7 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Heimevernet</title>
 
-        @* Light or dark mode: set before the page is drawn, so it doesn't flash. The choice is remembered;
+    @* Light or dark mode: set before the page is drawn, so it doesn't flash. The choice is remembered;
        the first time it follows the computer's setting - Docs: Bootstrap Color modes
        https://getbootstrap.com/docs/5.3/customize/color-modes/ *@
     @* The site has its own dark mode, so dark-mode extensions (e.g. Dark Reader) leave it alone *@
@@ -73,7 +73,7 @@
                                asp-controller="Home"
                                asp-action="Index">Hjem</a>
                         </li>
-                                                @* The operator's main page - only operator and admin *@
+                        @* The operator's main page - only operator and admin *@
                         @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
                         {
                             <li class="nav-item">
@@ -99,16 +99,6 @@
                         <li class="nav-item">
                              <a class="nav-link text-white" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
                         </li>
-                          @* Show the user management link to administrators. *@
-                        @if (User.IsInRole(RoleNames.Admin))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-white"
-                                   asp-area=""
-                                   asp-controller="Admin"
-                                   asp-action="Index">Brukere</a>
-                            </li>
-                        }
                     </ul>
 
                     @* Search in the menu on every page, like YouTube: one field with 🔍 and ✕, suggestions while typing (logic in wwwroot/js/site.js). *@
@@ -180,15 +170,8 @@
                         </form>
                     }
 
-                                       @* Show account controls based on login status. *@
+                    @* Show account controls based on login status. *@
                     <ul class="navbar-nav align-items-center">
-                                                @* The light/dark button: icon + text, not only an icon *@
-                        <li class="nav-item">
-                            <button type="button" id="themeToggle" class="nav-link text-white btn btn-link text-nowrap">
-                                <span id="themeIcon" aria-hidden="true">🌙</span>
-                                <span id="themeText" class="d-none d-lg-inline">Mørk modus</span>
-                            </button>
-                        </li>
                         @if (SignInManager.IsSignedIn(User))
                         {
                             // Show first and last name; fall back to email for users without a name
@@ -257,34 +240,45 @@
                                 </div>
                             </li>
 
-                            <li class="nav-item">
-                                @* Display the user's name and role. *@
-                                <span class="nav-link text-white text-end lh-sm">
-                                    @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
-                                    <small class="text-white">
-                                        @RoleNames.DisplayName(
-                                            User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
-                                            : User.IsInRole(RoleNames.Operator) ? RoleNames.Operator
-                                            : User.IsInRole(RoleNames.Partner) ? RoleNames.Partner
-                                            : RoleNames.User)
-                                    </small>
-                                </span>
-                            </li>
-                            <li class="nav-item">
-                                @* Submit logout as a POST request. *@
-                                <form asp-controller="Account"
-                                      asp-action="Logout"
-                                      method="post"
-                                      class="d-inline">
-                                    <button type="submit"
-                                            class="nav-link text-white btn btn-link">
-                                        Logg ut
-                                    </button>
-                                </form>
+                            @* Account menu like YouTube: initials, then settings and Logg ut - Docs: Bootstrap Dropdowns *@
+                            var shownName = string.IsNullOrEmpty(displayName) ? User.Identity?.Name ?? "" : displayName;
+                            var initials = string.Concat(shownName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpper(w[0])));
+                            var roleName = RoleNames.DisplayName(
+                                User.IsInRole(RoleNames.Admin) ? RoleNames.Admin
+                                : User.IsInRole(RoleNames.Operator) ? RoleNames.Operator
+                                : User.IsInRole(RoleNames.Partner) ? RoleNames.Partner
+                                : RoleNames.User);
+                            <li class="nav-item dropdown ms-2">
+                                <button type="button" class="btn btn-link nav-link p-0" data-bs-toggle="dropdown" aria-expanded="false"
+                                        aria-label="Kontomeny for @shownName">
+                                    <span class="account-avatar">@(initials.Length > 0 ? initials : "?")</span>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-end account-menu">
+                                    <div class="px-3 py-2">
+                                        <div class="fw-semibold">@shownName</div>
+                                        <div class="small text-body-secondary">@currentUser?.Email · @roleName</div>
+                                    </div>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" asp-controller="Resource" asp-action="List" asp-route-mine="true">📦 Mine ressurser</a>
+                                    <a class="dropdown-item" asp-controller="ResourceRequest" asp-action="Mine">🔔 Mine forespørsler</a>
+                                    <partial name="_DisplaySettings" />
+                                    <div class="dropdown-divider"></div>
+                                    <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
+                                        <button type="submit" class="dropdown-item">↪ Logg ut</button>
+                                    </form>
+                                </div>
                             </li>
                         }
                         else
                         {
+                            @* Not signed in: appearance and map in a small ⚙ menu *@
+                            <li class="nav-item dropdown">
+                                <button type="button" class="nav-link text-white btn btn-link" data-bs-toggle="dropdown"
+                                        aria-expanded="false" aria-label="Innstillinger for visning">⚙</button>
+                                <div class="dropdown-menu dropdown-menu-end account-menu">
+                                    <partial name="_DisplaySettings" />
+                                </div>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link text-white"
                                    asp-controller="Account"
@@ -323,28 +317,51 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+                <script src="~/js/map-style.js" asp-append-version="true"></script>
 
-                <script>
-        // The light/dark button shows what you switch TO, and saves the choice (help with AI)
+    <script>
+        // Appearance and map choice in the account menu; saved in the browser (help with AI)
+        // Docs: Bootstrap Color modes - https://getbootstrap.com/docs/5.3/customize/color-modes/
         (function () {
-            var button = document.getElementById('themeToggle');
-            if (!button) return;
             var root = document.documentElement;
+            function get(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; } }
+            function set(key, value) { try { localStorage.setItem(key, value); } catch (e) { } }
 
-            function show() {
-                var dark = root.getAttribute('data-bs-theme') === 'dark';
-                document.getElementById('themeIcon').textContent = dark ? '🌙' : '☀️';
-                document.getElementById('themeText').textContent = dark ? 'Mørk modus' : 'Lys modus';
-                button.setAttribute('aria-label', dark ? 'Bytt til lys modus' : 'Bytt til mørk modus');
+            function applyTheme(choice) {
+                var theme = choice === 'auto'
+                    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                    : choice;
+                root.setAttribute('data-bs-theme', theme);
             }
 
-            button.addEventListener('click', function () {
-                var next = root.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-                root.setAttribute('data-bs-theme', next);
-                try { localStorage.setItem('theme', next); } catch (e) { }
-                show();
+            // ✓ on the chosen ones
+            function mark() {
+                document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.themeChoice === get('theme', 'auto'));
+                });
+                document.querySelectorAll('[data-map-choice]').forEach(function (b) {
+                    b.classList.toggle('active', b.dataset.mapChoice === get('mapStyle', 'topo'));
+                });
+            }
+
+            document.querySelectorAll('[data-theme-choice]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    set('theme', b.dataset.themeChoice);
+                    applyTheme(b.dataset.themeChoice);
+                    mark();
+                });
             });
-            show();
+
+            // The map page listens for this and changes its pictures right away
+            document.querySelectorAll('[data-map-choice]').forEach(function (b) {
+                b.addEventListener('click', function () {
+                    set('mapStyle', b.dataset.mapChoice);
+                    window.dispatchEvent(new CustomEvent('mapstylechange', { detail: b.dataset.mapChoice }));
+                    mark();
+                });
+            });
+
+            mark();
         })();
     </script>
     @await RenderSectionAsync("Scripts", required: false)

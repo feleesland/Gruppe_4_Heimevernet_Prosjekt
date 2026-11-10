@@ -18,8 +18,40 @@
 	</div>
 	<iframe id="needPanelFrame" title="Meld behov"></iframe>
 </aside>
+@* Resource panel on the left, like Google Maps: a list (from a box) or one resource (the resource page with ?embed=1) *@
+<aside id="resourcePanel" class="resource-panel" hidden aria-label="Ressurser">
+	@* Drag the right edge to change the width (also ← → with the keyboard) *@
+	<div id="resourcePanelResize" class="resource-panel-resize" role="separator" aria-orientation="vertical"
+		 aria-label="Endre bredden på panelet" tabindex="0"></div>
+	<div class="resource-panel-head">
+		<button type="button" id="resourcePanelBack" class="btn btn-sm btn-link p-0" hidden onclick="showResourceList()">‹ Tilbake til lista</button>
+		<span id="resourcePanelTitle" class="small fw-semibold"></span>
+		<button type="button" class="btn-close ms-auto" onclick="closeResourcePanel()" aria-label="Lukk panelet"></button>
+	</div>
+	<div id="resourcePanelPick" class="px-3 pt-2" hidden></div>
+	<div id="resourcePanelList" class="resource-panel-list"></div>
+	<iframe id="resourcePanelFrame" title="Ressurs" hidden></iframe>
+</aside>
+
 
 <style>
+	/* The box with the number: green, white border, big enough to read and tap */
+	.resource-cluster {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		background: #1e6447;
+		color: #fff;
+		font-weight: 700;
+		font-size: 15px;
+		border: 3px solid #fff;
+		box-shadow: 0 1px 4px rgba(0,0,0,.5);
+	}
+
+	
 	/* Thin black outline around the resource icons, so they stand out on the map (only images, not the need squares) */
 	.leaflet-marker-pane img.leaflet-marker-icon {
 		filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
@@ -108,9 +140,103 @@
 	.need-panel.resizing iframe {
 		pointer-events: none;
 	}
+	/* The resource panel: on the left, like Google Maps */
+	.resource-panel {
+		position: fixed;
+		left: 0;
+		bottom: 0;
+		top: 76px;
+		width: min(400px, 100vw);
+		z-index: 1000;
+		display: flex;
+		flex-direction: column;
+		background: var(--bs-body-bg);
+		border-right: 1px solid var(--bs-border-color);
+		box-shadow: 4px 0 16px rgba(0,0,0,.25);
+	}
+
+		.resource-panel[hidden] {
+			display: none;
+		}
+
+	.resource-panel-head {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 12px;
+		border-bottom: 1px solid var(--bs-border-color);
+	}
+
+	.resource-panel iframe {
+		flex: 1;
+		width: 100%;
+		border: 0;
+	}
+
+		.resource-panel iframe[hidden], .resource-panel-list[hidden] {
+			display: none;
+		}
+
+	.resource-panel-list {
+		flex: 1;
+		overflow-y: auto;
+		padding: 8px 12px;
+	}
+
+	.resource-row {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		border: 0;
+		border-bottom: 1px solid var(--bs-border-color);
+		background: none;
+		color: inherit;
+		padding: 10px 4px;
+	}
+
+		.resource-row:hover {
+			background: var(--bs-secondary-bg);
+		}
+
+	.type-chip {
+		border: 1px solid var(--bs-border-color);
+		border-radius: 999px;
+		padding: 3px 10px;
+		background: none;
+		color: inherit;
+		font-size: .85rem;
+	}
+
+		.type-chip.active {
+			background: var(--hv-green);
+			color: #fff;
+			border-color: var(--hv-green);
+		}
+	/* The handle on the right edge of the resource panel */
+	.resource-panel-resize {
+		position: absolute;
+		right: -4px;
+		top: 0;
+		bottom: 0;
+		width: 8px;
+		cursor: ew-resize;
+		z-index: 1;
+	}
+
+		.resource-panel-resize:hover, .resource-panel-resize:focus-visible, .resource-panel.resizing .resource-panel-resize {
+			background: var(--hv-link);
+			outline: none;
+		}
+
+	.resource-panel.resizing iframe {
+		pointer-events: none;
+	}
 </style>
 
 @section Scripts {
+	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 	<script>
 // 		@*Ikoner til default*@ 
 var greenIcon = new L.Icon({
@@ -196,11 +322,9 @@ function getResourceIcon(type, status) {
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
-		// Add a tile layer to the map (OpenStreetMap tiles)
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-		}).addTo(map);
-	
+		// The map pictures come from wwwroot/js/map-style.js (Kartverket or OpenStreetMap, chosen in the account menu)
+		addMapPictures(map);
+
 		// Exact height: the window minus the menu, also when the window changes size (help with AI)
 		// Docs: Leaflet invalidateSize - https://leafletjs.com/reference.html#map-invalidatesize
 		function fitMapToScreen() {
@@ -213,7 +337,20 @@ function getResourceIcon(type, status) {
 
 		// Markers are kept in one layer so they can be removed before a new search; the circle shows the radius - Docs: Leaflet API reference (LayerGroup, Circle)
 		// https://leafletjs.com/reference.html
-		var markerLayer = L.layerGroup().addTo(map);
+		// Markers close together become a box with the number. Click the box: a list of what is in it (help with AI)
+		var markerLayer = L.markerClusterGroup({
+			zoomToBoundsOnClick: false,
+			showCoverageOnHover: false,
+			disableClusteringAtZoom: 16,
+			iconCreateFunction: function (cluster) {
+				var n = cluster.getChildCount();
+				return L.divIcon({
+					html: `<div class="resource-cluster" aria-label="${n} ressurser">${n}</div>`,
+					className: '',
+					iconSize: [44, 44]
+				});
+			}
+		}).addTo(map);
 		var markersById = {};
 		var radiusCircle = null;
 		var detailUrl = '@Url.Content("~/Resource/Index/")';
@@ -255,19 +392,15 @@ function getResourceIcon(type, status) {
 
 						var marker = L.marker([lat, lng], { icon: icon }).addTo(markerLayer);
 
-						marker.bindPopup(`
-							<strong>${escapeHtml(resource.name)}</strong><br>
-							${escapeHtml(resource.description)}
-							<br>
-							Type: ${escapeHtml(resource.type) || "Ukjent"}
-							<br>
-							Status: ${escapeHtml(resource.status) || "Ukjent"}
-							<br>
-							<a href="${detailUrl}${resource.id}">Vis ressurs</a>
-						`);
+						// Hover: the name. Click: the resource in the panel on the left (like Google Maps)
+						marker.bindTooltip(escapeHtml(resource.name), { direction: 'top', offset: [0, -34] });
+						marker.on('click', function () { openResource(resource.id); });
 						markers.push(marker);
 						markersById[resource.id] = marker;
 						marker.resourceId = resource.id;
+						marker.resourceName = resource.name;
+						marker.resourceType = resource.type;
+						marker.resource = resource;
 					}
 					if (needMode) showNeedMode();
 					return markers;
@@ -452,8 +585,7 @@ function getResourceIcon(type, status) {
 		delete startParams.focus;
 		window.onResourceSearch(startParams).then(function () {
 			if (focusId && markersById[focusId]) {
-				map.setView(markersById[focusId].getLatLng(), 16);
-				markersById[focusId].openPopup();
+				zoomToResource(focusId);
 			}
 		});
 
@@ -484,6 +616,7 @@ function getResourceIcon(type, status) {
 				needMode = { name: e.data.name, suggestions: e.data.suggestions || [], picked: e.data.picked || [] };
 				document.getElementById('needPanelTitle').textContent = 'Du jobber med: ' + e.data.name;
 				showNeedMode();
+				renderPick();
 			}
 			if (e.data.type === 'need-close') {
 				closeNeedPanel();
@@ -570,25 +703,181 @@ function getResourceIcon(type, status) {
 			showNeedMode();
 			document.getElementById('needPanelTitle').textContent = '';
 		}
+		
+		// Click on a box: a list of the resources in it, and "Zoom inn"
+		var lastCluster = null;
+		markerLayer.on('clusterclick', function (e) {
+			lastCluster = e.layer;
+			var count = e.layer.getChildCount();
+			// Short and simple: the number and what you can do. The list and filter come in the side panel (step 3)
+			L.popup()
+				.setLatLng(e.latlng)
+				.setContent(`<strong>${count} ressurser her</strong>`
+					+ `<div class="d-flex gap-2 mt-2">`
+					+ `<button type="button" class="btn btn-sm btn-success" onclick="zoomToCluster();">🔍 Zoom inn</button>`
+					+ `<button type="button" class="btn btn-sm btn-outline-secondary" onclick="showClusterList();">☰ Vis i lista</button>`
+					+ `</div>`)
+				.openOn(map);
+		});
 
-		// The resource's popup gets "Velg til ..." while a need is open
-		map.on('popupopen', function (e) {
-			var marker = e.popup._source;
-			if (!needMode || !marker || marker.resourceId == null) return;
-			if (!needMode.suggestions.includes(marker.resourceId)) return;
+		// Zoom to the box: stop the popup's small pan first, then jump straight there.
+		// Two animations at the same time made Leaflet skip loading map pictures (grey squares) (help with AI)
+		// Docs: Leaflet Map stop / fitBounds - https://leafletjs.com/reference.html#map-stop
+		function zoomToCluster() {
+			if (!lastCluster) return;
+			map.closePopup();
+			map.stop();
+			map.fitBounds(lastCluster.getBounds(), { padding: [40, 40], animate: false });
+		}
 
-			var picked = needMode.picked.includes(marker.resourceId);
+		// Go to one resource, even if it is inside a box
+		function zoomToResource(id) {
+			var marker = markersById[id];
+			if (!marker) return;
+			map.closePopup();
+			markerLayer.zoomToShowLayer(marker, function () { openResource(id); });
+		}
+
+		// The resource panel on the left: a list from a box, or one resource (help with AI)
+		// The details are the resource page itself with ?embed=1, so it looks the same everywhere
+		var resourceList = [];      // the resources in the list (from a box)
+		var resourceListType = '';  // the chosen type chip ('' = all)
+		var openResourceId = null;
+
+		function showResourcePanel() {
+			var panel = document.getElementById('resourcePanel');
+			panel.style.top = document.querySelector('header').offsetHeight + 'px';
+			panel.hidden = false;
+		}
+
+		function openResource(id) {
+			openResourceId = id;
+			showResourcePanel();
+			document.getElementById('resourcePanelList').hidden = true;
+			var frame = document.getElementById('resourcePanelFrame');
+			frame.hidden = false;
+			frame.src = detailUrl + id + '?embed=1';
+			document.getElementById('resourcePanelBack').hidden = resourceList.length === 0;
+			document.getElementById('resourcePanelTitle').textContent = '';
+			renderPick();
+		}
+
+		function showClusterList() {
+			if (!lastCluster) return;
+			resourceList = lastCluster.getAllChildMarkers().map(function (m) { return m.resource; });
+			resourceListType = '';
+			map.closePopup();
+			showResourceList();
+		}
+
+		function showResourceList() {
+			openResourceId = null;
+			showResourcePanel();
+			var frame = document.getElementById('resourcePanelFrame');
+			frame.hidden = true;
+			frame.src = 'about:blank';
+			document.getElementById('resourcePanelBack').hidden = true;
+			document.getElementById('resourcePanelPick').hidden = true;
+			document.getElementById('resourcePanelTitle').textContent = resourceList.length + ' ressurser her';
+			var list = document.getElementById('resourcePanelList');
+			list.hidden = false;
+
+			// Type chips with the number: a filter for the list
+			var counts = {};
+			resourceList.forEach(function (r) { var t = r.type || 'Ukjent'; counts[t] = (counts[t] || 0) + 1; });
+			var types = Object.keys(counts).sort();
+			var chips = `<div class="d-flex flex-wrap gap-1 mb-2">`
+				+ `<button type="button" class="type-chip ${resourceListType === '' ? 'active' : ''}" data-index="-1">Alle ${resourceList.length}</button>`
+				+ types.map(function (t, i) {
+					return `<button type="button" class="type-chip ${resourceListType === t ? 'active' : ''}" data-index="${i}">${escapeHtml(t)} ${counts[t]}</button>`;
+				}).join('') + `</div>`;
+
+			var rows = resourceList
+				.filter(function (r) { return resourceListType === '' || (r.type || 'Ukjent') === resourceListType; })
+				.map(function (r) {
+					return `<button type="button" class="resource-row" data-id="${r.id}">`
+						+ `<span class="flex-grow-1"><span class="fw-semibold d-block">${escapeHtml(r.name)}</span>`
+						+ `<span class="small text-body-secondary">${escapeHtml(r.type)} · ${escapeHtml(r.status || 'Ledig')}</span></span>`
+						+ `<span aria-hidden="true">›</span></button>`;
+				}).join('');
+
+			list.innerHTML = chips + rows;
+			list.querySelectorAll('.type-chip').forEach(function (chip) {
+				chip.addEventListener('click', function () {
+					var i = parseInt(chip.dataset.index, 10);
+					resourceListType = i < 0 ? '' : types[i];
+					showResourceList();
+				});
+			});
+			list.querySelectorAll('.resource-row').forEach(function (row) {
+				row.addEventListener('click', function () { openResource(parseInt(row.dataset.id, 10)); });
+			});
+		}
+
+		function closeResourcePanel() {
+			document.getElementById('resourcePanel').hidden = true;
+			document.getElementById('resourcePanelFrame').src = 'about:blank';
+			resourceList = [];
+			openResourceId = null;
+		}
+
+		// Need mode: the open resource can be chosen for the need that is open on the right
+		function renderPick() {
+			var box = document.getElementById('resourcePanelPick');
+			if (!needMode || openResourceId == null || !needMode.suggestions.includes(openResourceId)) { box.hidden = true; return; }
+			var picked = needMode.picked.includes(openResourceId);
+			box.hidden = false;
+			box.innerHTML = '';
 			var button = document.createElement('button');
 			button.type = 'button';
-			button.className = 'btn btn-sm mt-2 ' + (picked ? 'btn-outline-secondary' : 'btn-success');
+			button.className = 'btn w-100 ' + (picked ? 'btn-outline-secondary' : 'btn-success');
 			button.textContent = (picked ? '✕ Fjern fra ' : '✓ Velg til ') + needMode.name;
 			button.addEventListener('click', function () {
 				document.getElementById('needPanelFrame').contentWindow.postMessage(
-					{ type: 'need-pick', resourceId: marker.resourceId }, window.location.origin);
-				map.closePopup();
+					{ type: 'need-pick', resourceId: openResourceId }, window.location.origin);
 			});
-			e.popup.getElement().querySelector('.leaflet-popup-content').appendChild(button);
+			box.appendChild(button);
+		}
+
+		// Esc closes the resource panel
+		document.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && !document.getElementById('resourcePanel').hidden) closeResourcePanel();
 		});
 
+		// Change the resource panel's width by dragging its right edge; the width is remembered (help with AI)
+		(function () {
+			var panel = document.getElementById('resourcePanel');
+			var handle = document.getElementById('resourcePanelResize');
+
+			function setWidth(px) {
+				var max = Math.max(320, window.innerWidth * 0.8);
+				px = Math.min(Math.max(px, 320), max);
+				panel.style.width = px + 'px';
+				try { localStorage.setItem('resourcePanelWidth', px); } catch (e) { }
+			}
+
+			var saved = null;
+			try { saved = parseInt(localStorage.getItem('resourcePanelWidth'), 10); } catch (e) { }
+			if (saved) setWidth(saved);
+
+			handle.addEventListener('pointerdown', function (e) {
+				e.preventDefault();
+				panel.classList.add('resizing');
+				function move(ev) { setWidth(ev.clientX); }
+				function up() {
+					panel.classList.remove('resizing');
+					window.removeEventListener('pointermove', move);
+					window.removeEventListener('pointerup', up);
+				}
+				window.addEventListener('pointermove', move);
+				window.addEventListener('pointerup', up);
+			});
+
+			// Keyboard: → makes it wider, ← narrower
+			handle.addEventListener('keydown', function (e) {
+				if (e.key === 'ArrowRight') { setWidth(panel.offsetWidth + 40); e.preventDefault(); }
+				if (e.key === 'ArrowLeft') { setWidth(panel.offsetWidth - 40); e.preventDefault(); }
+			});
+		})();
 	</script>
 }
