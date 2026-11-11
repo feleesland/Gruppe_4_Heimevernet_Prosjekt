@@ -7,7 +7,6 @@
 }
 
 <div id="map"></div>
-<partial name="_ResourceFilter" />
 @* One side panel on the left, like Google Maps. It shows one thing at a time: a list (from a box), a resource or a need
    (the pages themselves with ?embed=1). While a need is open you can look at a resource and go back with ‹ *@
 <aside id="sidePanel" class="side-panel" hidden aria-label="Sidepanel">
@@ -28,6 +27,9 @@
 			<span><span class="ring-dot ring-picked" aria-hidden="true">✓</span>Valgt</span>
 		</div>
 	</div>
+	<div id="filterPanelBody" class="side-panel-list" hidden>
+		<partial name="_ResourceFilter" />
+	</div>
 	<div id="resourcePanelPick" class="px-3 pt-2" hidden></div>
 	<div id="resourcePanelList" class="side-panel-list" hidden></div>
 	<iframe id="resourcePanelFrame" title="Ressurs" hidden></iframe>
@@ -37,13 +39,6 @@
 <div id="mapToast" class="map-toast" role="status" aria-live="polite" hidden></div>
 
 <style>
-	/* The filter button on the map, to the right of + and − */
-	.rf-map-button {
-		position: fixed;
-		top: 86px;
-		left: 56px;
-		z-index: 999;
-	}
 
 	/* The box with the number: green, white border, big enough to read and tap */
 	.resource-cluster {
@@ -304,6 +299,7 @@
 
 @section Scripts {
 	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+	<script src="~/js/resource-filter.js" asp-append-version="true"></script>
 	<script>
 		// 		@*Ikoner til default*@
 		var greenIcon = new L.Icon({
@@ -440,6 +436,9 @@
 					markerLayer.clearLayers();
 					markersById = {};
 					var markers = [];
+					// The filter: type and status are chosen here; search and distance are done by the server
+					if (window.ResourceFilter) ResourceFilter.render(resources, params);
+					resources = resources.filter(function (r) { return !window.ResourceFilter || ResourceFilter.matches(r, params); });
 
 					for (const resource of resources) {
 
@@ -563,9 +562,9 @@
 
 			var markers = await loadResources(params);
 
-			if (Object.keys(params).length === 0) {
+			// Only type/status chosen (no search or place): the map stays where it is, so it doesn't jump on every tick
+			if (!params.search && !params.lat) {
 				if (statusText) statusText.textContent = '';
-				map.setView([58.14671, 7.9956], 13);
 				return;
 			}
 
@@ -583,7 +582,7 @@
 			} else if (markers.length === 1) {
 				map.setView(markers[0].getLatLng(), 16);
 			}
-			if (markers.length === 1) openResource(markers[0].resource.id);
+			if (params.search && markers.length === 1) openResource(markers[0].resource.id); // not while you tick in the filter
 		};
 
 		window.onResourceSelected = async function (resource) {
@@ -784,6 +783,8 @@
 			document.getElementById('resourcePanelFrame').hidden = view !== 'resource';
 			document.getElementById('needPanelFrame').hidden = view !== 'need';
 			document.getElementById('sidePanelFull').hidden = view !== 'need';
+			document.getElementById('filterPanelBody').hidden = view !== 'filter';
+			if (view === 'filter') document.getElementById('sidePanelTitle').textContent = 'Filter';
 			if (view === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
 
 			// ‹ back: from a resource to the list, or to the need you are working on
@@ -793,6 +794,7 @@
 			var back = document.getElementById('sidePanelBack');
 			back.hidden = !backTo;
 			back.textContent = backTo ? '‹ Tilbake til ' + backTo : '';
+			moveMapControls();
 			renderPick();
 		}
 
@@ -864,6 +866,7 @@
 			resourceList = [];
 			openResourceId = null;
 			document.getElementById('sidePanel').hidden = true;
+			moveMapControls();
 			document.getElementById('resourcePanelFrame').src = 'about:blank';
 			document.getElementById('needPanelFrame').src = 'about:blank';
 		}
@@ -910,6 +913,7 @@
 			var max = Math.max(320, window.innerWidth * 0.8);
 			px = Math.min(Math.max(px, 320), max);
 			document.getElementById('sidePanel').style.width = px + 'px';
+			moveMapControls();
 			try { localStorage.setItem('panelWidth', px); } catch (e) { }
 		}
 
@@ -935,5 +939,29 @@
 
 		makeResizable(document.getElementById('sidePanel'), document.getElementById('sidePanelResize'));
 		try { var savedWidth = parseInt(localStorage.getItem('panelWidth'), 10); if (savedWidth) setPanelWidth(savedWidth); } catch (e) { }
+
+		// The Filter button on the map, under + and −. It opens the filter in the side panel (help with AI)
+		// Docs: Leaflet Control - https://leafletjs.com/reference.html#control
+		var FilterControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function () {
+				var button = L.DomUtil.create('button', 'btn btn-success shadow-sm d-flex align-items-center gap-2');
+				button.type = 'button';
+				button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>'
+					+ '<span>Filter</span><span id="rfCount" class="badge text-bg-light" hidden></span>';
+				L.DomEvent.disableClickPropagation(button);
+				L.DomEvent.on(button, 'click', function () {
+					if (panelView === 'filter') closeSidePanel(); else showView('filter');
+				});
+				return button;
+			}
+		});
+		new FilterControl().addTo(map);
+
+		// + − and Filter move to the right of the side panel while it is open, so they are never hidden under it
+		function moveMapControls() {
+			var panel = document.getElementById('sidePanel');
+			document.querySelector('.leaflet-left').style.left = panel.hidden ? '' : panel.offsetWidth + 'px';
+		}
 	</script>
 }
