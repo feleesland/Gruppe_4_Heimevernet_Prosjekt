@@ -1,34 +1,159 @@
-﻿
-    @{
-        ViewData["Title"] = "Hjem";
+﻿@using Heimevernet_Prosjekt.Security.Authorization
+
+@{
+    ViewData["Title"] = "Hjem";
+}
+
+<style>
+    /* The picture fills the whole page */
+    body {
+        background-image: url(/images/Krs.png);
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
     }
 
-    <style>
-        /* The picture fills the whole page */
-        body {
-            background-image: url(/images/Krs.png);
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
+    /* The text sits on a box, so it is readable on top of the picture */
+    .home-panel {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 2rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
 
-        /* The text sits on a box, so it is readable on top of the picture */
-        .home-panel {
-            max-width: 720px;
-            margin: 3rem auto;
-            padding: 2rem;
-            border-radius: 12px;
-            background: rgba(var(--bs-body-bg-rgb), 0.88);
-            color: var(--bs-body-color);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-        }
-    </style>
+    /* Cards in a grid: they sit side by side when there is room */
+    .home-grid {
+        max-width: 1100px;
+        margin: 1.5rem auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+    }
 
-    <div class="text-center home-panel">
-        <h1 class="display-5">Heimevernets nettside for krise og ressurshåndtering</h1>
-        <p>Vi hjelper med å gi kriseteam ressursene de trenger.</p>
+    .home-card {
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+</style>
+
+<div class="text-center home-panel">
+    <h1 class="display-5">Heimevernets nettside for krise og ressurshåndtering</h1>
+    <p>Vi hjelper med å gi kriseteam ressursene de trenger.</p>
+
+    @if (User.Identity?.IsAuthenticated != true)
+    {
         <p>Har du noe du kan bidra med?</p>
         <a class="button" asp-controller="Account" asp-action="Register">Registrer her!</a>
         <p class="mt-2">Er du en internperson?</p>
         <a class="button" asp-controller="Account" asp-action="Login">Gå til innlogging</a>
+    }
+</div>
+
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <div class="home-panel">
+        <h2 class="h4">Om applikasjonen</h2>
+        <p>
+            Heimevernet kobler ressurser med behov under kriser. Ressurser kan være
+            utstyr, kjøretøy, lokaler eller personell.
+        </p>
+        <ol>
+            <li>Registrer deg eller logg inn</li>
+            <li>Legg inn ressursene du kan bidra med</li>
+            <li>Kriseteam finner og ber om det de trenger</li>
+        </ol>
     </div>
+}
+else if (User.IsInRole(RoleNames.Admin))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og behov plassert på kartet, med akutte hendelser markert.</p>
+            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Se alle ressurser og legg til nye.</p>
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Behov</h2>
+            <p>Se alle behov som er opprettet av kriseteamene.</p>
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Brukere</h2>
+            <p>Administrer brukere og roller.</p>
+            <a asp-controller="Admin" asp-action="Index">Administrer brukere</a>
+        </div>
+    </div>
+}
+else if (User.IsInRole(RoleNames.Operator))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og behov plassert på kartet, med akutte hendelser markert.</p>
+            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Behov</h2>
+            <p>Opprett akutte behov og se alle tilgjengelige ressurser.</p>
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Se ressursene som er tilgjengelige.</p>
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
+        </div>
+    </div>
+}
+else if (User.IsInRole(RoleNames.Partner))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og steder på kartet.</p>
+            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Partnere kan bidra med ressurser og støtte i krisetilfeller.</p>
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og steder på kartet.</p>
+            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Mine ressurser</h2>
+            <p>Legg til egne ressurser og opprett forespørsler om mindre behov.</p>
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
+        </div>
+    </div>
+}
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <div class="home-panel">
+        <h2 class="h4">Slik bruker du siden</h2>
+        <ol>
+            <li><strong>Kart:</strong> Gir en oversikt over området og ressursene som er plassert, for operatører viser den hvor tilgjengelige ressurser er samt hendelser.</li>
+            <li><strong>Ressurser:</strong> Oversikt over det som kan bidra i en krise.</li>
+            <li><strong>Behov:</strong> Det som blir meldt inn av operatører av nød for ressurser og hvilken type ressurser de trenger.</li>
+        </ol>
+    </div>
+}
