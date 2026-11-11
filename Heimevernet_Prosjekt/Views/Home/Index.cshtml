@@ -5,6 +5,10 @@
 }
 
 <style>
+    body {
+overflow-x: clip;
+}
+
     .home-banner {
     min-height: 320px;
     background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
@@ -124,7 +128,7 @@ else if (User.IsInRole(RoleNames.Admin))
             <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
             <div class="home-links">
             <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
-            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span>›</span></a>
+            <a asp-controller="ResourceNeedHandler" asp-action="Create">Opprett behov <span>›</span></a>
             <a href="#guide-behov"> Mer informasjon <span>›</span></a>
             </div>
         </div>
@@ -146,7 +150,7 @@ else if (User.IsInRole(RoleNames.Operator))
             <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
             <div class="home-links">
             <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
-            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span>›</span></a>
+            <a asp-controller="ResourceNeedHandler" asp-action="Create">Opprett behov <span>›</span></a>
             <a href="#guide-behov"> Mer informasjon <span>›</span></a>
             </div>
         </div>
@@ -208,12 +212,48 @@ else
 
 @if (User.Identity?.IsAuthenticated == true)
 {
-    <div class="home-panel">
-        <h2 class="h4">Slik bruker du siden</h2>
-        <ol>
-            <li><strong>Kart:</strong> Gir en oversikt over området og ressursene som er plassert, for operatører viser den hvor tilgjengelige ressurser er samt hendelser.</li>
-            <li><strong>Ressurser:</strong> Oversikt over det som kan bidra i en krise.</li>
-            <li><strong>Behov:</strong> Det som blir meldt inn av operatører av nød for ressurser og hvilken type ressurser de trenger.</li>
-        </ol>
-    </div>
+    @* generell informasjon om siden og hva vi har planlagt*@
+    <section class="home-panel">
+        <h2 class="h4">Generell informasjon</h2>
+        <p>
+            Dette er en prototype laget for ressurshåndtering, og behov's melding under hendelser. 
+            Vi har planer om flere funksjoner.'
+        </p>
+        <p>
+            Vi har planer om å legge til funksjoner som:
+            <ul>
+                <li>Integrasjon med andre systemer</li>
+                <li>Avanserte rapporter og statistikk</li>
+            </ul>
+        </p>
+    </section>
+
+@* Guider som må fylles ut og beskriver de forskjellige funksjonene til applikasjonen*@
+<h2 class="text-center h3" style="color:#fff;">Guide</h2>
+
+<section class="home-panel guide-section" id="guide-kart">
+    <h2 class="h4">Guide for kart</h2>
+    <p>
+        Kartet viser ressurser og behov som er registrert i systemet. Du kan zoome inn og ut, samt klikke på markører for å se mer informasjon.
+    </p>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+<section class="home-panel guide-section" id="guide-ressurser">
+    <h2 class="h4">Guide for ressurser</h2>
+    <p>
+        Her kan du se en oversikt over alle ressursene som er registrert i systemet. Du kan også registrere nye ressurser.
+    </p>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+<section class="home-panel guide-section" id="guide-behov">
+    <h2 class="h4">Guide for behov</h2>
+    <p>
+        Her kan du se en oversikt over alle behovene som er registrert i systemet. Du kan også registrere nye behov.
+    </p>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+
 }
