@@ -1,40 +1,50 @@
 ﻿@model Heimevernet_Prosjekt.Models.PositionModel
 @using Heimevernet_Prosjekt.Security.Authorization
 @{
-    var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
-    var signedIn = User.Identity?.IsAuthenticated == true;
+	var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+	var signedIn = User.Identity?.IsAuthenticated == true;
+	ViewData["FilterOnMap"] = true;
 }
 
 <div id="map"></div>
-@* Side panel: "Meld behov" opens here, with the map still visible. The form is the same page, shown with ?embed=1 *@
-<aside id="needPanel" class="need-panel" hidden aria-label="Meld behov">
-	@* Drag the left edge to change the width (also ← → with the keyboard) *@
-	<div id="needPanelResize" class="need-panel-resize" role="separator" aria-orientation="vertical"
-		 aria-label="Endre bredden på panelet" tabindex="0"></div>
-	<div class="need-panel-head">
-		<span id="needPanelTitle" class="small fw-semibold"></span>
-		<a id="needPanelFull" href="#" class="small me-auto">Åpne på egen side ↗</a>
-		<button type="button" class="btn-close" onclick="closeNeedPanel()" aria-label="Lukk panelet"></button>
-	</div>
-	<iframe id="needPanelFrame" title="Meld behov"></iframe>
-</aside>
-@* Resource panel on the left, like Google Maps: a list (from a box) or one resource (the resource page with ?embed=1) *@
-<aside id="resourcePanel" class="resource-panel" hidden aria-label="Ressurser">
+<partial name="_ResourceFilter" />
+@* One side panel on the left, like Google Maps. It shows one thing at a time: a list (from a box), a resource or a need
+   (the pages themselves with ?embed=1). While a need is open you can look at a resource and go back with ‹ *@
+<aside id="sidePanel" class="side-panel" hidden aria-label="Sidepanel">
 	@* Drag the right edge to change the width (also ← → with the keyboard) *@
-	<div id="resourcePanelResize" class="resource-panel-resize" role="separator" aria-orientation="vertical"
+	<div id="sidePanelResize" class="side-panel-resize" role="separator" aria-orientation="vertical"
 		 aria-label="Endre bredden på panelet" tabindex="0"></div>
-	<div class="resource-panel-head">
-		<button type="button" id="resourcePanelBack" class="btn btn-sm btn-link p-0" hidden onclick="showResourceList()">‹ Tilbake til lista</button>
-		<span id="resourcePanelTitle" class="small fw-semibold"></span>
-		<button type="button" class="btn-close ms-auto" onclick="closeResourcePanel()" aria-label="Lukk panelet"></button>
+	<div class="side-panel-head">
+		<button type="button" id="sidePanelBack" class="btn btn-sm btn-link p-0" hidden onclick="sidePanelBack()"></button>
+		<span id="sidePanelTitle" class="small fw-semibold"></span>
+		<a id="sidePanelFull" href="#" class="small" hidden>Åpne på egen side ↗</a>
+		<button type="button" class="btn-close ms-auto" onclick="closeSidePanel()" aria-label="Lukk panelet"></button>
+	</div>
+	@* Need mode: what you are doing, and what the rings on the map mean (text + icon, not only colour) *@
+	<div id="needModeInfo" class="need-mode-info" role="status" hidden>
+		<div>🎯 Klikk på en ressurs på kartet for å velge den til <strong id="needModeName"></strong></div>
+		<div class="need-mode-legend">
+			<span><span class="ring-dot" aria-hidden="true"></span>Kan velges</span>
+			<span><span class="ring-dot ring-picked" aria-hidden="true">✓</span>Valgt</span>
+		</div>
 	</div>
 	<div id="resourcePanelPick" class="px-3 pt-2" hidden></div>
-	<div id="resourcePanelList" class="resource-panel-list"></div>
+	<div id="resourcePanelList" class="side-panel-list" hidden></div>
 	<iframe id="resourcePanelFrame" title="Ressurs" hidden></iframe>
+	<iframe id="needPanelFrame" title="Behov" hidden></iframe>
 </aside>
-
+@* A short message at the bottom after you choose a resource (gone after 3 seconds) *@
+<div id="mapToast" class="map-toast" role="status" aria-live="polite" hidden></div>
 
 <style>
+	/* The filter button on the map, to the right of + and − */
+	.rf-map-button {
+		position: fixed;
+		top: 86px;
+		left: 56px;
+		z-index: 999;
+	}
+
 	/* The box with the number: green, white border, big enough to read and tap */
 	.resource-cluster {
 		display: flex;
@@ -56,26 +66,26 @@
 	.leaflet-marker-pane img.leaflet-marker-icon {
 		filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
 	}
-	/* The side panel: on the right, under the menu, colours follow light/dark mode */
-	.need-panel {
+	/* The side panel: on the left, under the menu, like Google Maps. Colours follow light/dark mode */
+	.side-panel {
 		position: fixed;
-		right: 0;
+		left: 0;
 		bottom: 0;
 		top: 76px;
-		width: min(480px, 100vw);
+		width: min(420px, 100vw);
 		z-index: 1000;
 		display: flex;
 		flex-direction: column;
 		background: var(--bs-body-bg);
-		border-left: 1px solid var(--bs-border-color);
-		box-shadow: -4px 0 16px rgba(0,0,0,.25);
+		border-right: 1px solid var(--bs-border-color);
+		box-shadow: 4px 0 16px rgba(0,0,0,.25);
 	}
 
-		.need-panel[hidden] {
+		.side-panel[hidden], .side-panel iframe[hidden], .side-panel-list[hidden] {
 			display: none;
 		}
 
-	.need-panel-head {
+	.side-panel-head {
 		display: flex;
 		align-items: center;
 		gap: 8px;
@@ -83,10 +93,36 @@
 		border-bottom: 1px solid var(--bs-border-color);
 	}
 
-	.need-panel iframe {
+	.side-panel iframe {
 		flex: 1;
 		width: 100%;
 		border: 0;
+	}
+
+	.side-panel-list {
+		flex: 1;
+		overflow-y: auto;
+		padding: 8px 12px;
+	}
+
+	/* The handle on the right edge of the side panel */
+	.side-panel-resize {
+		position: absolute;
+		right: -4px;
+		top: 0;
+		bottom: 0;
+		width: 8px;
+		cursor: ew-resize;
+		z-index: 1;
+	}
+
+		.side-panel-resize:hover, .side-panel-resize:focus-visible, .side-panel.resizing .side-panel-resize {
+			background: var(--hv-link);
+			outline: none;
+		}
+	/* While dragging, the page in the panel must not catch the mouse */
+	.side-panel.resizing iframe {
+		pointer-events: none;
 	}
 	/* The map fills the screen under the menu, without scrolling. The footer is hidden on this page */
 	body:has(#map) {
@@ -107,80 +143,47 @@
 	}
 
 	.need-marker {
-		display: flex; align-items: center; justify-content: center;
-		width: 26px; height: 26px; border-radius: 5px;
-		font-weight: 700; font-size: 13px; color: #fff;
-		border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4);
-	}
-	.need-akutt { background: #E24B4A; }
-	.need-planlagt { background: #378ADD; }
-	.need-label {
-		background: transparent; border: 0; box-shadow: none;
-		font-weight: 700; font-size: 12px; white-space: nowrap;
-	}
-	.need-label.akutt { color: #E24B4A; }
-	.need-label.planlagt { color: #378ADD; }
-	.map-menu a { display: block; padding: 4px 0; }
-
-	.need-panel-resize {
-		position: absolute;
-		left: -4px;
-		top: 0;
-		bottom: 0;
-		width: 8px;
-		cursor: ew-resize;
-		z-index: 1;
-	}
-
-		.need-panel-resize:hover, .need-panel-resize:focus-visible, .need-panel.resizing .need-panel-resize {
-			background: var(--hv-link);
-			outline: none;
-		}
-	/* While dragging, the form in the panel must not catch the mouse */
-	.need-panel.resizing iframe {
-		pointer-events: none;
-	}
-	/* The resource panel: on the left, like Google Maps */
-	.resource-panel {
-		position: fixed;
-		left: 0;
-		bottom: 0;
-		top: 76px;
-		width: min(400px, 100vw);
-		z-index: 1000;
-		display: flex;
-		flex-direction: column;
-		background: var(--bs-body-bg);
-		border-right: 1px solid var(--bs-border-color);
-		box-shadow: 4px 0 16px rgba(0,0,0,.25);
-	}
-
-		.resource-panel[hidden] {
-			display: none;
-		}
-
-	.resource-panel-head {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 8px 12px;
-		border-bottom: 1px solid var(--bs-border-color);
+		justify-content: center;
+		width: 26px;
+		height: 26px;
+		border-radius: 5px;
+		font-weight: 700;
+		font-size: 13px;
+		color: #fff;
+		border: 2px solid #fff;
+		box-shadow: 0 1px 3px rgba(0,0,0,.4);
 	}
 
-	.resource-panel iframe {
-		flex: 1;
-		width: 100%;
+	.need-akutt {
+		background: #E24B4A;
+	}
+
+	.need-planlagt {
+		background: #378ADD;
+	}
+
+	.need-label {
+		background: transparent;
 		border: 0;
+		box-shadow: none;
+		font-weight: 700;
+		font-size: 12px;
+		white-space: nowrap;
 	}
 
-		.resource-panel iframe[hidden], .resource-panel-list[hidden] {
-			display: none;
+		.need-label.akutt {
+			color: #E24B4A;
 		}
 
-	.resource-panel-list {
-		flex: 1;
-		overflow-y: auto;
-		padding: 8px 12px;
+		.need-label.planlagt {
+			color: #378ADD;
+		}
+
+	.map-menu a {
+		display: block;
+		padding: 4px 0;
 	}
 
 	.resource-row {
@@ -214,54 +217,118 @@
 			color: #fff;
 			border-color: var(--hv-green);
 		}
-	/* The handle on the right edge of the resource panel */
-	.resource-panel-resize {
-		position: absolute;
-		right: -4px;
-		top: 0;
-		bottom: 0;
-		width: 8px;
-		cursor: ew-resize;
-		z-index: 1;
+	/* Need mode: the top of the panel is yellow, and an info box says what to do and what the rings mean (text + icon, not only colour) */
+	.need-mode-info {
+		background: #ffc107;
+		color: #000;
+		padding: 8px 12px;
+		border-bottom: 1px solid rgba(0,0,0,.15);
+		font-size: .9rem;
 	}
 
-		.resource-panel-resize:hover, .resource-panel-resize:focus-visible, .resource-panel.resizing .resource-panel-resize {
-			background: var(--hv-link);
-			outline: none;
+		.need-mode-info[hidden] {
+			display: none;
 		}
 
-	.resource-panel.resizing iframe {
-		pointer-events: none;
+	.need-mode-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		margin-top: 4px;
 	}
+
+	.ring-dot {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 18px;
+		height: 18px;
+		margin-right: 6px;
+		vertical-align: middle;
+		border-radius: 50%;
+		border: 3px solid #639922;
+		font-size: 10px;
+		font-weight: 700;
+	}
+
+		.ring-dot.ring-picked {
+			border-color: #378ADD;
+			background: rgba(55,138,221,.35);
+		}
+
+	.side-panel.need-mode .side-panel-head {
+		background: #ffc107;
+		color: #000;
+		border-bottom-color: rgba(0,0,0,.15);
+	}
+
+		.side-panel.need-mode .side-panel-head a, .side-panel.need-mode .side-panel-head .btn-link {
+			color: #000;
+		}
+
+		.side-panel.need-mode .side-panel-head .btn-close {
+			filter: none; /* the black ✕, also in dark mode */
+		}
+	/* The ✓ on a chosen resource in need mode */
+	.picked-check {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: #378ADD;
+		color: #fff;
+		font-weight: 700;
+		font-size: 13px;
+		border: 2px solid #fff;
+	}
+	/* The short message at the bottom of the screen, like Google Maps */
+	.map-toast {
+		position: fixed;
+		bottom: 24px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 1100;
+		background: #212529;
+		color: #fff;
+		padding: 10px 18px;
+		border-radius: 8px;
+		box-shadow: 0 2px 10px rgba(0,0,0,.4);
+	}
+
+		.map-toast[hidden] {
+			display: none;
+		}
 </style>
 
 @section Scripts {
 	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 	<script>
-// 		@*Ikoner til default*@ 
-var greenIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-});
+		// 		@*Ikoner til default*@
+		var greenIcon = new L.Icon({
+			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+			iconSize: [25, 41],
+			iconAnchor: [12, 41],
+			popupAnchor: [1, -34]
+		});
 
-var yellowIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-});
+		var yellowIcon = new L.Icon({
+			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
+			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+			iconSize: [25, 41],
+			iconAnchor: [12, 41],
+			popupAnchor: [1, -34]
+		});
 
-var redIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-});
+		var redIcon = new L.Icon({
+			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+			iconSize: [25, 41],
+			iconAnchor: [12, 41],
+			popupAnchor: [1, -34]
+		});
 
 		var greyIcon = new L.Icon({
 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
@@ -272,53 +339,53 @@ var redIcon = new L.Icon({
 		});
 
 
-function getDefaultMarker(status) {
+		function getDefaultMarker(status) {
 
-    switch (status) {
+			switch (status) {
 
-        case "Opptatt":
-            return yellowIcon;
+				case "Opptatt":
+					return yellowIcon;
 
-        case "Ugyldig":
-            return redIcon;
+				case "Ugyldig":
+					return redIcon;
 
-        default:
-            return greenIcon;
-    }
-}
+				default:
+					return greenIcon;
+			}
+		}
 
-function getResourceIcon(type, status) {
+		function getResourceIcon(type, status) {
 
-//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
-    var typeMap = {
-        "Verktøy og utstyr": "tools",
-        "Motoriserte kjøretøy": "vehicle",
-        "Husly og bygg": "shelter",
-       // "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
-        "Sikkerhet og medisinsk": "medical"
-    };
+			//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
+			var typeMap = {
+				"Verktøy og utstyr": "tools",
+				"Motoriserte kjøretøy": "vehicle",
+				"Husly og bygg": "shelter",
+				// "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
+				"Sikkerhet og medisinsk": "medical"
+			};
 			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
 			if (status === "Ikke tilgjengelig") {
 				return greyIcon;
 			}
 
-    var iconType = typeMap[type];
+			var iconType = typeMap[type];
 
-    if (!iconType) {
-        return getDefaultMarker(status);
-    }
+			if (!iconType) {
+				return getDefaultMarker(status);
+			}
 
-    var iconStatus = (status || "Ledig")
-        .toLowerCase()
-        .replace("ø", "o");
+			var iconStatus = (status || "Ledig")
+				.toLowerCase()
+				.replace("ø", "o");
 
-    return L.icon({
-        iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 36],
-        popupAnchor: [0, -36]
-    });
-}
+			return L.icon({
+				iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
+				iconSize: [36, 36],
+				iconAnchor: [18, 36],
+				popupAnchor: [0, -36]
+			});
+		}
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
@@ -384,7 +451,7 @@ function getResourceIcon(type, status) {
 							console.warn("Ugyldige koordinater:", resource);
 							return;
 						}
-				
+
 						var icon = getResourceIcon(
 							resource.type,
 							resource.status
@@ -397,9 +464,6 @@ function getResourceIcon(type, status) {
 						marker.on('click', function () { openResource(resource.id); });
 						markers.push(marker);
 						markersById[resource.id] = marker;
-						marker.resourceId = resource.id;
-						marker.resourceName = resource.name;
-						marker.resourceType = resource.type;
 						marker.resource = resource;
 					}
 					if (needMode) showNeedMode();
@@ -452,29 +516,27 @@ function getResourceIcon(type, status) {
 							icon: L.divIcon({
 								className: 'need-label ' + (planned ? 'planlagt' : 'akutt'),
 								html: '<span style="display:inline-block;transform:translateX(-50%);background:rgba(255,255,255,.85);padding:0 4px;border-radius:4px;">'
-								+ escapeHtml(need.name) + ' · ' + escapeHtml(label) + '</span>',
+									+ escapeHtml(need.name) + ' · ' + escapeHtml(label) + '</span>',
 								iconSize: null,
 								iconAnchor: [0, 38]
 							}),
 							interactive: false
 						}).addTo(needLayer);
 
-						var items = need.items.map(i => `<li>${i.quantity} × ${escapeHtml(i.type)}</li>`).join('');
+						// Hover: the name and what is needed. Click: the need opens in the side panel, like a resource
+						var items = need.items.map(i => `${i.quantity} × ${escapeHtml(i.type)}`).join('<br>');
 						L.marker([lat, lng], {
 							icon: L.divIcon({
 								className: '',
-								html: `<div class="need-marker ${planned ? 'need-planlagt' : 'need-akutt'}" aria-label="${need.count} trengs">${need.count}</div>`,
+								html: `<div class="need-marker ${planned ? 'need-planlagt' : 'need-akutt'}" aria-label="${escapeHtml(need.name)}: ${need.count} trengs">${need.count}</div>`,
 								iconSize: [26, 26],
 								iconAnchor: [13, 13]
 							}),
-							keyboard: true,
-							title: need.name
-						}).bindPopup(`
-							<strong>${escapeHtml(need.name)}</strong> · ${escapeHtml(label)}
-							<ul class="mb-1 ps-3">${items}</ul>
-							<a href="${needDetailUrl}${need.id}" onclick="return openNeedPanel(this.href);">Åpne behovet</a><br>
-							<a href="${needCreateUrl}?lat=${lat}&lng=${lng}">+ Legg til mer</a>
-						`).addTo(needLayer);
+							keyboard: true
+						})
+							.bindTooltip(`<strong>${escapeHtml(need.name)}</strong> · ${escapeHtml(label)}<br>${items}`, { direction: 'top', offset: [0, -14] })
+							.on('click', function () { openNeedPanel(needDetailUrl + need.id, [lat, lng]); })
+							.addTo(needLayer);
 					});
 				})
 				.catch(error => console.error("Feil ved henting av behov:", error));
@@ -521,9 +583,7 @@ function getResourceIcon(type, status) {
 			} else if (markers.length === 1) {
 				map.setView(markers[0].getLatLng(), 16);
 			}
-			if (markers.length === 1) {
-				markers[0].openPopup();
-			}
+			if (markers.length === 1) openResource(markers[0].resource.id);
 		};
 
 		window.onResourceSelected = async function (resource) {
@@ -537,9 +597,7 @@ function getResourceIcon(type, status) {
 			}
 			await loadResources({});
 			map.setView([resource.latitude, resource.longitude], 16);
-			if (markersById[resource.id]) {
-				markersById[resource.id].openPopup();
-			}
+			openResource(resource.id);
 		};
 
 		// "Velg punkt på kartet" i filter
@@ -590,23 +648,20 @@ function getResourceIcon(type, status) {
 		});
 
 		
-		// Side panel for "Meld behov" (help with AI) - Docs: Window.postMessage (MDN)
+		// Open a need ("Meld behov" or an existing need) in the side panel (help with AI) - Docs: Window.postMessage (MDN)
 		// https://developer.mozilla.org/docs/Web/API/Window/postMessage
-		function openNeedPanel(url) {
+		function openNeedPanel(url, latlng) {
+			needLatLng = latlng || null; // where the need is, for the lines to the chosen resources
 			exitNeedMode();
-			var panel = document.getElementById('needPanel');
-			panel.style.top = document.querySelector('header').offsetHeight + 'px';
+			needUrl = url;
+			needTitle = '';
+			resourceList = [];
+			openResourceId = null;
 			document.getElementById('needPanelFrame').src = url + (url.includes('?') ? '&' : '?') + 'embed=1';
-			document.getElementById('needPanelFull').href = url;
-			panel.hidden = false;
+			document.getElementById('sidePanelFull').href = url;
+			showView('need');
 			map.closePopup();
 			return false; // don't follow the link, the panel shows the form instead
-		}
-
-		function closeNeedPanel() {
-			exitNeedMode();
-			document.getElementById('needPanel').hidden = true;
-			document.getElementById('needPanelFrame').src = 'about:blank';
 		}
 
 		// The form in the panel tells us when it is saved or cancelled. Only messages from our own site are trusted
@@ -614,65 +669,23 @@ function getResourceIcon(type, status) {
 			if (e.origin !== window.location.origin || !e.data) return;
 			if (e.data.type === 'need-open') {
 				needMode = { name: e.data.name, suggestions: e.data.suggestions || [], picked: e.data.picked || [] };
-				document.getElementById('needPanelTitle').textContent = 'Du jobber med: ' + e.data.name;
+				needTitle = 'Du jobber med: ' + e.data.name;
+				if (panelView === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
 				showNeedMode();
 				renderPick();
 			}
 			if (e.data.type === 'need-close') {
-				closeNeedPanel();
+				closeSidePanel();
 			}
 			if (e.data.type === 'need-created') {
-				closeNeedPanel();
+				closeSidePanel();
 				loadNeeds(); // the new circle shows up right away
 			}
 		});
 
-		// Esc closes the panel
-		document.addEventListener('keydown', function (e) {
-			if (e.key === 'Escape' && !document.getElementById('needPanel').hidden) closeNeedPanel();
-		});
-
-		
-				//Change the panel's width by dragging the left edge; the width is remembered (help with AI)
-				// Docs: Pointer events (MDN) - https://developer.mozilla.org/docs/Web/API/Pointer_events
-				(function () {
-					var panel = document.getElementById('needPanel');
-					var handle = document.getElementById('needPanelResize');
-
-					function setWidth(px) {
-						var max = Math.max(320, window.innerWidth * 0.8);
-						px = Math.min(Math.max(px, 320), max);
-						panel.style.width = px + 'px';
-						try { localStorage.setItem('needPanelWidth', px); } catch (e) { }
-					}
-
-					var saved = null;
-					try { saved = parseInt(localStorage.getItem('needPanelWidth'), 10); } catch (e) { }
-					if (saved) setWidth(saved);
-
-					handle.addEventListener('pointerdown', function (e) {
-						e.preventDefault();
-						panel.classList.add('resizing');
-						function move(ev) { setWidth(window.innerWidth - ev.clientX); }
-						function up() {
-							panel.classList.remove('resizing');
-							window.removeEventListener('pointermove', move);
-							window.removeEventListener('pointerup', up);
-						}
-						window.addEventListener('pointermove', move);
-						window.addEventListener('pointerup', up);
-					});
-
-					// Keyboard: ← makes it wider, → narrower
-					handle.addEventListener('keydown', function (e) {
-						if (e.key === 'ArrowLeft') { setWidth(panel.offsetWidth + 40); e.preventDefault(); }
-						if (e.key === 'ArrowRight') { setWidth(panel.offsetWidth - 40); e.preventDefault(); }
-					});
-				})();
-
 		// "Behovsmodus": while a need is open in the panel, the resources it can use get a ring,
-		// the others fade, and the popup can tick them in the panel (help with AI)
-		// Docs: Leaflet CircleMarker and popupopen - https://leafletjs.com/reference.html
+		// the others are hidden, and the resource panel can choose them for the need (help with AI)
+		// Docs: Leaflet CircleMarker - https://leafletjs.com/reference.html
 		var needMode = null;
 		var needModeLayer = L.layerGroup().addTo(map);
 
@@ -688,28 +701,41 @@ function getResourceIcon(type, status) {
 				// In need mode: only the resources this need can use are shown, like a filter
 				if (suggested) markerLayer.addLayer(marker); else markerLayer.removeLayer(marker);
 				if (suggested) {
-					// Green ring = can be chosen, blue filled = chosen (also the popup says it in text)
+					// Green ring = can be chosen, blue filled = chosen (the side panel says it in text too)
 					L.circleMarker(marker.getLatLng(), {
 						radius: 20, weight: 3, interactive: false,
 						color: picked ? '#378ADD' : '#639922',
 						fillColor: '#378ADD', fillOpacity: picked ? 0.35 : 0
 					}).addTo(needModeLayer);
+					// Chosen: a ✓ on the resource too, so it doesn't rely on colour alone
+					if (picked) {
+						L.marker(marker.getLatLng(), {
+							icon: L.divIcon({ className: '', html: '<div class="picked-check" aria-hidden="true">✓</div>', iconSize: [20, 20], iconAnchor: [-6, 46] }),
+							interactive: false
+						}).addTo(needModeLayer);
+						if (needLatLng) L.polyline([marker.getLatLng(), needLatLng], { color: '#378ADD', weight: 2, dashArray: '6 6', interactive: false }).addTo(needModeLayer);
+					}
 				}
 			});
+
+			// Need mode is easy to see: the yellow top of the panel, and the info box with what the rings mean
+			var info = document.getElementById('needModeInfo');
+			info.hidden = !needMode;
+			if (needMode) document.getElementById('needModeName').textContent = needMode.name;
+			document.getElementById('sidePanel').classList.toggle('need-mode', !!needMode);
 		}
 
 		function exitNeedMode() {
 			needMode = null;
 			showNeedMode();
-			document.getElementById('needPanelTitle').textContent = '';
 		}
-		
+
 		// Click on a box: a list of the resources in it, and "Zoom inn"
 		var lastCluster = null;
 		markerLayer.on('clusterclick', function (e) {
 			lastCluster = e.layer;
 			var count = e.layer.getChildCount();
-			// Short and simple: the number and what you can do. The list and filter come in the side panel (step 3)
+			// Short and simple: the number and what you can do. The list comes in the side panel
 			L.popup()
 				.setLatLng(e.latlng)
 				.setContent(`<strong>${count} ressurser her</strong>`
@@ -738,28 +764,48 @@ function getResourceIcon(type, status) {
 			markerLayer.zoomToShowLayer(marker, function () { openResource(id); });
 		}
 
-		// The resource panel on the left: a list from a box, or one resource (help with AI)
-		// The details are the resource page itself with ?embed=1, so it looks the same everywhere
+		// The side panel on the left (help with AI): shows one view at a time - 'list' (from a box), 'resource' or 'need'.
+		// The resource is its own page with ?embed=1, so it looks the same everywhere.
+		// The need stays loaded in the background while you look at a resource, so "✓ Velg til …" still works
 		var resourceList = [];      // the resources in the list (from a box)
 		var resourceListType = '';  // the chosen type chip ('' = all)
 		var openResourceId = null;
+		var panelView = null;       // what the panel shows now (null = closed)
+		var needUrl = null;         // the need that is open (null = none)
+		var needLatLng = null;      // where the open need is on the map
+		var needTitle = '';         // "Du jobber med: …"
 
-		function showResourcePanel() {
-			var panel = document.getElementById('resourcePanel');
+		function showView(view) {
+			panelView = view;
+			var panel = document.getElementById('sidePanel');
 			panel.style.top = document.querySelector('header').offsetHeight + 'px';
 			panel.hidden = false;
+			document.getElementById('resourcePanelList').hidden = view !== 'list';
+			document.getElementById('resourcePanelFrame').hidden = view !== 'resource';
+			document.getElementById('needPanelFrame').hidden = view !== 'need';
+			document.getElementById('sidePanelFull').hidden = view !== 'need';
+			if (view === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
+
+			// ‹ back: from a resource to the list, or to the need you are working on
+			var backTo = null;
+			if (view === 'resource' && resourceList.length > 0) backTo = 'lista';
+			else if (view !== 'need' && needUrl) backTo = 'behovet';
+			var back = document.getElementById('sidePanelBack');
+			back.hidden = !backTo;
+			back.textContent = backTo ? '‹ Tilbake til ' + backTo : '';
+			renderPick();
+		}
+
+		function sidePanelBack() {
+			if (panelView === 'resource' && resourceList.length > 0) showResourceList();
+			else showView('need');
 		}
 
 		function openResource(id) {
 			openResourceId = id;
-			showResourcePanel();
-			document.getElementById('resourcePanelList').hidden = true;
-			var frame = document.getElementById('resourcePanelFrame');
-			frame.hidden = false;
-			frame.src = detailUrl + id + '?embed=1';
-			document.getElementById('resourcePanelBack').hidden = resourceList.length === 0;
-			document.getElementById('resourcePanelTitle').textContent = '';
-			renderPick();
+			document.getElementById('resourcePanelFrame').src = detailUrl + id + '?embed=1';
+			document.getElementById('sidePanelTitle').textContent = '';
+			showView('resource');
 		}
 
 		function showClusterList() {
@@ -772,15 +818,10 @@ function getResourceIcon(type, status) {
 
 		function showResourceList() {
 			openResourceId = null;
-			showResourcePanel();
-			var frame = document.getElementById('resourcePanelFrame');
-			frame.hidden = true;
-			frame.src = 'about:blank';
-			document.getElementById('resourcePanelBack').hidden = true;
-			document.getElementById('resourcePanelPick').hidden = true;
-			document.getElementById('resourcePanelTitle').textContent = resourceList.length + ' ressurser her';
+			document.getElementById('resourcePanelFrame').src = 'about:blank';
+			showView('list');
+			document.getElementById('sidePanelTitle').textContent = resourceList.length + ' ressurser her';
 			var list = document.getElementById('resourcePanelList');
-			list.hidden = false;
 
 			// Type chips with the number: a filter for the list
 			var counts = {};
@@ -814,17 +855,23 @@ function getResourceIcon(type, status) {
 			});
 		}
 
-		function closeResourcePanel() {
-			document.getElementById('resourcePanel').hidden = true;
-			document.getElementById('resourcePanelFrame').src = 'about:blank';
+		// ✕ or Esc: close the panel, and the need if one is open
+		function closeSidePanel() {
+			exitNeedMode();
+			panelView = null;
+			needUrl = null;
+			needLatLng = null;
 			resourceList = [];
 			openResourceId = null;
+			document.getElementById('sidePanel').hidden = true;
+			document.getElementById('resourcePanelFrame').src = 'about:blank';
+			document.getElementById('needPanelFrame').src = 'about:blank';
 		}
 
-		// Need mode: the open resource can be chosen for the need that is open on the right
+		// Need mode: the open resource can be chosen for the need that is open
 		function renderPick() {
 			var box = document.getElementById('resourcePanelPick');
-			if (!needMode || openResourceId == null || !needMode.suggestions.includes(openResourceId)) { box.hidden = true; return; }
+			if (panelView !== 'resource' || !needMode || openResourceId == null || !needMode.suggestions.includes(openResourceId)) { box.hidden = true; return; }
 			var picked = needMode.picked.includes(openResourceId);
 			box.hidden = false;
 			box.innerHTML = '';
@@ -834,36 +881,43 @@ function getResourceIcon(type, status) {
 			button.textContent = (picked ? '✕ Fjern fra ' : '✓ Velg til ') + needMode.name;
 			button.addEventListener('click', function () {
 				document.getElementById('needPanelFrame').contentWindow.postMessage(
-					{ type: 'need-pick', resourceId: openResourceId }, window.location.origin);
+				{ type: 'need-pick', resourceId: openResourceId }, window.location.origin);
+				var name = markersById[openResourceId] ? markersById[openResourceId].resource.name : 'Ressursen';
+				showToast((picked ? '✕ ' + name + ' er fjernet fra ' : '✓ ' + name + ' er valgt til ') + needMode.name);
+				showView('need'); // back to the need, so you see it ticked
 			});
 			box.appendChild(button);
 		}
 
-		// Esc closes the resource panel
+		// A short message at the bottom for 3 seconds (help with AI)
+		var toastTimer = null;
+		function showToast(text) {
+			var toast = document.getElementById('mapToast');
+			toast.textContent = text;
+			toast.hidden = false;
+			clearTimeout(toastTimer);
+			toastTimer = setTimeout(function () { toast.hidden = true; }, 3000);
+		}
+
+		// Esc closes the side panel
 		document.addEventListener('keydown', function (e) {
-			if (e.key === 'Escape' && !document.getElementById('resourcePanel').hidden) closeResourcePanel();
+			if (e.key === 'Escape' && panelView) closeSidePanel();
 		});
 
-		// Change the resource panel's width by dragging its right edge; the width is remembered (help with AI)
-		(function () {
-			var panel = document.getElementById('resourcePanel');
-			var handle = document.getElementById('resourcePanelResize');
+		// The side panel's width: drag the right edge (or ← → on the keyboard).
+		// The width is remembered (help with AI) - Docs: Pointer events (MDN) - https://developer.mozilla.org/docs/Web/API/Pointer_events
+		function setPanelWidth(px) {
+			var max = Math.max(320, window.innerWidth * 0.8);
+			px = Math.min(Math.max(px, 320), max);
+			document.getElementById('sidePanel').style.width = px + 'px';
+			try { localStorage.setItem('panelWidth', px); } catch (e) { }
+		}
 
-			function setWidth(px) {
-				var max = Math.max(320, window.innerWidth * 0.8);
-				px = Math.min(Math.max(px, 320), max);
-				panel.style.width = px + 'px';
-				try { localStorage.setItem('resourcePanelWidth', px); } catch (e) { }
-			}
-
-			var saved = null;
-			try { saved = parseInt(localStorage.getItem('resourcePanelWidth'), 10); } catch (e) { }
-			if (saved) setWidth(saved);
-
+		function makeResizable(panel, handle) {
 			handle.addEventListener('pointerdown', function (e) {
 				e.preventDefault();
 				panel.classList.add('resizing');
-				function move(ev) { setWidth(ev.clientX); }
+				function move(ev) { setPanelWidth(ev.clientX); }
 				function up() {
 					panel.classList.remove('resizing');
 					window.removeEventListener('pointermove', move);
@@ -872,12 +926,14 @@ function getResourceIcon(type, status) {
 				window.addEventListener('pointermove', move);
 				window.addEventListener('pointerup', up);
 			});
-
 			// Keyboard: → makes it wider, ← narrower
 			handle.addEventListener('keydown', function (e) {
-				if (e.key === 'ArrowRight') { setWidth(panel.offsetWidth + 40); e.preventDefault(); }
-				if (e.key === 'ArrowLeft') { setWidth(panel.offsetWidth - 40); e.preventDefault(); }
+				if (e.key === 'ArrowRight') { setPanelWidth(panel.offsetWidth + 40); e.preventDefault(); }
+				if (e.key === 'ArrowLeft') { setPanelWidth(panel.offsetWidth - 40); e.preventDefault(); }
 			});
-		})();
+		}
+
+		makeResizable(document.getElementById('sidePanel'), document.getElementById('sidePanelResize'));
+		try { var savedWidth = parseInt(localStorage.getItem('panelWidth'), 10); if (savedWidth) setPanelWidth(savedWidth); } catch (e) { }
 	</script>
 }

@@ -1,0 +1,46 @@
+﻿@* The resource filter on Kart and Ressursoversikt: a button, and a panel that slides in from the left (logic in wwwroot/js/resource-filter.js) *@
+@* No "Bruk" button: the result updates as soon as you choose. Docs: Bootstrap Offcanvas - https://getbootstrap.com/docs/5.3/components/offcanvas/ *@
+@{
+    var onMap = ViewData["FilterOnMap"] as bool? == true;
+}
+<button type="button" id="rfButton" class="btn btn-success shadow d-inline-flex align-items-center gap-2 @(onMap ? "rf-map-button" : "")"
+        data-bs-toggle="offcanvas" data-bs-target="#rfPanel" aria-controls="rfPanel">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>
+    <span>Filter</span>
+    <span id="rfCount" class="badge text-bg-light" hidden></span>
+</button>
+
+<div id="rfPanel" class="offcanvas offcanvas-start" tabindex="-1" data-bs-backdrop="false" data-bs-scroll="true" aria-labelledby="rfTitle"
+     data-types-url="@Url.Action("Types", "Resource")" data-on-map="@(onMap ? "true" : "false")">
+    <div class="offcanvas-header border-bottom">
+        <h2 id="rfTitle" class="offcanvas-title h5">Filter</h2>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Lukk filteret"></button>
+    </div>
+    <div class="offcanvas-body">
+        <fieldset class="mb-4">
+            <legend class="h6">Type ressurs</legend>
+            <div id="rfTypes" class="small text-body-secondary">Henter typer …</div>
+        </fieldset>
+
+        <fieldset class="mb-4">
+            <legend class="h6">Avstand</legend>
+            <label for="rfRadius" class="form-label small">Innen</label>
+            <select id="rfRadius" class="form-select mb-2">
+                <option value="0.5">500 m</option>
+                <option value="1">1 km</option>
+                <option value="2" selected>2 km</option>
+                <option value="5">5 km</option>
+                <option value="10">10 km</option>
+            </select>
+            <div id="rfPlace" class="small mb-2">Velg et sted i søket for å bruke avstand.</div>
+            @if (onMap)
+            {
+                <button type="button" id="rfPick" class="btn btn-sm btn-outline-secondary w-100">📍 Velg punkt på kartet</button>
+            }
+        </fieldset>
+    </div>
+    <div class="border-top p-3 d-flex gap-2">
+        <button type="button" id="rfReset" class="btn btn-outline-secondary">Nullstill alt</button>
+        <button type="button" class="btn btn-success ms-auto" data-bs-dismiss="offcanvas">Vis <span id="rfResultCount"></span> treff</button>
+    </div>
+</div>
