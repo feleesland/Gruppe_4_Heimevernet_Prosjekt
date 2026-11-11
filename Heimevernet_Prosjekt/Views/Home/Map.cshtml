@@ -122,7 +122,7 @@ var greenIcon = new L.Icon({
 });
 
 var yellowIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',	//kan fjernes ettersom vi ikke bruker den?
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
@@ -151,7 +151,7 @@ function getDefaultMarker(status) {
     switch (status) {
 
         case "Opptatt":
-            return yellowIcon;
+            return greyIcon;
 
         case "Ugyldig":
             return redIcon;
