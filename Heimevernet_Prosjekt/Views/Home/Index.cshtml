@@ -6,12 +6,22 @@
 
 <style>
     .home-banner {
-    height: 320px;
+    min-height: 320px;
     background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
                 url(/images/Krs.png) center 40% / cover no-repeat;
-    
     width: 100vw;
     margin-left: calc(50% - 50vw);
+
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.home-banner .home-panel {
+    margin: 0;
+    width: 100%;
 }
 .home-cards {
     margin-top: -140px;   
@@ -45,6 +55,18 @@
         color: var(--bs-body-color);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
+
+    .home-links a {
+    display: flex;                      
+    justify-content: space-between;      
+    padding: .75rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+.home-links a:hover {
+    text-decoration: underline;
+}
 </style>
 
 <div class="home-banner">
@@ -83,22 +105,28 @@ else if (User.IsInRole(RoleNames.Admin))
         <div class="home-card">
             <h2 class="h4">Kart</h2>
             <p>Se ressurser og behov plassert på kartet. Se informasjon om hvordan du bruker kartet.</p>
-            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
-            <a href="#guide-kart"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Ressurser</h2>
             <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
-            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
-            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span></span></a>
-            <a href="#guide-ressurser"> Mer informasjon <span></span></a>
+           <div class="home-links">
+             <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Behov</h2>
             <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
-            <a asp-controller="ResourceNeed" asp-action="List">Se behov</a>
-            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span></span></a>
-            <a href="#guide-behov"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
+            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span>›</span></a>
+            <a href="#guide-behov"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
     </div>
 }
@@ -108,22 +136,28 @@ else if (User.IsInRole(RoleNames.Operator))
         <div class="home-card">
             <h2 class="h4">Kart</h2>
             <p>Se ressurser og behov plassert på kartet. Se informasjon om hvordan du bruker kartet.</p>
-            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
-            <a href="#guide-kart"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Behov</h2>
             <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
-            <a asp-controller="ResourceNeed" asp-action="List">Se behov</a>
-            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span></span></a>
-            <a href="#guide-behov"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
+            <a asp-controller="ResourceNeed" asp-action="Create">Opprett behov <span>›</span></a>
+            <a href="#guide-behov"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Ressurser</h2>
             <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
-            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
-            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span></span></a>
-            <a href="#guide-ressurser"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
     </div>
 }
@@ -133,15 +167,19 @@ else if (User.IsInRole(RoleNames.Partner))
         <div class="home-card">
             <h2 class="h4">Kart</h2>
             <p>Se ressurser og steder på kartet.</p>
-            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
-            <a href="#guide-kart"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Ressurser</h2>
             <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
-            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
-            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span></span></a>
-            <a href="#guide-ressurser"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
     </div>
 }
@@ -151,14 +189,19 @@ else
         <div class="home-card">
             <h2 class="h4">Kart</h2>
             <p>Se ressurser og steder på kartet.</p>
-            <a asp-controller="Home" asp-action="Map">Åpne kart</a>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
         <div class="home-card">
             <h2 class="h4">Mine ressurser</h2>
             <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
-            <a asp-controller="Resource" asp-action="List">Ressursoversikt</a>
-            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span></span></a>
-            <a href="#guide-ressurser"> Mer informasjon <span></span></a>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
         </div>
     </div>
 }
