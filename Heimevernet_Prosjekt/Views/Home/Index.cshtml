@@ -3,7 +3,7 @@
 @{
     ViewData["Title"] = "Hjem";
 }
-
+@*Style som innehodler kode nødvendig for utseened av fremsiden*@
 <style>
     body {
 overflow-x: clip;
@@ -75,7 +75,7 @@ overflow-x: clip;
 
 <div class="home-banner">
 <div class="text-center home-panel">
-    <h1 class="display-5">Heimevernets nettside for krise og ressurshåndtering</h1>
+    <h1 class="display-5">Beredskapsportalen nettside for krise og ressurshåndtering</h1>
     <p>Vi hjelper med å gi kriseteam ressursene de trenger.</p>
 
     @if (User.Identity?.IsAuthenticated != true)
@@ -93,7 +93,7 @@ overflow-x: clip;
     <div class="home-panel">
         <h2 class="h4">Om applikasjonen</h2>
         <p>
-            Heimevernet kobler ressurser med behov under kriser. Ressurser kan være
+            Beredskapsportalen kobler ressurser med behov under kriser. Ressurser kan være
             utstyr, kjøretøy, lokaler eller personell.
         </p>
         <ol>
@@ -217,12 +217,12 @@ else
         <h2 class="h4">Generell informasjon</h2>
         <p>
             Dette er en prototype laget for ressurshåndtering, og behov's melding under hendelser. 
-            Vi har planer om flere funksjoner.'
+            Her kan du dele dine ressurser for at nødetater kommune og andre bistandsaparat kan finne ekstra ressurser der det trengs og når det trengs.
         </p>
         <p>
             Vi har planer om å legge til funksjoner som:
             <ul>
-                <li>Integrasjon med andre systemer</li>
+                <li>En lett gjennkjennelig ressursportal</li>
                 <li>Avanserte rapporter og statistikk</li>
             </ul>
         </p>
@@ -235,14 +235,39 @@ else
     <h2 class="h4">Guide for kart</h2>
     <p>
         Kartet viser ressurser og behov som er registrert i systemet. Du kan zoome inn og ut, samt klikke på markører for å se mer informasjon.
+        Kartet kan også brukes til å filtrere ressurser og behov basert på type, status og andre kriterier.
+        Ressurser er grønne og har dedikerte ikoner basert på type.
     </p>
+    <p>    
+        Behov er fargekodet røde for akutte behov og gule for planlagte behov. Klikk på markørene for å se mer informasjon om ressursen eller behovet.
+    </p>
+    <h3 class="h6 mt-4">Ressurser</h3>
+<div class="guide-legend">
+    <div class="legend-item">
+        <img src="/images/resource-icons/tools-ledig.png" alt="" width="36">
+        <span><strong>Verktøy og utstyr</strong><br>Maskiner, verktøy og annet utstyr.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/vehicle-ledig.png" alt="" width="36">
+        <span><strong>Kjøretøy</strong><br>Motoriserte kjøretøy.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/shelter-ledig.png" alt="" width="36">
+        <span><strong>Husly og bygg</strong><br>Lokaler og overnatting.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/medical-ledig.png" alt="" width="36">
+        <span><strong>Sikkerhet og medisinsk</strong><br>Medisinsk utstyr og sikkerhet.</span>
+    </div>
+</div>
     <a href="#top">Tilbake til toppen</a>
 </section>
 
 <section class="home-panel guide-section" id="guide-ressurser">
     <h2 class="h4">Guide for ressurser</h2>
     <p>
-        Her kan du se en oversikt over alle ressursene som er registrert i systemet. Du kan også registrere nye ressurser.
+        Her kan du se en oversikt over alle ressursene som er registrert i systemet under din profil. Du kan også registrere nye ressurser.
+        Ressursene blir lagret og vist i liste for Administrator brukere og Operatør brukere som setter opp behov, slik at de lett kan finne ressursene de trenger.
     </p>
     <a href="#top">Tilbake til toppen</a>
 </section>
@@ -250,7 +275,8 @@ else
 <section class="home-panel guide-section" id="guide-behov">
     <h2 class="h4">Guide for behov</h2>
     <p>
-        Her kan du se en oversikt over alle behovene som er registrert i systemet. Du kan også registrere nye behov.
+        Her kan du se en oversikt over alle behovene som er registrert i systemet. Du kan også registrere nye behov som planlagt med tid og dato, eller akutte behov.
+        Akutte behov blir markert røde på kartet for operatører og administratorer. 
     </p>
     <a href="#top">Tilbake til toppen</a>
 </section>
