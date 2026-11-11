@@ -50,11 +50,11 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
             .Select(resource => resource.Id)
             .ToHashSet();
 
-        // Don't ask the same resource twice for the same line, unless the old request was declined, cancelled or not answered
+        // Don't ask the same resource twice in the same need (any line), unless the old request
+        // was declined or cancelled. Not answered still counts: give more time or withdraw it first
         var alreadyAsked = dbContext.ResourceRequests
-            .Where(request => request.ResourceNeedItemId == itemId &&
-                              (request.Status == RequestStatus.Godtatt ||
-                               (request.Status == RequestStatus.Sendt && request.AnswerBy >= now)))
+            .Where(request => request.ResourceNeedItem.ResourceNeedId == item.ResourceNeedId &&
+                              (request.Status == RequestStatus.Godtatt || request.Status == RequestStatus.Sendt))
             .Select(request => request.ResourceId)
             .ToHashSet();
 
