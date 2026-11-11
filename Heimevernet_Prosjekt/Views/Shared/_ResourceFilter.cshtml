@@ -2,14 +2,36 @@
 @* No "Bruk" button: the result updates as soon as you choose *@
 @{
     var onMap = ViewData["FilterOnMap"] as bool? == true;
+    var canNeeds = ViewData["FilterCanNeeds"] as bool? == true;
 }
 <div id="rfPanel" data-types-url="@Url.Action("Types", "Resource")" data-on-map="@(onMap ? "true" : "false")">
-    <fieldset class="mb-4">
+    @if (onMap)
+    {
+        @* Only on Kart: what is drawn on the map. The rest of the filter is used on Ressursoversikt too *@
+        <fieldset class="rf-map-only mb-3">
+            <legend class="h6 mb-0">🗺️ Vis på kartet</legend>
+            <div class="small text-body-secondary mb-2">Gjelder bare kartet</div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rfShowResources" checked />
+                <label class="form-check-label d-flex w-100" for="rfShowResources">📦 Ressurser<span id="rfResourcesCount" class="ms-auto text-body-secondary"></span></label>
+            </div>
+            @if (canNeeds)
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="rfShowNeeds" checked />
+                    <label class="form-check-label d-flex w-100" for="rfShowNeeds">🟥 Behov<span id="rfNeedsCount" class="ms-auto text-body-secondary"></span></label>
+                </div>
+            }
+        </fieldset>
+        <h2 class="h6 mb-0">Filtrer ressurser</h2>
+        <div class="small text-body-secondary mb-3">Gjelder både kartet og Ressursoversikt</div>
+    }
+    <fieldset class="mb-4 rf-resource-only">
         <legend class="h6">Type ressurs</legend>
         <div id="rfTypes" class="small text-body-secondary">Henter typer …</div>
     </fieldset>
 
-    <fieldset class="mb-4">
+    <fieldset class="mb-4 rf-resource-only">
         <legend class="h6">Status</legend>
         <div id="rfStatus"></div>
     </fieldset>

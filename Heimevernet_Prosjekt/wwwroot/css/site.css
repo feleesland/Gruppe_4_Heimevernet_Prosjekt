@@ -281,3 +281,16 @@ footer.footer {
             content: " ✓";
         }
 
+
+/* Resource filter: the map-only box is grey, so you see that it is different from the rest.
+   Type and status are greyed out while resources are hidden on the map */
+.rf-map-only {
+    background: var(--bs-tertiary-bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.rf-resources-off .rf-resource-only {
+    opacity: .45;
+    pointer-events: none;
+}

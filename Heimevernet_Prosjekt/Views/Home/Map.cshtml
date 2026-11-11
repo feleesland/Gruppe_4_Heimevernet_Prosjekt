@@ -4,6 +4,7 @@
 	var canNeeds = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
 	var signedIn = User.Identity?.IsAuthenticated == true;
 	ViewData["FilterOnMap"] = true;
+	ViewData["FilterCanNeeds"] = canNeeds;
 }
 
 <div id="map"></div>
@@ -491,6 +492,7 @@
 				.then(response => response.ok ? response.json() : [])
 				.then(needs => {
 					needLayer.clearLayers();
+					if (document.getElementById('rfNeedsCount')) document.getElementById('rfNeedsCount').textContent = needs.length;
 					needs.forEach(need => {
 						var lat = parseFloat(need.latitude);
 						var lng = parseFloat(need.longitude);
@@ -542,14 +544,12 @@
 		}
 
 		if (canNeeds) {
-			needLayer.addTo(map);
-			// Turn resources and needs on and off - Docs: Leaflet Control.Layers
-			L.control.layers(null, { 'Ressurser': markerLayer, 'Behov': needLayer }, { collapsed: false }).addTo(map);
 			loadNeeds();
 		}
 
 		window.onResourceSearch = async function (params) {
 			var statusText = document.getElementById('globalSearchStatus');
+			applyLayerChoices(params);
 
 			// The circle: the chosen place in the middle, with the radius in km
 			if (radiusCircle) {
@@ -561,6 +561,7 @@
 			}
 
 			var markers = await loadResources(params);
+			document.getElementById('rfResourcesCount').textContent = markers.length;
 
 			// Only type/status chosen (no search or place): the map stays where it is, so it doesn't jump on every tick
 			if (!params.search && !params.lat) {
@@ -963,5 +964,33 @@
 			var panel = document.getElementById('sidePanel');
 			document.querySelector('.leaflet-left').style.left = panel.hidden ? '' : panel.offsetWidth + 'px';
 		}
+
+		// "Vis på kartet" in the filter (only on Kart): turn resources and needs on and off.
+		// Kept in the URL as hide=resources / hide=needs, like the rest of the filter (help with AI)
+		function applyLayerChoices(params) {
+			var hide = (params.hide || '').split(',');
+			if (hide.includes('resources')) map.removeLayer(markerLayer); else map.addLayer(markerLayer);
+			if (canNeeds) {
+				if (hide.includes('needs')) map.removeLayer(needLayer); else map.addLayer(needLayer);
+			}
+			document.getElementById('rfShowResources').checked = !hide.includes('resources');
+			var needsBox = document.getElementById('rfShowNeeds');
+			if (needsBox) needsBox.checked = !hide.includes('needs');
+			// Type and status only matter for resources: greyed out while resources are hidden
+			document.getElementById('rfPanel').classList.toggle('rf-resources-off', hide.includes('resources'));
+		}
+
+		function changeLayerChoice() {
+			var hide = [];
+			if (!document.getElementById('rfShowResources').checked) hide.push('resources');
+			var needsBox = document.getElementById('rfShowNeeds');
+			if (needsBox && !needsBox.checked) hide.push('needs');
+			var params = window.getResourceParams();
+			params.hide = hide.join(',');
+			window.applyResourceParams(params);
+		}
+
+		document.getElementById('rfShowResources').addEventListener('change', changeLayerChoice);
+		if (document.getElementById('rfShowNeeds')) document.getElementById('rfShowNeeds').addEventListener('change', changeLayerChoice);
 	</script>
 }
