@@ -192,6 +192,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 NeededFrom = need.NeededFrom,
                 NeededTo = need.NeededTo,
                 ClosedAt = need.ClosedAt,
+                Status = NeedStatusRules.For(need, _requestRepository.GetForNeed(need.Id)),
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
             ViewData["Log"] = _resourceNeedRepository.GetLog(id.Value);
@@ -330,6 +331,9 @@ namespace Heimevernet_Prosjekt.Controllers
                         Urgency = r.Urgency,
                         NeededFrom = r.NeededFrom,
                         ClosedAt = r.ClosedAt,
+                        Status = NeedStatusRules.For(r, _requestRepository.GetForNeed(r.Id)),
+                        CreatedAt = r.CreatedAt,
+                        City = r.City,
                         Items = r.Items.ToList()
                     });
                 }

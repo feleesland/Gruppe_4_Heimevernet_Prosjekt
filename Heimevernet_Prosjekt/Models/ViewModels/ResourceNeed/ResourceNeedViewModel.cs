@@ -36,6 +36,8 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         public DateTime? NeededFrom { get; set; }
         public DateTime? NeededTo { get; set; }
         public DateTime? ClosedAt { get; set; }
+        // Ny, Vurderes, Tildelt or Løst (worked out in the controller)
+        public NeedStatus Status { get; set; }
 
         // The lines, e.g. "2 × Motoriserte kjøretøy"
         public List<ResourceNeedItem> Items { get; set; } = new();

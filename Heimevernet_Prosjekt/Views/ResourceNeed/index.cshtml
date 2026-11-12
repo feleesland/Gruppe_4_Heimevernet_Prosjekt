@@ -59,10 +59,7 @@
     {
         <span class="badge text-bg-danger fs-6">⏰ Akutt</span>
     }
-    @if (Model.ClosedAt != null)
-    {
-        <span class="badge text-bg-secondary fs-6">Avsluttet</span>
-    }
+    <partial name="_NeedStatusBadge" model="Model.Status" />
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.Description))

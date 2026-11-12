@@ -334,26 +334,142 @@ footer.footer {
     }
 }
 
-/* The page width: the whole screen on phones and small screens, at most 1600px in the middle on big screens.
-   The space on the sides grows a little with the screen - Docs: clamp() (MDN) - https://developer.mozilla.org/docs/Web/CSS/clamp */
+/* The page width: the whole screen. A bit more space on the right (the filter gives the left side an edge) and for curved phone edges/notch
+  Docs: env() (MDN) - https://developer.mozilla.org/docs/Web/CSS/env */
 .page-width {
     width: 100%;
-    max-width: 1600px;
+    max-width: none;
     margin: 0 auto;
-    padding: 0 clamp(12px, 3vw, 40px);
+    padding: 0 clamp(24px, 5vw, 96px) 0 clamp(16px, 4vw, 72px);
+    padding-left: max(clamp(16px, 4vw, 72px), env(safe-area-inset-left, 0px));
+    padding-right: max(clamp(24px, 5vw, 96px), env(safe-area-inset-right, 0px));
 }
 
-/* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
+    /* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
    Narrower when the screen is small, so it never covers the links. On phones the menu folds up, so it stays in the flow */
-@media (min-width: 1460px) {
-    #mainNavigation .nav-search {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        width: clamp(300px, calc(100vw - 1160px), 640px);
+    @media (min-width: 1460px) {
+        #mainNavigation .nav-search {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: clamp(300px, calc(100vw - 1160px), 640px);
+        }
+
+        #mainNavigation > .navbar-nav:last-child {
+            margin-left: auto;
+        }
+    }
+    /* The status of a need (Ny, Vurderes, Tildelt, Løst): a pill with icon + text. Stronger colour the further it has come */
+    .need-status {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: .85rem;
+        font-weight: 500;
+        white-space: nowrap;
     }
 
-    #mainNavigation > .navbar-nav:last-child {
-        margin-left: auto;
+    .need-status-ny {
+        border: 1px solid var(--bs-secondary-color);
+        color: var(--bs-body-color);
     }
+
+    .need-status-vurderes {
+        background: #fff3cd;
+        color: #664d03;
+    }
+
+    .need-status-tildelt {
+        background: #d1e7dd;
+        color: #0a3622;
+    }
+
+    .need-status-lost {
+        background: #495057;
+        color: #e9ecef;
+    }
+    /* Behov: one box each for Akutt, Planlagt and Løst, with a coloured edge and the number (icon + text, not colour alone) */
+    .need-group {
+        background: var(--bs-tertiary-bg);
+        border: 1px solid var(--bs-border-color);
+        border-left-width: 5px;
+        border-radius: 10px;
+        margin: 1rem 0;
+        overflow: hidden;
+    }
+
+    .need-group-akutt {
+        border-left-color: #E24B4A;
+    }
+
+    .need-group-planlagt {
+        border-left-color: #378ADD;
+    }
+
+    .need-group-lost {
+        border-left-color: #6c757d;
+    }
+
+    .need-group-head {
+        padding: 10px 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .need-group-count {
+        margin-left: 6px;
+        border-radius: 999px;
+        padding: 0 9px;
+        background: var(--bs-secondary-bg);
+        font-size: .85rem;
+    }
+
+.need-table {
+    --bs-table-bg: transparent;
+    table-layout: fixed; /* the same column widths in every box (Akutt, Planlagt, Løst) */
 }
+    .need-table td {
+        overflow-wrap: anywhere;
+    }
+
+.need-col-name {
+    width: 30%;
+}
+
+.need-col-status {
+    width: 150px;
+}
+
+.need-col-actions {
+    width: 90px;
+}
+
+        .need-table th {
+            font-size: .8rem;
+            color: var(--bs-secondary-color);
+            font-weight: 600;
+        }
+    /* The whole row can be clicked: it lights up, the name is bold without underline, and › shows it opens */
+    .need-row {
+        cursor: pointer;
+    }
+
+        .need-row:hover > td {
+            background: var(--bs-secondary-bg);
+        }
+
+    .need-name {
+        font-weight: 600;
+        color: var(--bs-body-color);
+        text-decoration: none;
+    }
+
+        .need-name:hover, .need-name:focus-visible {
+            text-decoration: underline;
+        }
+
+    .need-arrow {
+        font-size: 1.3rem;
+        color: var(--bs-secondary-color);
+        vertical-align: middle;
+    }

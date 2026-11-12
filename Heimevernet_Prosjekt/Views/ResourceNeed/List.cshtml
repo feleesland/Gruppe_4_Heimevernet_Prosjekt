@@ -1,12 +1,107 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
+@using Heimevernet_Prosjekt.Models.Entities
 @model List<ResourceNeedViewModel>
 @{
     ViewData["Title"] = "Behov";
+
+    // Three boxes: Akutt (oldest first, it has waited longest), Planlagt (nearest date first) and Løst (newest first, closed by default)
+    var akutt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Akutt).OrderBy(n => n.CreatedAt).ToList();
+    var planlagt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Planlagt).OrderBy(n => n.NeededFrom).ToList();
+    var lost = Model.Where(n => n.ClosedAt != null).OrderByDescending(n => n.ClosedAt).ToList();
+}
+
+@functions {
+    // Times are saved as UTC and shown in Norwegian time
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static string OsloDate(DateTime? utc) => utc == null ? "" : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, Oslo).ToString("dd.MM.");
+
+    // How long ago: "12 min", "3 t", "2 d"
+    private static string Ago(DateTime? utc)
+    {
+        if (utc == null) return "";
+        var time = DateTime.UtcNow - utc.Value;
+        return time.TotalMinutes < 60 ? $"{(int)time.TotalMinutes} min"
+             : time.TotalHours < 24 ? $"{(int)time.TotalHours} t"
+             : $"{(int)time.TotalDays} d";
+    }
+
+    // The grey line under the name: place, and when it was reported / is needed / was closed
+    private static string SubText(ResourceNeedViewModel n)
+    {
+        var when = n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
+                 : n.Urgency == NeedUrgency.Planlagt ? $"trengs {OsloDate(n.NeededFrom)}"
+                 : $"meldt for {Ago(n.CreatedAt)} siden";
+        return string.IsNullOrWhiteSpace(n.City) ? when : $"📍 {System.Globalization.CultureInfo.GetCultureInfo("nb-NO").TextInfo.ToTitleCase(n.City.ToLower())} · {when}";
+    }
 }
 
 <h1>@ViewData["Title"]</h1>
 
 <a class="button" asp-controller="ResourceNeedHandler" asp-action="Create">+ Opprett nytt behov</a>
+
+@{
+    // One box: a coloured edge, the number, and a table inside. <details> can be opened and closed without JavaScript (help with AI)
+    // Docs: <details> (MDN) - https://developer.mozilla.org/docs/Web/HTML/Element/details
+    async Task RenderGroup(string title, string css, List<ResourceNeedViewModel> needs, bool open)
+    {
+        <details class="need-group @css" open="@open">
+            <summary class="need-group-head">@title <span class="need-group-count">@needs.Count</span></summary>
+            @if (needs.Count == 0)
+            {
+                <p class="text-body-secondary small px-3 pb-2 mb-0">Ingen behov her.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table need-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="need-col-name">Navn</th>
+                                <th scope="col" class="need-col-status">Status</th>
+                                <th scope="col">Hva trengs</th>
+                                <th scope="col" class="need-col-actions"><span class="visually-hidden">Handlinger</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var n in needs)
+                            {
+                                @* The whole row opens the need (script below). The name is still a link, so Tab + Enter works *@
+                                <tr class="need-row">
+                                    <td>
+                                        <a class="need-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
+                                        <div class="small text-body-secondary">@SubText(n)</div>
+                                    </td>
+                                    <td><partial name="_NeedStatusBadge" model="n.Status" /></td>
+                                    <td>@(n.Items.Count == 0 ? n.Type : string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}")))</td>
+                                    <td class="text-end text-nowrap">
+                                        @* One small menu instead of two buttons - Docs: Bootstrap Dropdowns *@
+                                        <div class="dropdown d-inline-block">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
+                                                    data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Flere valg for @n.Name">
+                                                ⋯
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                <a class="dropdown-item" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@n.Id">✎ Rediger</a>
+                                                <div class="dropdown-divider"></div>
+                                                <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@n.Id" method="post">
+                                                    <button type="submit" class="dropdown-item text-danger"
+                                                            onclick="return confirm('Er du sikker på at du vil slette dette behovet?');">
+                                                        🗑 Slett
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                        <span class="need-arrow ms-2" aria-hidden="true">›</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </details>
+    }
+}
 
 @if (!Model.Any())
 {
@@ -14,61 +109,19 @@
 }
 else
 {
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Navn</th>
-                    <th scope="col">Når</th>
-                    <th scope="col">Hva trengs</th>
-                    <th scope="col">Handlinger</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in Model)
-                {
-                    <tr>
-                        <td>
-                            <a asp-action="Index" asp-route-id="@r.Id">@r.Name</a>
-                            @if (r.ClosedAt != null)
-                            {
-                                <span class="badge text-bg-secondary">Avsluttet</span>
-                            }
-                        </td>
-                        <td>
-                            @* Icon + text, not colour alone *@
-                            @if (r.Urgency == Heimevernet_Prosjekt.Models.Entities.NeedUrgency.Planlagt)
-                            {
-                                <span class="badge text-bg-primary">📅 Planlagt</span>
-                            }
-                            else
-                            {
-                                <span class="badge text-bg-danger">⏰ Akutt</span>
-                            }
-                        </td>
-                        <td>
-                            @if (r.Items.Count == 0)
-                            {
-                                <span class="text-muted">@r.Type</span>
-                            }
-                            else
-                            {
-                                @string.Join(", ", r.Items.Select(i => $"{i.Quantity} × {i.Type}"))
-                            }
-                        </td>
-                        <td>
-                            <a class="btn btn-sm btn-secondary" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@r.Id">Rediger</a>
+    await RenderGroup("⏰ Akutt", "need-group-akutt", akutt, true);
+    await RenderGroup("📅 Planlagt", "need-group-planlagt", planlagt, true);
+    await RenderGroup("🏁 Løst", "need-group-lost", lost, false);
+}
 
-                            <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@r.Id" method="post" style="display:inline">
-                                <button type="submit" class="btn btn-sm btn-danger"
-                                        onclick="return confirm('Er du sikker på at du vil slette dette behovet?');">
-                                    Slett
-                                </button>
-                            </form>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+@section Scripts {
+    <script>
+        // A click anywhere on a row opens the need, like Gmail. Not when the click is on the ⋯ menu or another link/button (help with AI)
+        document.querySelectorAll('.need-row').forEach(function (row) {
+            row.addEventListener('click', function (e) {
+                if (e.target.closest('a, button, form, .dropdown-menu')) return;
+                row.querySelector('.need-name').click();
+            });
+        });
+    </script>
 }

@@ -1,0 +1,13 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@model NeedStatus
+@* The status of a need as icon + text, not colour alone. Used on the need page, in the list and later in Oversikt *@
+@{
+    var (text, css) = Model switch
+    {
+        NeedStatus.Vurderes => ("🔎 Vurderes", "need-status-vurderes"),
+        NeedStatus.Tildelt => ("✅ Tildelt", "need-status-tildelt"),
+        NeedStatus.Lost => ("🏁 Løst", "need-status-lost"),
+        _ => ("🆕 Ny", "need-status-ny")
+    };
+}
+<span class="need-status @css">@text</span>
