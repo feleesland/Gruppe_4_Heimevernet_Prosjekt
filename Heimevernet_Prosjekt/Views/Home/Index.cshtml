@@ -1,34 +1,285 @@
-﻿
-    @{
-        ViewData["Title"] = "Hjem";
+﻿@using Heimevernet_Prosjekt.Security.Authorization
+
+@{
+    ViewData["Title"] = "Hjem";
+}
+@*Style som innehodler kode nødvendig for utseened av fremsiden*@
+<style>
+    body {
+overflow-x: clip;
+}
+
+    .home-banner {
+    min-height: 320px;
+    background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
+                url(/images/Krs.png) center 40% / cover no-repeat;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+}
+
+.home-banner .home-panel {
+    margin: 0;
+    width: 100%;
+}
+.home-cards {
+    margin-top: -140px;   
+    position: relative;   
+}
+
+    
+    .home-panel {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 2rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 
-    <style>
-        /* The picture fills the whole page */
-        body {
-            background-image: url(/images/Krs.png);
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-        }
+    
+    .home-grid {
+        max-width: 1100px;
+        margin: 1.5rem auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+    }
 
-        /* The text sits on a box, so it is readable on top of the picture */
-        .home-panel {
-            max-width: 720px;
-            margin: 3rem auto;
-            padding: 2rem;
-            border-radius: 12px;
-            background: rgba(var(--bs-body-bg-rgb), 0.88);
-            color: var(--bs-body-color);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-        }
-    </style>
+    .home-card {
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
 
-    <div class="text-center home-panel">
-        <h1 class="display-5">Heimevernets nettside for krise og ressurshåndtering</h1>
-        <p>Vi hjelper med å gi kriseteam ressursene de trenger.</p>
+    .home-links a {
+    display: flex;                      
+    justify-content: space-between;      
+    padding: .75rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+.home-links a:hover {
+    text-decoration: underline;
+}
+</style>
+
+<div class="home-banner">
+<div class="text-center home-panel">
+    <h1 class="display-5">Ressurs Varden </h1>
+    <p> Vi hjelper med å gi kriseteam ressursene de trenger.</p>
+
+    @if (User.Identity?.IsAuthenticated != true)
+    {
         <p>Har du noe du kan bidra med?</p>
         <a class="button" asp-controller="Account" asp-action="Register">Registrer her!</a>
         <p class="mt-2">Er du en internperson?</p>
         <a class="button" asp-controller="Account" asp-action="Login">Gå til innlogging</a>
+    }
+</div>
+</div>
+
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <div class="home-panel">
+        <h2 class="h4">Om applikasjonen</h2>
+        <p>
+            Beredskapsportalen kobler ressurser med behov under kriser. Ressurser kan være
+            utstyr, kjøretøy, lokaler eller personell.
+        </p>
+        <ol>
+            <li>Registrer deg eller logg inn</li>
+            <li>Legg inn ressursene du kan bidra med</li>
+            <li>Kriseteam finner og ber om det de trenger</li>
+        </ol>
     </div>
+}
+else if (User.IsInRole(RoleNames.Admin))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og behov plassert på kartet. Se informasjon om hvordan du bruker kartet.</p>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
+           <div class="home-links">
+             <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Behov</h2>
+            <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
+            <div class="home-links">
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
+            <a asp-controller="ResourceNeedHandler" asp-action="Create">Opprett behov <span>›</span></a>
+            <a href="#guide-behov"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+    </div>
+}
+else if (User.IsInRole(RoleNames.Operator))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og behov plassert på kartet. Se informasjon om hvordan du bruker kartet.</p>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Behov</h2>
+            <p>Se alle behov og opprett nye behov. Se informasjon om hvordan du oppretter behov.</p>
+            <div class="home-links">
+            <a asp-controller="ResourceNeed" asp-action="List">Se behov <span>›</span></a>
+            <a asp-controller="ResourceNeedHandler" asp-action="Create">Opprett behov <span>›</span></a>
+            <a href="#guide-behov"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+    </div>
+}
+else if (User.IsInRole(RoleNames.Partner))
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og steder på kartet.</p>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Ressurser</h2>
+            <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="home-grid">
+        <div class="home-card">
+            <h2 class="h4">Kart</h2>
+            <p>Se ressurser og steder på kartet.</p>
+            <div class="home-links">
+            <a asp-controller="Home" asp-action="Map">Åpne kart <span>›</span></a>
+            <a href="#guide-kart"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+        <div class="home-card">
+            <h2 class="h4">Mine ressurser</h2>
+            <p>Se ressursene som er tilgjengelige og registrer nye ressurser. Se informasjon om hvordan du registrerer ressurser.</p>
+            <div class="home-links">
+            <a asp-controller="Resource" asp-action="List">Ressursoversikt <span>›</span></a>
+            <a asp-controller="ResourceHandler" asp-action="Create">Registrer ressurs <span>›</span></a>
+            <a href="#guide-ressurser"> Mer informasjon <span>›</span></a>
+            </div>
+        </div>
+    </div>
+}
+
+@if (User.Identity?.IsAuthenticated == true)
+{
+    @* generell informasjon om siden og hva vi har planlagt*@
+    <section class="home-panel">
+        <h2 class="h4">Generell informasjon</h2>
+        <p>
+            Dette er en prototype laget for ressurshåndtering, og behov's melding under hendelser. 
+            Her kan du dele dine ressurser for at nødetater kommune og andre bistandsaparat kan finne ekstra ressurser der det trengs og når det trengs.
+        </p>
+        <p>
+            Vi har planer om å legge til funksjoner som:
+            <ul>
+                <li>En lett gjennkjennelig ressursportal</li>
+                <li>Avanserte rapporter og statistikk</li>
+            </ul>
+        </p>
+    </section>
+
+@* Guider som må fylles ut og beskriver de forskjellige funksjonene til applikasjonen*@
+<h2 class="text-center h3" style="color:#fff;">Guide</h2>
+
+<section class="home-panel guide-section" id="guide-kart">
+    <h2 class="h4">Guide for kart</h2>
+    <p>
+        Kartet viser ressurser og behov som er registrert i systemet. Du kan zoome inn og ut, samt klikke på markører for å se mer informasjon.
+        Kartet kan også brukes til å filtrere ressurser og behov basert på type, status og andre kriterier.
+        Ressurser er grønne og har dedikerte ikoner basert på type.
+    </p>
+    <p>    
+        Behov er fargekodet røde for akutte behov og gule for planlagte behov. Klikk på markørene for å se mer informasjon om ressursen eller behovet.
+    </p>
+    <h3 class="h6 mt-4">Ressurser</h3>
+<div class="guide-legend">
+    <div class="legend-item">
+        <img src="/images/resource-icons/tools-ledig.png" alt="" width="36">
+        <span><strong>Verktøy og utstyr</strong><br>Maskiner, verktøy og annet utstyr.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/vehicle-ledig.png" alt="" width="36">
+        <span><strong>Kjøretøy</strong><br>Motoriserte kjøretøy.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/shelter-ledig.png" alt="" width="36">
+        <span><strong>Husly og bygg</strong><br>Lokaler og overnatting.</span>
+    </div>
+    <div class="legend-item">
+        <img src="/images/resource-icons/medical-ledig.png" alt="" width="36">
+        <span><strong>Sikkerhet og medisinsk</strong><br>Medisinsk utstyr og sikkerhet.</span>
+    </div>
+</div>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+<section class="home-panel guide-section" id="guide-ressurser">
+    <h2 class="h4">Guide for ressurser</h2>
+    <p>
+        Her kan du se en oversikt over alle ressursene som er registrert i systemet under din profil. Du kan også registrere nye ressurser.
+        Ressursene blir lagret og vist i liste for Administrator brukere og Operatør brukere som setter opp behov, slik at de lett kan finne ressursene de trenger.
+    </p>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+<section class="home-panel guide-section" id="guide-behov">
+    <h2 class="h4">Guide for behov</h2>
+    <p>
+        Her kan du se en oversikt over alle behovene som er registrert i systemet. Du kan også registrere nye behov som planlagt med tid og dato, eller akutte behov.
+        Akutte behov blir markert røde på kartet for operatører og administratorer. 
+    </p>
+    <a href="#top">Tilbake til toppen</a>
+</section>
+
+
+}
