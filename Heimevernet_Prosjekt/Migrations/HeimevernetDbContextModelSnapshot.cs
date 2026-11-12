@@ -220,6 +220,10 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.Property<double?>("Longitude")
                         .HasColumnType("double");
 
+                    b.Property<string>("Municipality")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

@@ -8,6 +8,10 @@
     var akutt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Akutt).OrderBy(n => n.CreatedAt).ToList();
     var planlagt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Planlagt).OrderBy(n => n.NeededFrom).ToList();
     var lost = Model.Where(n => n.ClosedAt != null).OrderByDescending(n => n.ClosedAt).ToList();
+
+    // The filter: the statuses and the places, each with how many needs it has
+    var statuses = new[] { (NeedStatus.Ny, "🆕 Ny"), (NeedStatus.Vurderes, "🔎 Vurderes"), (NeedStatus.Tildelt, "✅ Tildelt"), (NeedStatus.Lost, "🏁 Løst") };
+    var places = Model.Select(Place).Where(p => p != "").GroupBy(p => p).OrderBy(g => g.Key).ToList();
 }
 
 @functions {
@@ -25,13 +29,20 @@
              : $"{(int)time.TotalDays} d";
     }
 
+    // The region as "Kristiansand": the municipality, or the post town on old needs (Kartverket writes it in capitals)
+    private static string Place(ResourceNeedViewModel n)
+    {
+        var place = string.IsNullOrWhiteSpace(n.Municipality) ? n.City : n.Municipality;
+        return string.IsNullOrWhiteSpace(place) ? "" : System.Globalization.CultureInfo.GetCultureInfo("nb-NO").TextInfo.ToTitleCase(place.Trim().ToLower());
+    }
+
     // The grey line under the name: place, and when it was reported / is needed / was closed
     private static string SubText(ResourceNeedViewModel n)
     {
         var when = n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
                  : n.Urgency == NeedUrgency.Planlagt ? $"trengs {OsloDate(n.NeededFrom)}"
                  : $"meldt for {Ago(n.CreatedAt)} siden";
-        return string.IsNullOrWhiteSpace(n.City) ? when : $"📍 {System.Globalization.CultureInfo.GetCultureInfo("nb-NO").TextInfo.ToTitleCase(n.City.ToLower())} · {when}";
+        return Place(n) == "" ? when : $"📍 {Place(n)} · {when}";
     }
 }
 
@@ -41,7 +52,7 @@
 
 @{
     // One box: a coloured edge, the number, and a table inside. <details> can be opened and closed without JavaScript (help with AI)
-    // Docs: <details> (MDN) - https://developer.mozilla.org/docs/Web/HTML/Element/details
+    // async Task because it uses tag helpers (asp-action, partial) - Docs: <details> (MDN) - https://developer.mozilla.org/docs/Web/HTML/Element/details
     async Task RenderGroup(string title, string css, List<ResourceNeedViewModel> needs, bool open)
     {
         <details class="need-group @css" open="@open">
@@ -65,8 +76,10 @@
                         <tbody>
                             @foreach (var n in needs)
                             {
-                                @* The whole row opens the need (script below). The name is still a link, so Tab + Enter works *@
-                                <tr class="need-row">
+                                @* The whole row opens the need (script below). The name is still a link, so Tab + Enter works.
+                                   data-status/-place/-text are used by the filter *@
+                                <tr class="need-row" data-status="@n.Status" data-place="@Place(n)"
+                                    data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())">
                                     <td>
                                         <a class="need-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
                                         <div class="small text-body-secondary">@SubText(n)</div>
@@ -109,9 +122,60 @@
 }
 else
 {
-    await RenderGroup("⏰ Akutt", "need-group-akutt", akutt, true);
-    await RenderGroup("📅 Planlagt", "need-group-planlagt", planlagt, true);
-    await RenderGroup("🏁 Løst", "need-group-lost", lost, false);
+    <div class="row g-4 mt-1">
+        @* The filter on the left: search, status and place. Rows are hidden right away, without reloading (script below) *@
+        <aside class="col-lg-3 col-xxl-2" aria-label="Filter">
+            <h2 class="h5">Filter</h2>
+            <label for="needSearch" class="form-label small">Søk</label>
+            <input id="needSearch" type="search" class="form-control mb-4" placeholder="Navn eller hva som trengs …" />
+
+            <fieldset class="mb-4">
+                <legend class="h6">Status</legend>
+                @foreach (var (status, label) in statuses)
+                {
+                    <div class="form-check">
+                        <input class="form-check-input need-filter" type="checkbox" id="st-@status" data-group="status" value="@status" data-label="@label" />
+                        <label class="form-check-label d-flex w-100" for="st-@status">@label<span class="ms-auto text-body-secondary">@Model.Count(n => n.Status == status)</span></label>
+                    </div>
+                }
+            </fieldset>
+
+            @if (places.Count > 0)
+            {
+                <fieldset class="mb-4">
+                    <legend class="h6">📍 Sted</legend>
+                    @for (var i = 0; i < places.Count; i++)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input need-filter" type="checkbox" id="pl-@i" data-group="place" value="@places[i].Key" data-label="📍 @places[i].Key" />
+                            <label class="form-check-label d-flex w-100" for="pl-@i">@places[i].Key<span class="ms-auto text-body-secondary">@places[i].Count()</span></label>
+                        </div>
+                    }
+                </fieldset>
+            }
+
+            <button type="button" id="needReset" class="btn btn-outline-secondary">Nullstill alt</button>
+        </aside>
+
+        <div class="col-lg-9 col-xxl-10">
+            @* How many needs match, and the chosen filters as chips with ✕ *@
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <strong id="needCount" aria-live="polite"></strong>
+                <div id="needChips" class="rf-chips" hidden></div>
+            </div>
+            <p id="needNone" class="text-body-secondary mt-3" hidden>Ingen behov passer filteret.</p>
+
+            @{
+                await RenderGroup("⏰ Akutt", "need-group-akutt", akutt, true);
+            }
+            @{
+                await RenderGroup("📅 Planlagt", "need-group-planlagt", planlagt, true);
+            }
+            @{
+                await RenderGroup("🏁 Løst", "need-group-lost", lost, false);
+            }
+        </div>
+    </div>
 }
 
 @section Scripts {
@@ -123,5 +187,87 @@ else
                 row.querySelector('.need-name').click();
             });
         });
+
+        // The filter on Behov: search, status and place hide rows right away. The choices are kept in the URL,
+        // so a link or "Tilbake" shows the same (help with AI) - Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
+        (function () {
+            var search = document.getElementById('needSearch');
+            if (!search) return; // no needs at all
+            var boxes = Array.from(document.querySelectorAll('.need-filter'));
+            var chips = document.getElementById('needChips');
+
+            function chosen(group) {
+                return boxes.filter(function (b) { return b.dataset.group === group && b.checked; }).map(function (b) { return b.value; });
+            }
+
+            function reset() {
+                search.value = '';
+                boxes.forEach(function (b) { b.checked = false; });
+            }
+
+            // One chip; a click removes that one choice (textContent, so a name can't run as HTML)
+            function addChip(label, remove, isReset) {
+                var button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'rf-chip' + (isReset ? ' rf-chip-reset' : '');
+                button.textContent = isReset ? label : label + ' ✕';
+                button.addEventListener('click', function () { remove(); apply(); });
+                chips.appendChild(button);
+            }
+
+            function apply() {
+                var text = search.value.trim().toLowerCase();
+                var status = chosen('status');
+                var place = chosen('place');
+                var active = text !== '' || status.length > 0 || place.length > 0;
+                var total = 0;
+
+                document.querySelectorAll('.need-group').forEach(function (group) {
+                    var shown = 0;
+                    group.querySelectorAll('.need-row').forEach(function (row) {
+                        var ok = (text === '' || row.dataset.text.includes(text))
+                            && (status.length === 0 || status.includes(row.dataset.status))
+                            && (place.length === 0 || place.includes(row.dataset.place));
+                        row.hidden = !ok;
+                        if (ok) shown++;
+                    });
+                    group.querySelector('.need-group-count').textContent = shown;
+                    group.hidden = active && shown === 0; // boxes without hits are hidden while filtering
+                    if (active && shown > 0 && group.classList.contains('need-group-lost')) group.open = true; // e.g. Løst + Kristiansand
+                    total += shown;
+                });
+
+                document.getElementById('needCount').textContent = active ? total + ' behov passer' : '';
+                document.getElementById('needNone').hidden = total > 0;
+
+                chips.replaceChildren();
+                if (text !== '') addChip('«' + search.value.trim() + '»', function () { search.value = ''; });
+                boxes.filter(function (b) { return b.checked; }).forEach(function (b) {
+                    addChip(b.dataset.label, function () { b.checked = false; });
+                });
+                if (chips.children.length > 1) addChip('Nullstill alt', reset, true);
+                chips.hidden = chips.children.length === 0;
+
+                var params = new URLSearchParams();
+                if (text !== '') params.set('q', search.value.trim());
+                if (status.length > 0) params.set('status', status.join(','));
+                if (place.length > 0) params.set('place', place.join('|'));
+                history.replaceState(null, '', location.pathname + (params.toString() === '' ? '' : '?' + params));
+            }
+
+            // Start: the choices from the URL
+            var start = new URLSearchParams(location.search);
+            search.value = start.get('q') || '';
+            var startStatus = (start.get('status') || '').split(',');
+            var startPlace = (start.get('place') || '').split('|');
+            boxes.forEach(function (b) {
+                b.checked = (b.dataset.group === 'status' ? startStatus : startPlace).includes(b.value);
+            });
+
+            search.addEventListener('input', apply);
+            boxes.forEach(function (b) { b.addEventListener('change', apply); });
+            document.getElementById('needReset').addEventListener('click', function () { reset(); apply(); });
+            apply();
+        })();
     </script>
 }

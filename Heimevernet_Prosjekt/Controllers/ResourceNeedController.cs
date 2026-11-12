@@ -334,6 +334,7 @@ namespace Heimevernet_Prosjekt.Controllers
                         Status = NeedStatusRules.For(r, _requestRepository.GetForNeed(r.Id)),
                         CreatedAt = r.CreatedAt,
                         City = r.City,
+                        Municipality = r.Municipality,
                         Items = r.Items.ToList()
                     });
                 }

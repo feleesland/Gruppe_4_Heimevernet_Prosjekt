@@ -36,6 +36,12 @@ function showPosition(lat, lng, message) {
     statusText.textContent = message;
 }
 
+// The municipality ("KRISTIANSAND") from Kartverket, for the region in the filters. Only forms with the field get it
+function setMunicipality(name) {
+    const field = document.getElementById('Municipality');
+    if (field) field.value = name ?? '';
+}
+
 // 5. Finner nærmeste adresse til et punkt og fyller inn skjemaet (help with AI) - Docs: Kartverket Adresse-API, punktsok
 // https://ws.geonorge.no/adresser/v1/#/default/get_punktsok
 async function fillAddress(lat, lng) {
@@ -48,6 +54,7 @@ async function fillAddress(lat, lng) {
         document.getElementById('Address').value = a.adressetekst ?? '';
         document.getElementById('ZipCode').value = a.postnummer ?? '';
         document.getElementById('City').value = a.poststed ?? '';
+        setMunicipality(a.kommunenavn);
     } catch {
         // Ingen adresse funnet, koordinatene lagres uansett
     }
@@ -85,6 +92,7 @@ document.getElementById('findOnMap').addEventListener('click', async () => {
             statusText.textContent = 'Fant ikke adressen. Klikk på kartet i stedet.';
             return;
         }
+        setMunicipality(a.kommunenavn);
         showPosition(a.representasjonspunkt.lat, a.representasjonspunkt.lon,
             'Adressen ble funnet. Sjekk at markøren står riktig.');
     } catch {

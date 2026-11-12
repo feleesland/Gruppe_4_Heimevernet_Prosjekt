@@ -139,6 +139,7 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
 
             Address = model.Address ?? string.Empty,
             City = model.City ?? string.Empty,
+            Municipality = model.Municipality ?? string.Empty,
             ZipCode = model.ZipCode ?? string.Empty,
             Latitude = model.Latitude,
             Longitude = model.Longitude,
@@ -269,6 +270,7 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.Description = model.Description?.Trim() ?? string.Empty;
         need.Address = model.Address ?? string.Empty;
         need.City = model.City ?? string.Empty;
+        need.Municipality = model.Municipality ?? string.Empty;
         need.ZipCode = model.ZipCode ?? string.Empty;
         need.Latitude = model.Latitude;
         need.Longitude = model.Longitude;

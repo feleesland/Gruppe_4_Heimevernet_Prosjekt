@@ -38,6 +38,8 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         public DateTime? ClosedAt { get; set; }
         // Ny, Vurderes, Tildelt or Løst (worked out in the controller)
         public NeedStatus Status { get; set; }
+        // The municipality (region), e.g. "KRISTIANSAND"
+        public string? Municipality { get; set; }
 
         // The lines, e.g. "2 × Motoriserte kjøretøy"
         public List<ResourceNeedItem> Items { get; set; } = new();
