@@ -67,9 +67,9 @@
     </div>
 }
 
-@* Admin: number of open messages per resource, for the "⚑ X meldinger" marker (fetched once, not per row) *@
+@* Admin and operator: number of open "feil info" messages per resource (fetched once, not per row). Only admin can resolve them *@
 @{
-    var openReports = User.IsInRole(RoleNames.Admin)
+    var openReports = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)
         ? ReportRepository.CountOpenByResource()
         : new Dictionary<int, int>();
 }
@@ -131,8 +131,8 @@ else
                                        asp-controller="Resource"
                                        asp-action="Index"
                                        asp-route-id="@r.Id"
-                                       aria-label="@reportCount @(reportCount == 1 ? "åpen melding" : "åpne meldinger") til admin">
-                                        ⚑ @reportCount @(reportCount == 1 ? "melding" : "meldinger")
+                                       aria-label="@reportCount @(reportCount == 1 ? "melding" : "meldinger") om feil i ressursen">
+                                        ⚑ @reportCount meldt som feil
                                     </a>
                                 }
                             </div>

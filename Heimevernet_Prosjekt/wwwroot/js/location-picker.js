@@ -3,9 +3,7 @@
 
 // 1. Lag kartet (starter i Kristiansand)
 const pickMap = L.map('pickMap').setView([58.14671, 7.9956], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(pickMap);
+addMapPictures(pickMap);
 
 // 2. Feltene i skjemaet vi trenger
 const latInput = document.getElementById('Latitude');

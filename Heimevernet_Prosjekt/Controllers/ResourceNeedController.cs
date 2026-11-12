@@ -264,10 +264,10 @@ namespace Heimevernet_Prosjekt.Controllers
                     continue;
                 }
 
-                // Already asked on this line (and still waiting or accepted)
-                var asked = itemRequests
-                    .Where(request => request.Status == RequestStatus.Godtatt ||
-                                      (request.Status == RequestStatus.Sendt && !request.IsUnanswered(now)))
+                // Already asked in this need (on any line): waiting, not answered or accepted.
+                // Not answered: give more time or withdraw it first, instead of asking again
+                var asked = requests
+                    .Where(request => request.Status == RequestStatus.Godtatt || request.Status == RequestStatus.Sendt)
                     .Select(request => request.ResourceId)
                     .ToHashSet();
 

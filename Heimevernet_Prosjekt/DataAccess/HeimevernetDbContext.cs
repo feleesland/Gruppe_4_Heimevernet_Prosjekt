@@ -16,6 +16,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
     public DbSet<ResourceNeedLog> ResourceNeedLogs => Set<ResourceNeedLog>();
+    public DbSet<PermanentMapMarker> PermanentMapMarkers => Set<PermanentMapMarker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,26 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             entity.ToTable("ResourceNeedLogs");
             entity.HasIndex(log => log.ResourceNeedId);
         });
+
+        modelBuilder.Entity<PermanentMapMarker>(entity =>
+        {
+            entity.ToTable("PermanentMapMarkers");
+
+            entity.HasKey(location => location.Id);
+
+            entity.Property(location => location.Name)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(location => location.Type)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(location => location.Description)
+                .HasMaxLength(1000)
+                .IsRequired(false);
+        });
+
     }
 }
 

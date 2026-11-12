@@ -240,3 +240,57 @@ footer.footer {
     background-color: var(--bs-body-bg) !important;
     color: var(--bs-secondary-color) !important;
 }
+
+/* Map popups and the layer box follow light/dark mode (Leaflet makes them white by default) */
+[data-bs-theme="dark"] .leaflet-popup-content-wrapper,
+[data-bs-theme="dark"] .leaflet-popup-tip,
+[data-bs-theme="dark"] .leaflet-control-layers {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+[data-bs-theme="dark"] .leaflet-container a.leaflet-popup-close-button {
+    color: var(--bs-secondary-color);
+}
+
+/* Account menu round button with initials, and the menu under it */
+.account-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: var(--hv-green);
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.account-menu {
+    min-width: 270px;
+}
+
+    .account-menu .dropdown-item.active {
+        background: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+        font-weight: 600;
+    }
+
+        .account-menu .dropdown-item.active::after {
+            content: " ✓";
+        }
+
+
+/* Resource filter: the map-only box is grey, so you see that it is different from the rest.
+   Type and status are greyed out while resources are hidden on the map */
+.rf-map-only {
+    background: var(--bs-tertiary-bg);
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+.rf-resources-off .rf-resource-only {
+    opacity: .45;
+    pointer-events: none;
+}

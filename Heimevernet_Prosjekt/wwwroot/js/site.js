@@ -185,6 +185,10 @@
         }
     }
 
+    // The filter panel (resource-filter.js) reads and changes the same search and filter as the menu
+    window.getResourceParams = function () { return { ...current }; };
+    window.applyResourceParams = function (params) { goTo(params, onListPage ? form.action : window.location.pathname); };
+
     function addSection(title) {
         const div = document.createElement('div');
         div.className = 'search-section';

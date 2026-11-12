@@ -1,11 +1,23 @@
 using Heimevernet_Prosjekt.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
+using Heimevernet_Prosjekt.DataAccess;
+using Heimevernet_Prosjekt.Models.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Heimevernet_Prosjekt.Controllers;
 
 public class HomeController : Controller
 {
+    private readonly HeimevernetDbContext _context;
+
+    public HomeController(HeimevernetDbContext context)
+    {
+        _context = context;
+    }
+
+
     //definerer en liste som en in-memory lagring
     private static List<PositionModel> positions = new List<PositionModel>();
     public IActionResult Index()
@@ -31,6 +43,27 @@ public class HomeController : Controller
         return View();
     }
 
+
+    [HttpGet]
+    public async Task<IActionResult> PermanentMapMarker()
+    {
+        var locations = await _context.PermanentMapMarkers
+            .AsNoTracking()
+            .Select(x => new
+            {
+                id = x.Id,
+                name = x.Name,
+                type = x.Type,
+                latitude = x.Latitude,
+                longitude = x.Longitude,
+                description = x.Description
+            })
+            .ToListAsync();
+
+        return Json(locations);
+    }
+
+
     public IActionResult Privacy()
     {
         return View();
@@ -41,4 +74,5 @@ public class HomeController : Controller
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+
 }
