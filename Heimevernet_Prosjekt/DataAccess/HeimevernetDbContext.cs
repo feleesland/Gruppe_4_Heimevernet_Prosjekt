@@ -16,6 +16,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
     public DbSet<ResourceNeedLog> ResourceNeedLogs => Set<ResourceNeedLog>();
+    public DbSet<PermanentMapMarker> PermanentMapMarkers => Set<PermanentMapMarker>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -127,6 +128,65 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             entity.ToTable("ResourceNeedLogs");
             entity.HasIndex(log => log.ResourceNeedId);
         });
+
+
+        modelBuilder.Entity<PermanentMapMarker>(entity =>
+        {
+            entity.ToTable("PermanentMapMarkers");
+
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Name)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(x => x.Type)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.IconType)
+                .HasMaxLength(100)
+                .IsRequired();
+
+            entity.Property(x => x.Description)
+                .HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<PermanentMapMarker>().HasData(
+
+            new PermanentMapMarker
+            {
+                Id = 1,
+                Name = "Kristiansand Politistasjon",
+                Type = "Politi",
+                IconType = "police",
+                Description = "Politistasjon",
+                Latitude = 58.146,
+                Longitude = 7.996
+            },
+
+            new PermanentMapMarker
+            {
+                Id = 2,
+                Name = "Kristiansand Brannstasjon",
+                Type = "Brann",
+                IconType = "firestation",
+                Description = "Brannstasjon",
+                Latitude = 58.169,
+                Longitude = 8.019
+            },
+
+            new PermanentMapMarker
+            {
+                Id = 3,
+                Name = "Sørlandet Sykehus Kristiansand",
+                Type = "Sykehus",
+                IconType = "hospital",
+                Description = "Akuttsykehus",
+                Latitude = 58.156,
+                Longitude = 7.978
+            }
+        );
     }
 }
 
