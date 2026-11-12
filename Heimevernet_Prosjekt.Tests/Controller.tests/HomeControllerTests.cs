@@ -1,7 +1,9 @@
 using Heimevernet_Prosjekt.Controllers;
+using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace Heimevernet_Prosjekt.Tests.Controller.tests;
@@ -13,10 +15,20 @@ namespace Heimevernet_Prosjekt.Tests.Controller.tests;
 /// preservation.</remarks>
 public sealed class HomeControllerTests
 {
+    private static HeimevernetDbContext CreateContext()
+    {
+        var options =
+            new DbContextOptionsBuilder<HeimevernetDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        return new HeimevernetDbContext(options);
+    }
+
     [Fact]
     public void Index_ReturnsDefaultView()
     {
-        var controller = new HomeController();
+        var controller = new HomeController(CreateContext());
 
         var result = controller.Index();
 
@@ -27,7 +39,7 @@ public sealed class HomeControllerTests
     [Fact]
     public void MapGet_ReturnsDefaultView()
     {
-        var controller = new HomeController();
+        var controller = new HomeController(CreateContext());
 
         var result = controller.Map();
 
@@ -38,7 +50,7 @@ public sealed class HomeControllerTests
     [Fact]
     public void MapPost_WhenModelIsValid_ReturnsKartViewWithSubmittedPosition()
     {
-        var controller = new HomeController();
+        var controller = new HomeController(CreateContext());
         var model = new PositionModel
         {
             Latitude = "59.9139",
@@ -56,7 +68,7 @@ public sealed class HomeControllerTests
     [Fact]
     public void MapPost_WhenModelStateIsInvalid_ReturnsDefaultView()
     {
-        var controller = new HomeController();
+        var controller = new HomeController(CreateContext());
         controller.ModelState.AddModelError(nameof(PositionModel.Latitude), "Latitude is required.");
 
         var result = controller.Map(new PositionModel());
