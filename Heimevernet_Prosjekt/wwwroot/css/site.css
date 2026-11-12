@@ -219,11 +219,6 @@ a {
     font-size: 1.1rem;
 }
 
-.filter-panel {
-    width: 280px;
-    z-index: 1060;
-}
-
 .notification-panel {
     width: 340px;
     max-height: 70vh;
@@ -293,4 +288,72 @@ footer.footer {
 .rf-resources-off .rf-resource-only {
     opacity: .45;
     pointer-events: none;
+}
+
+/* The chips with what is chosen in the filter, over the map; ✕ removes one choice */
+.rf-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+    .rf-chips[hidden] {
+        display: none;
+    }
+
+.rf-chip {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    padding: 4px 12px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    font-size: .9rem;
+    white-space: nowrap;
+}
+
+    .rf-chip:hover {
+        background: var(--bs-secondary-bg);
+    }
+
+    .rf-chip.rf-chip-reset {
+        font-weight: 600;
+        text-decoration: underline;
+    }
+
+/* 🖨 Skriv ut: only the list and the chips, without the menu, the filter and the buttons
+   Docs: @media print (MDN) - https://developer.mozilla.org/docs/Web/CSS/@media#print */
+@media print {
+    header, footer, .no-print, .rf-chip-reset {
+        display: none !important;
+    }
+
+    .rf-chip {
+        box-shadow: none;
+    }
+}
+
+/* The page width: the whole screen on phones and small screens, at most 1600px in the middle on big screens.
+   The space on the sides grows a little with the screen - Docs: clamp() (MDN) - https://developer.mozilla.org/docs/Web/CSS/clamp */
+.page-width {
+    width: 100%;
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 clamp(12px, 3vw, 40px);
+}
+
+/* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
+   Narrower when the screen is small, so it never covers the links. On phones the menu folds up, so it stays in the flow */
+@media (min-width: 1460px) {
+    #mainNavigation .nav-search {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: clamp(300px, calc(100vw - 1160px), 640px);
+    }
+
+    #mainNavigation > .navbar-nav:last-child {
+        margin-left: auto;
+    }
 }

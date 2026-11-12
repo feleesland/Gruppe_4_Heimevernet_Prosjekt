@@ -69,6 +69,55 @@ window.ResourceFilter = (function () {
         });
     }
 
+    // "2" -> "2 km", "0.5" -> "500 m"
+    function radiusText(km) {
+        return parseFloat(km) < 1 ? (parseFloat(km) * 1000) + ' m' : km + ' km';
+    }
+
+    // One chip; a click removes that choice (or all of them for "Nullstill alt")
+    function makeChip(text, remove, isReset) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'rf-chip' + (isReset ? ' rf-chip-reset' : '');
+        button.textContent = isReset ? text : text + ' ✕'; // textContent: a type name can't run as HTML
+        button.setAttribute('aria-label', isReset ? text : 'Fjern filteret ' + text);
+        button.addEventListener('click', function () {
+            var params = window.getResourceParams();
+            remove(params);
+            window.applyResourceParams(params);
+        });
+        return button;
+    }
+
+    // Chips over the map (or the list) with what is chosen; ✕ on a chip removes that one choice.
+    // Returns the number of choices, for the Filter button
+    function renderChips(params) {
+        var chips = [];
+        function without(name, value) {
+            return function (p) { p[name] = list(p[name]).filter(function (x) { return x !== value; }).join(','); };
+        }
+        list(params.types).forEach(function (t) { chips.push([t, without('types', t)]); });
+        list(params.status).forEach(function (s) { chips.push([s, without('status', s)]); });
+        if (params.lat) {
+            chips.push(['Innen ' + radiusText(params.radius || 2) + ' fra ' + (params.where || 'valgt punkt'),
+            function (p) { delete p.lat; delete p.lng; delete p.where; delete p.radius; }]);
+        }
+        list(params.hide).forEach(function (h) { chips.push([h === 'needs' ? 'Behov skjult' : 'Ressurser skjult', without('hide', h)]); });
+
+        var box = document.getElementById('rfChips');
+        if (box) {
+            box.replaceChildren();
+            chips.forEach(function (chip) { box.appendChild(makeChip(chip[0], chip[1])); });
+            if (chips.length > 1) {
+                box.appendChild(makeChip('Nullstill alt', function (p) {
+                    Object.keys(p).forEach(function (k) { if (k !== 'search') delete p[k]; });
+                }, true));
+            }
+            box.hidden = chips.length === 0;
+        }
+        return chips.length;
+    }
+
     // Draw the filter from the resources the server sent (after search and distance)
     async function render(resources, params) {
         var panel = document.getElementById('rfPanel');
@@ -79,8 +128,10 @@ window.ResourceFilter = (function () {
         renderGroup('rfTypes', 'types', allTypes, countBy(resources, params, 'types', 'type'), list(params.types));
         renderGroup('rfStatus', 'status', statuses, countBy(resources, params, 'status', 'status'), list(params.status));
 
-        var hits = document.getElementById('rfResultCount');
-        if (hits) hits.textContent = resources.filter(function (r) { return matches(r, params); }).length;
+        // "Vis X treff", or "Vis kartet" while the resources are hidden on the map
+        var hitCount = resources.filter(function (r) { return matches(r, params); }).length;
+        var show = document.getElementById('rfShow');
+        if (show) show.textContent = list(params.hide).includes('resources') ? 'Vis kartet' : 'Vis ' + hitCount + ' treff';
 
         // Distance: the place it is measured from, and the chosen radius
         if (params.radius) document.getElementById('rfRadius').value = params.radius;
@@ -88,8 +139,8 @@ window.ResourceFilter = (function () {
             ? 'Fra: ' + (params.where || 'valgt punkt')
             : 'Velg et sted i søket, eller et punkt på kartet.';
 
-        // The number of choices on the Filter button
-        var active = list(params.types).length + list(params.status).length + (params.lat ? 1 : 0);
+        // The chips, and the number of choices on the Filter button
+        var active = renderChips(params);
         var badge = document.getElementById('rfCount');
         if (badge) {
             badge.textContent = active;

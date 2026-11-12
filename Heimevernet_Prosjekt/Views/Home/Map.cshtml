@@ -296,6 +296,74 @@
 		.map-toast[hidden] {
 			display: none;
 		}
+	/* + −, Filter and the chips in one row at the top left, like Google Maps */
+	.leaflet-top.leaflet-left {
+		display: flex;
+		align-items: flex-start;
+		right: 0;
+	}
+	/* Tegnforklaring nede til høyre; colours follow light/dark mode */
+	.map-legend {
+		background: var(--bs-body-bg);
+		color: var(--bs-body-color);
+		border-radius: 8px;
+		padding: 6px 10px;
+		box-shadow: 0 1px 6px rgba(0,0,0,.35);
+		font-size: .85rem;
+		line-height: 1.7;
+		max-width: 240px;
+	}
+
+		.map-legend summary {
+			cursor: pointer;
+			font-weight: 600;
+		}
+
+	.map-legend-title {
+		margin-top: 6px;
+		color: var(--bs-secondary-color);
+	}
+
+	.legend-dot, .legend-square, .legend-circle, .legend-cluster {
+		display: inline-block;
+		vertical-align: middle;
+		margin-right: 8px;
+		width: 14px;
+		height: 14px;
+	}
+
+	.legend-dot {
+		border-radius: 50%;
+		border: 1px solid #000;
+	}
+
+	.legend-square {
+		border-radius: 3px;
+		border: 2px solid #fff;
+	}
+
+	.legend-circle {
+		border-radius: 50%;
+		border: 2px dashed #E24B4A;
+	}
+
+	.legend-cluster {
+		border-radius: 50%;
+		background: #1e6447;
+		color: #fff;
+		font-size: 9px;
+		text-align: center;
+		line-height: 14px;
+		font-weight: 700;
+	}
+
+	.legend-line {
+		display: inline-block;
+		vertical-align: middle;
+		width: 22px;
+		margin-right: 8px;
+		border-top: 2px dashed #378ADD;
+	}
 </style>
 
 @section Scripts {
@@ -959,6 +1027,19 @@
 		});
 		new FilterControl().addTo(map);
 
+		// The chips with what is chosen, under the Filter button (filled by resource-filter.js)
+		var ChipsControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function () {
+				var box = L.DomUtil.create('div', 'rf-chips');
+				box.id = 'rfChips';
+				box.hidden = true;
+				L.DomEvent.disableClickPropagation(box);
+				return box;
+			}
+		});
+		new ChipsControl().addTo(map);
+
 		// + − and Filter move to the right of the side panel while it is open, so they are never hidden under it
 		function moveMapControls() {
 			var panel = document.getElementById('sidePanel');
@@ -992,5 +1073,39 @@
 
 		document.getElementById('rfShowResources').addEventListener('change', changeLayerChoice);
 		if (document.getElementById('rfShowNeeds')) document.getElementById('rfShowNeeds').addEventListener('change', changeLayerChoice);
+
+		// Tegnforklaring nede til høyre: what the colours and signs on the map mean. Open/closed is remembered (help with AI)
+		// Docs: <details> (MDN) - https://developer.mozilla.org/docs/Web/HTML/Element/details
+		var LegendControl = L.Control.extend({
+			options: { position: 'bottomright' },
+			onAdd: function () {
+				var box = L.DomUtil.create('details', 'map-legend');
+				box.innerHTML = '<summary>ⓘ Tegnforklaring</summary>'
+					+ '<div class="map-legend-title">Ressurser</div>'
+					+ '<div><span class="legend-dot" style="background:#2AAD27"></span>Ledig</div>'
+					+ '<div><span class="legend-dot" style="background:#CAC428"></span>Opptatt</div>'
+					+ '<div><span class="legend-dot" style="background:#7B7B7B"></span>Ikke tilgjengelig</div>'
+					+ '<div><span class="legend-dot" style="background:#CB2B3E"></span>Ugyldig</div>'
+					+ '<div><span class="legend-cluster">2</span>Flere ressurser på samme sted</div>'
+					+ (canNeeds
+						? '<div class="map-legend-title">Behov</div>'
+						+ '<div><span class="legend-square need-akutt"></span>Akutt</div>'
+						+ '<div><span class="legend-square need-planlagt"></span>Planlagt</div>'
+						+ '<div><span class="legend-circle"></span>Området behovet gjelder</div>'
+						+ '<div class="map-legend-title">Når du jobber med et behov</div>'
+						+ '<div><span class="ring-dot"></span>Kan velges</div>'
+						+ '<div><span class="ring-dot ring-picked">✓</span>Valgt</div>'
+						+ '<div><span class="legend-line"></span>Valgt til behovet</div>'
+						: '');
+				try { box.open = localStorage.getItem('legendOpen') !== '0'; } catch (e) { } // open the first time, closed only if the user closed it
+				box.addEventListener('toggle', function () {
+					try { localStorage.setItem('legendOpen', box.open ? '1' : '0'); } catch (e) { }
+				});
+				L.DomEvent.disableClickPropagation(box);
+				L.DomEvent.disableScrollPropagation(box);
+				return box;
+			}
+		});
+		new LegendControl().addTo(map);
 	</script>
 }
