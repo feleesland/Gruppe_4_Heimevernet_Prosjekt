@@ -39,6 +39,13 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
 
+        // The municipality from Kartverket (hidden field, filled in by location-picker.js)
+        public string? Municipality { get; set; }
+
+        // The answers in step 2: question id -> answer ("true", "5", "BE"). The form fields are named Answers[12]
+        // Docs: Model binding to dictionaries - https://learn.microsoft.com/aspnet/core/mvc/models/model-binding#dictionaries
+        public Dictionary<int, string?> Answers { get; set; } = new();
+
         // Address (used to find the position on the map)
         [Display(Name = "Adresse")]
         public string? Address { get; set; }

@@ -17,6 +17,9 @@ namespace Heimevernet_Prosjekt.Models.Entities
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
+        // The municipality from Kartverket ("KRISTIANSAND"), the region in the filters and the print-out
+        [MaxLength(100)]
+        public string Municipality { get; set; } = string.Empty;
         public string OwnerTelephoneNumber { get; set; } = string.Empty;
         public string OwnerId {  get; set; } = string.Empty;
         public bool OwnerRemoved { get; set; }

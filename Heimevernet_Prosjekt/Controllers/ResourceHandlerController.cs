@@ -65,6 +65,7 @@ namespace Heimevernet_Prosjekt.Controllers
             model.OwnerId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var resource = _resourceRepository.Create(model);
+            _resourceRepository.SaveAnswers(resource.Id, model.Answers);
 
             return RedirectToAction("List", "Resource", new { id = resource.Id });
         }
@@ -96,11 +97,13 @@ namespace Heimevernet_Prosjekt.Controllers
                 // Address and position on the map
                 Address = resource.Address,
                 City = resource.City,
+                Municipality = resource.Municipality,
                 ZipCode = resource.ZipCode,
                 Latitude = resource.Latitude,
                 Longitude = resource.Longitude,
                 CreatedAt = resource.CreatedAt
             };
+            model.Answers = _resourceRepository.GetAnswers(id).ToDictionary(v => v.ResourceAttributeId, v => (string?)v.Value);
             LoadTypes();
             return View(model);
         }
@@ -141,6 +144,7 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
+            _resourceRepository.SaveAnswers(model.Id.Value, model.Answers);
             return RedirectToAction("List", "Resource");
         }
         [HttpPost]
@@ -218,6 +222,7 @@ namespace Heimevernet_Prosjekt.Controllers
         private void LoadTypes()
         {
             ViewData["ResourceTypes"] = _resourceTypeRepository.GetAll();
+            ViewData["Categories"] = _resourceTypeRepository.GetCategories();
         }
 
         // The type must be one of the types in the list, so the filter always works - the server checks it,

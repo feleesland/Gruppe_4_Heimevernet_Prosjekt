@@ -9,29 +9,29 @@ namespace Heimevernet_Prosjekt.DataAccess;
 public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourceNeedRepository
 {
 
-    public ResourceNeed Create(ResourceNeedViewModel model)
-    {
-        ArgumentNullException.ThrowIfNull(model);
+    //public ResourceNeed Create(ResourceNeedViewModel model)
+    //{
+    //    ArgumentNullException.ThrowIfNull(model);
 
-        var resourceneed = new ResourceNeed
-        {
-            Name = model.Name,
-            Description = model.Description,
-            Type = model.Type,
-            OwnerId = model.OwnerId ?? string.Empty,
+    //    var resourceneed = new ResourceNeed
+    //    {
+    //        Name = model.Name,
+    //        Description = model.Description,
+    //        Type = model.Type,
+    //        OwnerId = model.OwnerId ?? string.Empty,
 
-            // Address and position on the map
-            Address = model.Address ?? string.Empty,
-            City = model.City ?? string.Empty,
-            ZipCode = model.ZipCode ?? string.Empty,
-            Latitude = model.Latitude,
-            Longitude = model.Longitude
-        };
+    //        // Address and position on the map
+    //        Address = model.Address ?? string.Empty,
+    //        City = model.City ?? string.Empty,
+    //        ZipCode = model.ZipCode ?? string.Empty,
+    //        Latitude = model.Latitude,
+    //        Longitude = model.Longitude
+    //    };
 
-        dbContext.ResourceNeeds.Add(resourceneed);
-        dbContext.SaveChanges();
-        return resourceneed;
-    }
+    //    dbContext.ResourceNeeds.Add(resourceneed);
+    //    dbContext.SaveChanges();
+    //    return resourceneed;
+    //}
 
     public ResourceNeed? GetById(int id)
     {
@@ -48,29 +48,29 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             .AsReadOnly();
     }
 
-    public bool Update(int id, ResourceNeedViewModel model)
-    {
-        ArgumentNullException.ThrowIfNull(model);
+    //public bool Update(int id, ResourceNeedViewModel model)
+    //{
+    //    ArgumentNullException.ThrowIfNull(model);
 
-        var resourceneed = dbContext.ResourceNeeds.Find(id);
-        if (resourceneed is null)
-        {
-            return false;
-        }
+    //    var resourceneed = dbContext.ResourceNeeds.Find(id);
+    //    if (resourceneed is null)
+    //    {
+    //        return false;
+    //    }
 
-        resourceneed.Name = model.Name;
-        resourceneed.Description = model.Description;
-        resourceneed.Type = model.Type;
+    //    resourceneed.Name = model.Name;
+    //    resourceneed.Description = model.Description;
+    //    resourceneed.Type = model.Type;
 
-        // Address and position on the map
-        resourceneed.Address = model.Address ?? string.Empty;
-        resourceneed.City = model.City ?? string.Empty;
-        resourceneed.ZipCode = model.ZipCode ?? string.Empty;
-        resourceneed.Latitude = model.Latitude;
-        resourceneed.Longitude = model.Longitude;
-        dbContext.SaveChanges();
-        return true;
-    }
+    //    // Address and position on the map
+    //    resourceneed.Address = model.Address ?? string.Empty;
+    //    resourceneed.City = model.City ?? string.Empty;
+    //    resourceneed.ZipCode = model.ZipCode ?? string.Empty;
+    //    resourceneed.Latitude = model.Latitude;
+    //    resourceneed.Longitude = model.Longitude;
+    //    dbContext.SaveChanges();
+    //    return true;
+    //}
 
     // Soft delete: the resource need is marked as deleted, but kept in the database - Docs: Global Query Filters
     // https://learn.microsoft.com/ef/core/querying/filters
