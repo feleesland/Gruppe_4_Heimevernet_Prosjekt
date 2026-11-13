@@ -245,7 +245,7 @@ function getResourceIcon(type, status) {
 						// Kontroller at koordinatene er gyldige
 						if (isNaN(lat) || isNaN(lng)) {
 							console.warn("Ugyldige koordinater:", resource);
-							return;
+							continue;
 						}
 				
 						var icon = getResourceIcon(

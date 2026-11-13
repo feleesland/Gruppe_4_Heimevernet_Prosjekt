@@ -51,7 +51,7 @@
                 <a class="navbar-brand text-white"
                    asp-area=""
                    asp-controller="Home"
-                   asp-action="Index">Heimevernet</a>
+                   asp-action="Index">Ressurs Varden</a>
 
                 <!-- Open or close the menu on small screens. -->
                 <button class="navbar-toggler"
@@ -257,9 +257,8 @@
                                 </div>
                             </li>
 
-                            <li class="nav-item">
-                                @* Display the user's name and role. *@
-                                <span class="nav-link text-white text-end lh-sm">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link text-white text-end lh-sm dropdown-toggle" href="#" id="accountDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     @(string.IsNullOrEmpty(displayName) ? User.Identity?.Name : displayName)<br />
                                     <small class="text-white">
                                         @RoleNames.DisplayName(
@@ -268,7 +267,15 @@
                                             : User.IsInRole(RoleNames.Partner) ? RoleNames.Partner
                                             : RoleNames.User)
                                     </small>
-                                </span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+                                    <li><a class="dropdown-item" asp-controller="MinSide" asp-action="Index">Min side</a></li>
+                                    <li><a class="dropdown-item" asp-controller="ResourceRequest" asp-action="Mine">Mine forespørsler</a></li>
+                                    @if (isAdmin)
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">Alle varsler</a></li>
+                                    }
+                                </ul>
                             </li>
                             <li class="nav-item">
                                 @* Submit logout as a POST request. *@
