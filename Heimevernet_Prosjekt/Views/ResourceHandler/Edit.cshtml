@@ -2,11 +2,12 @@
 @model ResourceViewModel
 
 @{
-    ViewData["Title"] = "Endre Ressurs";
+    ViewData["Title"] = "Endre ressurs";
 }
 
 <div class="wizard">
-    <h1>@ViewData["Title"]</h1>
+    <h1 class="wizard-title">@ViewData["Title"]</h1>
+    <p class="wizard-lead">Endre det som har forandret seg. <span class="text-body-secondary">Trykk «Endre» i «Din ressurs» for å hoppe til et steg.</span></p>
 
     @* The whole form is in _ResourceVeiviser.cshtml (shared with Create) *@
     <partial name="_ResourceVeiviser" model="Model" />

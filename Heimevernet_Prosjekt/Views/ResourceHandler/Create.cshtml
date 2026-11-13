@@ -6,8 +6,8 @@
 }
 
 <div class="wizard">
-    <h1>@ViewData["Title"]</h1>
-    <p class="text-secondary">Én ting om gangen. Bare type og navn må fylles ut.</p>
+    <h1 class="wizard-title">@ViewData["Title"]</h1>
+    <p class="wizard-lead">Registrer noe du kan bidra med i en krise, i tre enkle steg. <span class="text-body-secondary">Bare type og navn er påkrevd.</span></p>
 
     @* The whole form is in _ResourceVeiviser.cshtml (shared with Edit) *@
     <partial name="_ResourceVeiviser" model="Model" />

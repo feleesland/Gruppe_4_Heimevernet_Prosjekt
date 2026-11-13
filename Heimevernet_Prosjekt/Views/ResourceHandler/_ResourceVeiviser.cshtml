@@ -2,16 +2,19 @@
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 
-@* "Ny ressurs" and "Endre ressurs" as a wizard, one thing at a time (help with AI). Used by Create.cshtml and Edit.cshtml.
+@* "Ny ressurs" and "Endre ressurs" as a wizard in 3 easy steps (help with AI). Used by Create.cshtml and Edit.cshtml.
    resource-veiviser.js shows one step at a time; without JavaScript all steps are shown as one long form *@
 @{
     var isEdit = Model.Id != null;
-    var categories = ViewData["Categories"] as IEnumerable<ResourceCategory> ?? [];
+    var categories = (ViewData["Categories"] as IEnumerable<ResourceCategory> ?? [])
+        .Where(category => category.Types.Count > 0) // a category without types is not shown (admin adds them later)
+        .ToList();
     var allTypes = categories.SelectMany(category => category.Types).ToList();
     var currentType = Model.Type;
     var hasOldType = !string.IsNullOrEmpty(currentType) && !allTypes.Any(type => type.Name == currentType);
     var canSetStatus = isEdit && (User.IsInRole("Admin") || User.IsInRole("Operator"));
     string[] statuses = ["Ledig", "Opptatt", "Ugyldig", "Ikke tilgjengelig"];
+    (int Step, string Label)[] stepLabels = [(0, "Type"), (1, "Om ressursen"), (2, "Hvor")];
 
     // The saved answer to a question, or "" (Edit, or the form coming back with an error)
     string Answer(int questionId) => Model.Answers.TryGetValue(questionId, out var value) ? value ?? "" : "";
@@ -20,14 +23,15 @@
     string IconClass(string? icon) => string.IsNullOrEmpty(icon) ? "ti-category" : icon.StartsWith("ti-") ? icon : "ti-" + icon;
 }
 
-@* Tabler icons for the category cards - Docs: https://tabler.io/docs/icons/webfont *@
+@* Tabler icons for the cards and buttons - Docs: https://tabler.io/docs/icons/webfont *@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@tabler/icons-webfont@@3/dist/tabler-icons.min.css" />
 
+@* The step line: done = green ✓, the step you are on = blue "du er her", not started = grey *@
 <ol class="wizard-steps" aria-label="Steg i skjemaet">
-    <li><span class="wizard-step-number">1</span> Type</li>
-    <li><span class="wizard-step-number">2</span> Detaljer</li>
-    <li><span class="wizard-step-number">3</span> Navn og bilde</li>
-    <li><span class="wizard-step-number">4</span> Hvor</li>
+    @foreach (var (step, label) in stepLabels)
+    {
+        <li><span class="wizard-step-number">@(step + 1)</span><span class="wizard-step-label">@label</span></li>
+    }
 </ol>
 
 <form asp-controller="ResourceHandler"
@@ -38,244 +42,272 @@
 
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
 
-    @* Step 1: first the category (six big cards), then only the types in that category - like "Ny annonse" on Finn.no.
-       resource-veiviser.js shows one of the two views at a time *@
-    <section class="wizard-step" aria-labelledby="stepTitle1">
-        <h2 id="stepTitle1" class="h4" tabindex="-1">Hva vil du registrere?</h2>
-        <span asp-validation-for="Type" class="text-danger d-block"></span>
-        <p id="typeError" class="text-danger" role="alert" hidden>⚠️ Velg en type for å gå videre.</p>
+    @* Two columns: the step on the left, "Din ressurs" on the right, the same on all 3 steps (on phones the summary comes first) *@
+    <div class="wizard-layout">
+        <div class="wizard-main">
 
-        <div class="category-grid mb-3" data-category-list>
-            @foreach (var category in categories)
-            {
-                <button type="button" class="category-card" data-category="@category.Id">
-                    <i class="ti @IconClass(category.Icon) category-card-icon" aria-hidden="true"></i>
-                    <span>
-                        <span class="category-card-name">@category.Name</span>
-                        <small class="category-card-types">
-                            @string.Join(", ", category.Types.Select(type => type.Name))
-                        </small>
-                    </span>
-                </button>
-            }
-        </div>
+            @* Step 1: the categories as cards. Pressing one opens its types right under the row, like a tab (only one open at a time).
+               grid-auto-flow: dense in site.css keeps the other cards in their row *@
+            <section class="wizard-step" aria-labelledby="stepTitle1">
+                <div class="wizard-step-head">
+                    <span class="wizard-step-icon"><i class="ti ti-category" aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="stepTitle1" class="wizard-step-title" tabindex="-1">Hva vil du registrere?</h2>
+                        <p class="wizard-help">Velg en kategori, og deretter typen.</p>
+                    </div>
+                </div>
+                <span asp-validation-for="Type" class="text-danger d-block"></span>
+                <p id="typeError" class="text-danger" role="alert" hidden>⚠️ Velg en type for å gå videre.</p>
 
-        @foreach (var category in categories)
-        {
-            <fieldset class="mb-3" data-types-for="@category.Id">
-                <legend class="h5" tabindex="-1">
-                    <i class="ti @IconClass(category.Icon)" aria-hidden="true"></i> @category.Name
-                </legend>
-                <button type="button" class="btn btn-link px-0 mb-2" data-category-back>‹ Alle kategorier</button>
-                <div class="type-grid">
-                    @foreach (var type in category.Types)
+                <div class="category-grid mb-3">
+                    @foreach (var category in categories)
                     {
-                        <label class="type-card">
-                            <input type="radio" name="Type" value="@type.Name" checked="@(type.Name == currentType)" />
-                            <span class="type-card-name">@type.Name</span>
-                            @if (!string.IsNullOrEmpty(type.Examples))
-                            {
-                                <small class="type-card-examples">@type.Examples</small>
-                            }
-                        </label>
+                        <button type="button" class="category-card" data-category="@category.Id"
+                                aria-expanded="false" aria-controls="types@(category.Id)">
+                            <i class="ti @IconClass(category.Icon) category-card-icon" aria-hidden="true"></i>
+                            <span>
+                                <span class="category-card-name">@category.Name</span>
+                                <small class="category-card-types" data-count>@string.Join(", ", category.Types.Take(3).Select(type => type.Name))@(category.Types.Count > 3 ? $" + {category.Types.Count - 3} til" : "")</small>
+                                <small class="category-card-picked" data-picked hidden>✓ <span data-picked-name></span> valgt</small>
+                            </span>
+                            <i class="ti @(category.Types.Count == 1 ? "ti-chevron-right" : "ti-chevron-down") category-card-arrow" aria-hidden="true"></i>
+                        </button>
+
+                        <fieldset class="category-panel" id="types@(category.Id)" data-types-for="@category.Id" hidden>
+                            <legend class="visually-hidden">@category.Name</legend>
+                            <div class="type-grid">
+                                @foreach (var type in category.Types)
+                                {
+                                    <label class="type-card">
+                                        <input type="radio" name="Type" value="@type.Name" checked="@(type.Name == currentType)"
+                                               data-icon="@IconClass(type.Icon)" data-category-name="@category.Name" data-example="@type.Examples" />
+                                        <i class="ti @IconClass(type.Icon) type-card-icon" aria-hidden="true"></i>
+                                        <span class="type-card-name">@type.Name</span>
+                                    </label>
+                                }
+                            </div>
+                        </fieldset>
                     }
                 </div>
-            </fieldset>
-        }
 
-        @if (hasOldType)
-        {
-            <fieldset class="mb-3" data-old-type>
-                <legend class="h6 text-secondary">Gammel type</legend>
-                <div class="type-grid">
-                    <label class="type-card">
-                        <input type="radio" name="Type" value="@currentType" checked />
-                        <span class="type-card-name">@currentType</span>
-                        <small class="type-card-examples">Gammel type – velg gjerne en ny</small>
-                    </label>
-                </div>
-            </fieldset>
-        }
-    </section>
-
-    @* Step 2: the questions for the chosen type. Only the chosen type's block is shown and sent *@
-    <section class="wizard-step" aria-labelledby="stepTitle2">
-        <h2 id="stepTitle2" class="h4" tabindex="-1">Litt mer om ressursen</h2>
-        <p class="text-secondary">Svar på det du vet. Alt her er valgfritt.</p>
-        <p data-no-questions hidden>Ingen flere spørsmål for denne typen. Trykk «Neste».</p>
-
-        @foreach (var type in allTypes)
-        {
-            <div data-questions-for="@type.Name">
-                @if (type.Attributes.Count == 0)
+                @if (hasOldType)
                 {
-                    <p>Ingen flere spørsmål for denne typen. Trykk «Neste».</p>
+                    <fieldset class="mb-3">
+                        <legend class="h6 text-body-secondary">Gammel type</legend>
+                        <div class="type-grid">
+                            <label class="type-card">
+                                <input type="radio" name="Type" value="@currentType" checked />
+                                <span class="type-card-name">@currentType</span>
+                                <small class="type-card-examples">Gammel type – velg gjerne en ny</small>
+                            </label>
+                        </div>
+                    </fieldset>
                 }
-                @foreach (var question in type.Attributes)
-                {
-                    var fieldId = $"answer{question.Id}";
-                    var fieldName = $"Answers[{question.Id}]";
-                    var value = Answer(question.Id);
+            </section>
 
-                    <div class="mb-3">
-                        @if (question.Kind == AttributeKind.YesNo)
+            @* Step 2: "Om ressursen" - the name and picture at the top, the type's questions as cards in the middle,
+               and "anything else" at the bottom. Only the chosen type's questions are shown and sent *@
+            <section class="wizard-step" aria-labelledby="stepTitle2">
+                <div class="wizard-step-head">
+                    <span class="wizard-step-icon"><i class="ti ti-list-details" data-type-icon aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="stepTitle2" class="wizard-step-title" tabindex="-1">Om ressursen</h2>
+                        <p class="wizard-help">Navnet er påkrevd. Resten er valgfritt, men det hjelper operatøren å velge riktig.</p>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-12 col-md-7">
+                        <label asp-for="Name" class="form-label"></label>
+                        <input asp-for="Name" class="form-control" placeholder="F.eks. Toyota RAV4" />
+                        <span asp-validation-for="Name" class="text-danger"></span>
+                    </div>
+                    <div class="col-12 col-md-5">
+                        <label asp-for="Image" class="form-label">Bilde (valgfritt)</label>
+                        <input asp-for="Image"
+                               type="file"
+                               class="form-control"
+                               accept="image/jpeg,image/png,image/webp"
+                               aria-describedby="imageHelp" />
+                        <small id="imageHelp" class="form-text d-block">
+                            JPG, PNG eller WebP. Maksimalt 5 MB.
+                            @(Model.HasImage ? "Velg et nytt bilde bare hvis du vil bytte." : "")
+                        </small>
+                        <span asp-validation-for="Image" class="text-danger"></span>
+                        <input type="hidden" asp-for="HasImage" />
+                    </div>
+                </div>
+
+                <h3 class="wizard-subtitle">Detaljer</h3>
+                <p data-no-questions hidden>Ingen flere spørsmål for denne typen.</p>
+
+                @foreach (var type in allTypes)
+                {
+                    <div class="wizard-questions" data-questions-for="@type.Name">
+                        @if (type.Attributes.Count == 0)
                         {
-                            <fieldset>
-                                <legend class="form-label fs-6">@question.Label</legend>
-                                <div class="btn-group" role="group">
-                                    <input type="radio" class="btn-check" name="@fieldName" id="@(fieldId)yes" value="true" checked="@(value == "true")" />
-                                    <label class="btn btn-outline-secondary" for="@(fieldId)yes">✓ Ja</label>
-                                    <input type="radio" class="btn-check" name="@fieldName" id="@(fieldId)no" value="" checked="@(value != "true")" />
-                                    <label class="btn btn-outline-secondary" for="@(fieldId)no">✕ Nei</label>
-                                </div>
-                            </fieldset>
+                            <p>Ingen flere spørsmål for denne typen.</p>
                         }
-                        else if (question.Kind == AttributeKind.Number)
+                        @foreach (var question in type.Attributes)
                         {
-                            <label class="form-label" for="@fieldId">@question.Label</label>
-                            <div class="input-group wizard-number">
-                                <input type="number" class="form-control" id="@fieldId" name="@fieldName" value="@value"
-                                       min="0" step="any" inputmode="decimal" style="min-height: 44px;" />
-                                @if (!string.IsNullOrEmpty(question.Unit))
+                            var fieldId = $"answer{question.Id}";
+                            var fieldName = $"Answers[{question.Id}]";
+                            var value = Answer(question.Id);
+
+                            <div class="wizard-question">
+                                @if (question.Kind == AttributeKind.YesNo)
                                 {
-                                    <span class="input-group-text">@question.Unit</span>
+                                    <fieldset>
+                                        <legend class="form-label">@question.Label</legend>
+                                        <div class="btn-group" role="group">
+                                            <input type="radio" class="btn-check" name="@fieldName" id="@(fieldId)yes" value="true" checked="@(value == "true")" />
+                                            <label class="btn btn-outline-secondary" for="@(fieldId)yes">✓ Ja</label>
+                                            <input type="radio" class="btn-check" name="@fieldName" id="@(fieldId)no" value="" checked="@(value != "true")" />
+                                            <label class="btn btn-outline-secondary" for="@(fieldId)no">✕ Nei</label>
+                                        </div>
+                                    </fieldset>
+                                }
+                                else if (question.Kind == AttributeKind.Number)
+                                {
+                                    <label class="form-label" for="@fieldId">@question.Label</label>
+                                    <div class="input-group wizard-number">
+                                        <input type="number" class="form-control" id="@fieldId" name="@fieldName" value="@value"
+                                               min="0" step="any" inputmode="decimal" />
+                                        @if (!string.IsNullOrEmpty(question.Unit))
+                                        {
+                                            <span class="input-group-text">@question.Unit</span>
+                                        }
+                                    </div>
+                                }
+                                else if (question.Kind == AttributeKind.Choice)
+                                {
+                                    <label class="form-label" for="@fieldId">@question.Label</label>
+                                    <select class="form-select" id="@fieldId" name="@fieldName">
+                                        <option value="">Velg …</option>
+                                        @foreach (var option in (question.Options ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                        {
+                                            <option value="@option" selected="@(option == value)">@option</option>
+                                        }
+                                    </select>
+                                }
+                                else
+                                {
+                                    <label class="form-label" for="@fieldId">@question.Label</label>
+                                    <input type="text" class="form-control" id="@fieldId" name="@fieldName" value="@value" maxlength="200" />
                                 }
                             </div>
                         }
-                        else if (question.Kind == AttributeKind.Choice)
-                        {
-                            <label class="form-label" for="@fieldId">@question.Label</label>
-                            <select class="form-select" id="@fieldId" name="@fieldName" style="min-height: 44px; max-width: 360px;">
-                                <option value="">Velg …</option>
-                                @foreach (var option in (question.Options ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                                {
-                                    <option value="@option" selected="@(option == value)">@option</option>
-                                }
-                            </select>
-                        }
-                        else
-                        {
-                            <label class="form-label" for="@fieldId">@question.Label</label>
-                            <input type="text" class="form-control" id="@fieldId" name="@fieldName" value="@value"
-                                   maxlength="200" style="min-height: 44px;" />
-                        }
                     </div>
                 }
-            </div>
-        }
-    </section>
 
-    @* Step 3: name, picture and "anything else" (replaces Beskrivelse and Merknader) *@
-    <section class="wizard-step" aria-labelledby="stepTitle3">
-        <h2 id="stepTitle3" class="h4" tabindex="-1">Navn og bilde</h2>
-
-        <div class="mb-3">
-            <label asp-for="Name" class="form-label"></label>
-            <input asp-for="Name" class="form-control" style="min-height: 44px;"
-                   placeholder="F.eks. Toyota RAV4 eller Grendehuset" />
-            <span asp-validation-for="Name" class="text-danger"></span>
-        </div>
-
-        <div class="mb-3">
-            <label asp-for="Image" class="form-label">Bilde (valgfritt)</label>
-            @if (Model.HasImage)
-            {
-                <div class="mb-2">
-                    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })"
-                         alt="Bildet av @Model.Name"
-                         class="img-fluid rounded"
-                         style="max-width: 200px; width: 100%;" />
+                <div class="mt-3">
+                    <label asp-for="Notes" class="form-label">Noe annet vi bør vite? (valgfritt)</label>
+                    <textarea asp-for="Notes" class="form-control" rows="3"
+                              placeholder="F.eks. hvor nøklene ligger"></textarea>
+                    <span asp-validation-for="Notes" class="text-danger"></span>
                 </div>
+
+                @if (canSetStatus)
+                {
+                    <div class="mt-3">
+                        <label asp-for="Status" class="form-label">Status</label>
+                        <select asp-for="Status" class="form-select" style="max-width: 360px;">
+                            @foreach (var status in statuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    @* Keeps the current status when the owner saves (otherwise it would go back to "Ledig") *@
+                    <input type="hidden" asp-for="Status" />
+                }
+
+                @* The old description is no longer shown, but kept when saving *@
+                <input type="hidden" asp-for="Description" />
+            </section>
+
+            @* Step 3: where the resource is (location-picker.js). The address on one line, and a big map under it *@
+            <section class="wizard-step" aria-labelledby="stepTitle3">
+                <div class="wizard-step-head">
+                    <span class="wizard-step-icon"><i class="ti ti-map-pin" aria-hidden="true"></i></span>
+                    <div>
+                        <h2 id="stepTitle3" class="wizard-step-title" tabindex="-1">Hvor er ressursen?</h2>
+                        <p class="wizard-help">Skriv adressen, bruk posisjonen din, eller klikk på kartet.</p>
+                    </div>
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                        <label asp-for="Address" class="form-label"></label>
+                        <input asp-for="Address" class="form-control" />
+                        <span asp-validation-for="Address" class="text-danger"></span>
+                    </div>
+                    <div class="col-5 col-md-2">
+                        <label asp-for="ZipCode" class="form-label"></label>
+                        <input asp-for="ZipCode" class="form-control" inputmode="numeric" />
+                        <span asp-validation-for="ZipCode" class="text-danger"></span>
+                    </div>
+                    <div class="col-7 col-md-4">
+                        <label asp-for="City" class="form-label"></label>
+                        <input asp-for="City" class="form-control" />
+                        <span asp-validation-for="City" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="wizard-place-tools">
+                    <button type="button" id="findOnMap" class="btn btn-outline-secondary"><i class="ti ti-search" aria-hidden="true"></i> Finn på kartet</button>
+                    <button type="button" id="useMyLocation" class="btn btn-outline-secondary"><i class="ti ti-current-location" aria-hidden="true"></i> Bruk min posisjon</button>
+                    <span class="wizard-place" data-place hidden><i class="ti ti-circle-check" aria-hidden="true"></i> <span data-place-name></span></span>
+                </div>
+                <span id="geoStatus" class="d-block text-body-secondary small mb-2" role="status" aria-live="polite"></span>
+
+                <div id="pickMap" class="wizard-map"></div>
+
+                <input type="hidden" asp-for="Latitude" />
+                <input type="hidden" asp-for="Longitude" />
+                <input type="hidden" asp-for="Municipality" />
+                <span asp-validation-for="Latitude" class="text-danger d-block"></span>
+                <span asp-validation-for="Longitude" class="text-danger d-block"></span>
+            </section>
+
+            @if (isEdit)
+            {
+                <input type="hidden" asp-for="Id" />
             }
-            <input asp-for="Image"
-                   type="file"
-                   class="form-control"
-                   style="min-height: 44px;"
-                   accept="image/jpeg,image/png,image/webp"
-                   aria-describedby="imageHelp" />
-            <small id="imageHelp" class="form-text d-block">
-                JPG, PNG eller WebP. Maksimalt 5 MB.
-                @(Model.HasImage ? "Velg et nytt bilde bare hvis du vil bytte." : "")
-            </small>
-            <span asp-validation-for="Image" class="text-danger"></span>
-            <input type="hidden" asp-for="HasImage" />
+
+            @* The buttons stay at the bottom of the window while the page scrolls (position: sticky in site.css) *@
+            <div class="wizard-nav">
+                <button type="button" class="btn btn-outline-secondary" data-wizard-back hidden><i class="ti ti-chevron-left" aria-hidden="true"></i> Tilbake</button>
+                <span class="wizard-nav-count" data-step-count></span>
+                <button type="button" class="button" data-wizard-next hidden>Neste <i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+                <button type="submit" class="button" data-wizard-submit><i class="ti @(isEdit ? "ti-device-floppy" : "ti-check")" aria-hidden="true"></i> @(isEdit ? "Lagre" : "Opprett ressurs")</button>
+            </div>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Notes" class="form-label">Noe annet vi bør vite? (valgfritt)</label>
-            <textarea asp-for="Notes" class="form-control" rows="3"
-                      placeholder="F.eks. hvor nøklene ligger"></textarea>
-            <span asp-validation-for="Notes" class="text-danger"></span>
-        </div>
-
-        @if (canSetStatus)
-        {
-            <div class="mb-3">
-                <label asp-for="Status" class="form-label">Status</label>
-                <select asp-for="Status" class="form-select" style="min-height: 44px; max-width: 360px;">
-                    @foreach (var status in statuses)
+        @* "Din ressurs": what is chosen so far, always in the same place, like the order summary in a checkout.
+           resource-veiviser.js fills it in. On phones it is one line at the top that folds out *@
+        <aside class="wizard-summary" aria-label="Din ressurs">
+            <details class="wizard-summary-box" open data-summary>
+                <summary class="wizard-summary-title">Din ressurs<span class="wizard-summary-short" data-summary-short></span></summary>
+                <div class="wizard-summary-picture">
+                    <img data-summary-img alt="Bildet av ressursen" hidden
+                         src="@(Model.HasImage ? Url.Action("Image", "Resource", new { id = Model.Id }) : null)" />
+                    <i class="ti ti-photo" data-summary-icon aria-hidden="true"></i>
+                </div>
+                <ol class="wizard-summary-list">
+                    @foreach (var (step, label) in stepLabels)
                     {
-                        <option value="@status">@status</option>
+                        <li data-summary-step="@step">
+                            <i class="ti ti-circle-dashed" data-summary-mark aria-hidden="true"></i>
+                            <span class="wizard-summary-text"><span class="visually-hidden">@label: </span><span data-summary-text>@label</span></span>
+                            <button type="button" class="btn btn-link btn-sm p-0" data-goto="@step" hidden>Endre<span class="visually-hidden"> @label.ToLower()</span></button>
+                        </li>
                     }
-                </select>
-            </div>
-        }
-        else
-        {
-            @* Keeps the current status when the owner saves (otherwise it would go back to "Ledig") *@
-            <input type="hidden" asp-for="Status" />
-        }
-
-        @* The old description is no longer shown, but kept when saving *@
-        <input type="hidden" asp-for="Description" />
-    </section>
-
-    @* Step 4: where the resource is (location-picker.js) *@
-    <section class="wizard-step" aria-labelledby="stepTitle4">
-        <h2 id="stepTitle4" class="h4" tabindex="-1">Hvor er ressursen?</h2>
-
-        <div class="row g-3">
-            <div class="col-12">
-                <label asp-for="Address" class="form-label"></label>
-                <input asp-for="Address" class="form-control" style="min-height: 44px;" />
-                <span asp-validation-for="Address" class="text-danger"></span>
-            </div>
-            <div class="col-12 col-md-4">
-                <label asp-for="ZipCode" class="form-label"></label>
-                <input asp-for="ZipCode" class="form-control" style="min-height: 44px;" inputmode="numeric" />
-                <span asp-validation-for="ZipCode" class="text-danger"></span>
-            </div>
-            <div class="col-12 col-md-8">
-                <label asp-for="City" class="form-label"></label>
-                <input asp-for="City" class="form-control" style="min-height: 44px;" />
-                <span asp-validation-for="City" class="text-danger"></span>
-            </div>
-        </div>
-
-        <div class="d-flex flex-wrap gap-2 mt-3">
-            <button type="button" id="findOnMap" class="button" style="min-height: 44px;">🔎 Finn på kartet</button>
-            <button type="button" id="useMyLocation" class="button" style="min-height: 44px;">📍 Bruk min posisjon</button>
-        </div>
-        <span id="geoStatus" class="d-block mt-2" role="status" aria-live="polite"></span>
-        <p>Du kan også klikke på kartet eller dra markøren.</p>
-
-        <div id="pickMap" style="height: 300px; width: 100%;"></div>
-
-        <input type="hidden" asp-for="Latitude" />
-        <input type="hidden" asp-for="Longitude" />
-        <input type="hidden" asp-for="Municipality" />
-        <span asp-validation-for="Latitude" class="text-danger d-block"></span>
-        <span asp-validation-for="Longitude" class="text-danger d-block"></span>
-    </section>
-
-    @if (isEdit)
-    {
-        <input type="hidden" asp-for="Id" />
-    }
-
-    <div class="wizard-nav">
-        <button type="button" class="btn btn-outline-secondary" style="min-height: 44px;" data-wizard-back hidden>‹ Tilbake</button>
-        <button type="button" class="button" style="min-height: 44px;" data-wizard-next hidden>Neste ›</button>
-        <button type="submit" class="button" style="min-height: 44px;" data-wizard-submit>@(isEdit ? "💾 Lagre" : "✓ Opprett ressurs")</button>
+                </ol>
+            </details>
+        </aside>
     </div>
 </form>

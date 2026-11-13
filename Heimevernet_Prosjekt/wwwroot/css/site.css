@@ -475,56 +475,83 @@ footer.footer {
     }
 
 
-/* "Ny ressurs" wizard: the step labels, the type cards and the buttons at the bottom (help with AI).
-   Bootstrap colour variables, so it works in both light and dark mode - Docs: https://getbootstrap.com/docs/5.3/customize/color-modes/ */
+/* "Ny ressurs" wizard: the layout, the step line, the cards, "Din ressurs" and the button bar (help with AI).
+   Only Bootstrap colour variables, so it works in both light and dark mode - Docs: https://getbootstrap.com/docs/5.3/customize/color-modes/ */
 .wizard {
-    max-width: 1100px;
+    max-width: 1700px;
     margin: 0 auto;
 }
 
+/* The page title and the line under it */
+.wizard-title {
+    margin-bottom: .25rem;
+    font-size: clamp(1.9rem, 3vw, 2.5rem);
+    font-weight: 700;
+}
+
+.wizard-lead {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+}
+
+/* The step line: numbers with lines between. Done = green ✓, the step you are on = blue "du er her", not started = grey.
+   Icon and text show it too, not only the colour */
 .wizard-steps {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: .5rem;
-    list-style: none;
+    margin: 0 0 1.75rem;
     padding: 0;
-    margin: 0 0 1.5rem;
+    list-style: none;
 }
 
     .wizard-steps li {
         display: flex;
+        flex: 1;
         align-items: center;
-        gap: .4rem;
-        padding: .3rem .75rem .3rem .3rem;
-        border: 1px solid var(--bs-border-color);
-        border-radius: 999px;
+        gap: .5rem;
         color: var(--bs-secondary-color);
-        font-size: .9rem;
+        font-weight: 600;
+        white-space: nowrap;
     }
 
+        .wizard-steps li:last-child {
+            flex: 0 0 auto;
+        }
+
+        /* The line to the next step */
+        .wizard-steps li:not(:last-child)::after {
+            content: "";
+            flex: 1;
+            height: 3px;
+            margin-left: .25rem;
+            border-radius: 2px;
+            background: var(--bs-border-color);
+        }
+
+        .wizard-steps li.is-done {
+            color: var(--bs-success-text-emphasis);
+        }
+
+            .wizard-steps li.is-done::after {
+                background: var(--bs-success-border-subtle);
+            }
+
         .wizard-steps li.is-current {
-            border-color: var(--bs-emphasis-color);
-            color: var(--bs-emphasis-color);
-            font-weight: 600;
+            color: var(--bs-primary-text-emphasis);
         }
 
 .wizard-step-number {
     display: inline-flex;
+    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.6rem;
-    height: 1.6rem;
+    width: 2rem;
+    height: 2rem;
     border-radius: 50%;
     background: var(--bs-tertiary-bg);
-    font-weight: 600;
 }
 
-.wizard-steps li.is-current .wizard-step-number {
-    background: var(--bs-emphasis-color);
-    color: var(--bs-body-bg);
-}
-
-/* A finished step shows ✓ instead of the number, so it is not shown with colour only */
 .wizard-steps li.is-done .wizard-step-number {
     font-size: 0;
     background: var(--bs-success-bg-subtle);
@@ -532,9 +559,176 @@ footer.footer {
 
     .wizard-steps li.is-done .wizard-step-number::after {
         content: "✓";
-        font-size: .9rem;
-        color: var(--bs-success-text-emphasis);
+        font-size: 1rem;
     }
+
+.wizard-steps li.is-current .wizard-step-number {
+    background: var(--bs-primary);
+    color: #fff;
+}
+
+.wizard-steps li.is-current .wizard-step-label::after {
+    content: " – du er her";
+    font-weight: 400;
+}
+
+/* The two columns: the step on the left and "Din ressurs" on the right, the same on all 4 steps */
+.wizard-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 2rem;
+    align-items: start;
+}
+
+/* The top of each step: an icon in a green square, a big heading and a help line */
+.wizard-step-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.wizard-step-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: .75rem;
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+    font-size: 1.6rem;
+}
+
+.wizard-step-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+    /* The heading gets focus when a step opens (screen readers read it), but no frame */
+    .wizard-step-title:focus {
+        outline: none;
+    }
+
+.wizard-help {
+    margin: 0;
+    color: var(--bs-secondary-color);
+}
+
+/* "Detaljer" inside step 2 */
+.wizard-subtitle {
+    margin: 1.5rem 0 .75rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+/* Field names in bold and fields with a clearer border, so the text stands out more */
+.wizard .form-label {
+    font-weight: 600;
+}
+
+.wizard .form-control,
+.wizard .form-select {
+    min-height: 44px;
+    border-color: var(--bs-secondary-color);
+}
+
+/* Step 1: the category cards. The open card and its panel share background and border,
+   so they look like one piece (a tab). grid-auto-flow: dense keeps the other cards in their row
+   Docs: grid-auto-flow - https://developer.mozilla.org/docs/Web/CSS/grid-auto-flow */
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-auto-flow: dense;
+    gap: 1rem;
+}
+
+.category-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 110px;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: left;
+}
+
+    .category-card:hover {
+        border-color: var(--bs-secondary-color);
+    }
+
+    .category-card:focus-visible {
+        outline: 3px solid #0d6efd;
+        outline-offset: 2px;
+    }
+
+    /* The open card: same background as the panel, no bottom border, and a piece that covers the gap down to the panel */
+    .category-card.is-open {
+        z-index: 2;
+        border-color: var(--bs-secondary-color);
+        border-bottom-color: transparent;
+        border-radius: .75rem .75rem 0 0;
+        background: var(--bs-tertiary-bg);
+    }
+
+        .category-card.is-open::after {
+            content: "";
+            position: absolute;
+            left: -1px;
+            right: -1px;
+            bottom: calc(-1rem - 2px);
+            height: calc(1rem + 3px);
+            border: 1px solid var(--bs-secondary-color);
+            border-top: 0;
+            border-bottom: 0;
+            background: var(--bs-tertiary-bg);
+        }
+
+        .category-card.is-open .category-card-arrow {
+            transform: rotate(180deg);
+        }
+
+.category-card-icon {
+    font-size: 2.75rem;
+}
+
+.category-card-name {
+    display: block;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.category-card-types {
+    color: var(--bs-secondary-color);
+    font-size: .9rem;
+}
+
+.category-card-picked {
+    color: var(--bs-success-text-emphasis);
+    font-size: .9rem;
+    font-weight: 600;
+}
+
+.category-card-arrow {
+    margin-left: auto;
+    font-size: 1.25rem;
+    transition: transform .15s;
+}
+
+/* The types under the open card, across the whole row */
+.category-panel {
+    grid-column: 1 / -1;
+    padding: 1rem;
+    border: 1px solid var(--bs-secondary-color);
+    border-radius: .75rem;
+    background: var(--bs-tertiary-bg);
+}
 
 .type-grid {
     display: grid;
@@ -546,13 +740,15 @@ footer.footer {
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: .15rem;
+    align-items: center;
+    gap: .25rem;
     min-height: 44px;
-    padding: .6rem .75rem;
+    padding: .75rem;
     border: 1px solid var(--bs-border-color);
     border-radius: .5rem;
     background: var(--bs-body-bg);
     color: var(--bs-body-color);
+    text-align: center;
     cursor: pointer;
 }
 
@@ -568,8 +764,7 @@ footer.footer {
 
     /* The chosen type: thick border and ✓ in front of the name */
     .type-card:has(input:checked) {
-        border: 2px solid var(--bs-emphasis-color);
-        background: var(--bs-tertiary-bg);
+        border: 2px solid var(--bs-success-text-emphasis);
     }
 
         .type-card:has(input:checked) .type-card-name::before {
@@ -581,6 +776,10 @@ footer.footer {
         outline-offset: 2px;
     }
 
+.type-card-icon {
+    font-size: 1.75rem;
+}
+
 .type-card-name {
     font-weight: 600;
 }
@@ -590,66 +789,234 @@ footer.footer {
     font-size: .8rem;
 }
 
+/* Long names: at most 2 lines, then "…", so all cards keep the same size - Docs: https://developer.mozilla.org/docs/Web/CSS/line-clamp */
+.category-card-name,
+.category-card-types,
+.type-card-name,
+.wizard-summary-text {
+    display: -webkit-box;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+/* Step 2: the questions as small cards in two columns */
+.wizard-questions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.wizard-question {
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    background: var(--bs-body-bg);
+}
+
+    .wizard-question legend {
+        float: none;
+        width: auto;
+        margin-bottom: .5rem;
+        font-size: 1rem;
+    }
+
 .wizard-number {
     max-width: 240px;
 }
 
-.wizard-nav {
+/* Step 4: the map buttons with the place found to the right, and a big map that fills the rest of the window */
+.wizard-place-tools {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: .5rem;
-    margin-top: 1.5rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--bs-border-color);
+    margin: .75rem 0 .25rem;
 }
+
+.wizard-place {
+    margin-left: auto;
+    color: var(--bs-success-text-emphasis);
+    font-weight: 600;
+}
+
+.wizard-map {
+    width: 100%;
+    height: clamp(500px, calc(100vh - 360px), 750px);
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+}
+
+/* The button bar stays at the bottom of the window while the page scrolls, like Airbnb and Vipps
+   Docs: https://developer.mozilla.org/docs/Web/CSS/position#sticky */
+.wizard-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 1100; /* above the Leaflet map, which uses up to 1000 */
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.5rem;
+    padding: 1rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-body-bg);
+}
+
+    .wizard-nav .btn,
+    .wizard-nav .button {
+        min-height: 44px;
+    }
 
     .wizard-nav [data-wizard-next],
     .wizard-nav [data-wizard-submit] {
         margin-left: auto;
     }
 
-/* Step 1 in the wizard: the six category cards (icon, name and all of its types) */
-.category-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
+.wizard-nav-count {
+    color: var(--bs-secondary-color);
 }
 
-.category-card {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    min-height: 130px;
-    padding: 1.25rem 1.5rem;
+/* "Din ressurs": stays in view when the page is scrolled */
+.wizard-summary {
+    position: sticky;
+    top: 1rem;
+}
+
+.wizard-summary-box {
+    padding: 1rem 1.25rem;
     border: 1px solid var(--bs-border-color);
     border-radius: .75rem;
-    background: var(--bs-body-bg);
-    color: var(--bs-body-color);
-    text-align: left;
+    background: var(--bs-tertiary-bg);
 }
 
-    .category-card:hover {
-        border-color: var(--bs-secondary-color);
-        background: var(--bs-tertiary-bg);
-    }
-
-    .category-card:focus-visible {
-        outline: 3px solid #0d6efd;
-        outline-offset: 2px;
-    }
-
-.category-card-icon {
-    font-size: 2.75rem;
-}
-
-.category-card-name {
-    display: block;
-    margin-bottom: .25rem;
+.wizard-summary-title {
+    margin-bottom: .75rem;
     font-size: 1.2rem;
-    font-weight: 600;
+    font-weight: 700;
 }
 
-.category-card-types {
-    color: var(--bs-secondary-color);
-    font-size: .95rem;
-    line-height: 1.4;
+.wizard-summary-short {
+    display: none;
+}
+
+.wizard-summary-picture {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 170px;
+    margin-bottom: .75rem;
+    overflow: hidden;
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+}
+
+    .wizard-summary-picture img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .wizard-summary-picture i {
+        font-size: 3.5rem;
+        color: var(--bs-secondary-color);
+    }
+
+.wizard-summary-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+    /* Each step: green ✓ done, blue ● now, grey ○ not started */
+    .wizard-summary-list li {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .6rem 0;
+        border-top: 1px solid var(--bs-border-color);
+        color: var(--bs-secondary-color);
+    }
+
+        .wizard-summary-list li.is-done {
+            color: var(--bs-body-color);
+        }
+
+            .wizard-summary-list li.is-done > i {
+                color: var(--bs-success-text-emphasis);
+            }
+
+        .wizard-summary-list li.is-now {
+            color: var(--bs-primary-text-emphasis);
+            font-weight: 600;
+        }
+
+            .wizard-summary-list li.is-now .wizard-summary-text::after {
+                content: " – nå";
+                font-weight: 400;
+            }
+
+        .wizard-summary-list li > i {
+            flex-shrink: 0;
+            font-size: 1.15rem;
+        }
+
+    .wizard-summary-list [data-goto] {
+        margin-left: auto;
+    }
+
+.wizard-summary-text {
+    min-width: 0;
+}
+
+/* PC: the summary is always open, so it has no fold arrow */
+@media (min-width: 992px) {
+    .wizard-summary-title {
+        list-style: none;
+    }
+
+        .wizard-summary-title::-webkit-details-marker {
+            display: none;
+        }
+}
+
+/* Phones and small screens: one column, "Din ressurs" as a line at the top that folds out,
+   and only the number on the steps that are not the current one */
+@media (max-width: 991.98px) {
+    .wizard-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wizard-summary {
+        position: static;
+        order: -1;
+    }
+
+    .wizard-summary-title {
+        margin-bottom: 0;
+        cursor: pointer;
+    }
+
+    .wizard-summary-box[open] .wizard-summary-title {
+        margin-bottom: .75rem;
+    }
+
+    .wizard-summary-short {
+        display: inline;
+        font-weight: 400;
+        color: var(--bs-secondary-color);
+    }
+
+    .wizard-summary-picture {
+        height: 120px;
+    }
+
+    .wizard-steps li:not(.is-current) .wizard-step-label {
+        display: none;
+    }
+
+    .wizard-map {
+        height: 400px;
+    }
 }
