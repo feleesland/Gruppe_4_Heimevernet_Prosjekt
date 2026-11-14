@@ -1,8 +1,5 @@
-using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models;
-using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models.Entities;
