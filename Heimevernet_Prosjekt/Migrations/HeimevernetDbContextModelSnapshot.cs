@@ -106,6 +106,24 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int>("AvailabilityKind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AvailableDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AvailableFromDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeSpan?>("AvailableFromTime")
+                        .HasColumnType("time(6)");
+
+                    b.Property<DateTime?>("AvailableToDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeSpan?>("AvailableToTime")
+                        .HasColumnType("time(6)");
+
                     b.Property<string>("City")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
@@ -135,6 +153,11 @@ namespace Heimevernet_Prosjekt.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("double");
+
+                    b.Property<string>("Municipality")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -181,6 +204,103 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("Resources", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceAttribute", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsHidden")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Options")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("ResourceTypeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Unit")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceTypeId");
+
+                    b.ToTable("ResourceAttributes", (string)null);
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceAttributeValue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ResourceAttributeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResourceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceAttributeId");
+
+                    b.HasIndex("ResourceId", "ResourceAttributeId")
+                        .IsUnique();
+
+                    b.ToTable("ResourceAttributeValues", (string)null);
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ResourceCategories", (string)null);
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", b =>
                 {
                     b.Property<int>("Id")
@@ -219,6 +339,10 @@ namespace Heimevernet_Prosjekt.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("double");
+
+                    b.Property<string>("Municipality")
+                        .IsRequired()
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -423,16 +547,28 @@ namespace Heimevernet_Prosjekt.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Examples")
                         .HasMaxLength(300)
                         .HasColumnType("varchar(300)");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("Name")
                         .IsUnique();
@@ -572,6 +708,36 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceAttribute", b =>
+                {
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ResourceType", "ResourceType")
+                        .WithMany("Attributes")
+                        .HasForeignKey("ResourceTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ResourceType");
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceAttributeValue", b =>
+                {
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ResourceAttribute", "ResourceAttribute")
+                        .WithMany()
+                        .HasForeignKey("ResourceAttributeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.Resource", "Resource")
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Resource");
+
+                    b.Navigation("ResourceAttribute");
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeedItem", b =>
                 {
                     b.HasOne("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", "ResourceNeed")
@@ -592,6 +758,16 @@ namespace Heimevernet_Prosjekt.Migrations
                         .IsRequired();
 
                     b.Navigation("ResourceNeedItem");
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceType", b =>
+                {
+                    b.HasOne("Heimevernet_Prosjekt.Models.Entities.ResourceCategory", "Category")
+                        .WithMany("Types")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -645,6 +821,11 @@ namespace Heimevernet_Prosjekt.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceCategory", b =>
+                {
+                    b.Navigation("Types");
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeed", b =>
                 {
                     b.Navigation("Items");
@@ -653,6 +834,11 @@ namespace Heimevernet_Prosjekt.Migrations
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceNeedItem", b =>
                 {
                     b.Navigation("Requests");
+                });
+
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.ResourceType", b =>
+                {
+                    b.Navigation("Attributes");
                 });
 #pragma warning restore 612, 618
         }

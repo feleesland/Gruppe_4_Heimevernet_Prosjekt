@@ -167,8 +167,10 @@ public sealed class ResourceControllerTests
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         var userManager = new Mock<UserManager<ApplicationUser>>(
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        var requests = new Mock<IResourceRequestRepository>();
+        requests.Setup(r => r.GetResourceIdsInUse()).Returns(new HashSet<int>()); // no resources are lent out in these tests
 
-        return new ResourceController(repository.Object, authorization.Object, userManager.Object, new Mock<IResourceTypeRepository>().Object)
+        return new ResourceController(repository.Object, authorization.Object, userManager.Object, new Mock<IResourceTypeRepository>().Object, requests.Object)
         {
             ControllerContext = new ControllerContext
             {

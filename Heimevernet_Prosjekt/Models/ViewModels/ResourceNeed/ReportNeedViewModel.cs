@@ -42,6 +42,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         [Display(Name = "Poststed")]
         [MaxLength(100)]
         public string? City { get; set; }
+        // The municipality from Kartverket, filled in by location-picker.js (hidden field)
+        [MaxLength(100)]
+        public string? Municipality { get; set; }
 
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }

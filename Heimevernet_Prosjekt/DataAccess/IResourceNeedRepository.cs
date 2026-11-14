@@ -5,11 +5,11 @@ namespace Heimevernet_Prosjekt.DataAccess
 {
     public interface IResourceNeedRepository
     {
-        ResourceNeed Create(ResourceNeedViewModel model);
+        //ResourceNeed Create(ResourceNeedViewModel model); ikke i bruk
         bool Delete(int id);
         IReadOnlyCollection<ResourceNeed> GetAll();
         ResourceNeed? GetById(int id);
-        bool Update(int id, ResourceNeedViewModel model);
+        //bool Update(int id, ResourceNeedViewModel model); ikke i bruk
         int RemoveOwner(string ownerId);
         int DeleteAllByOwner(string ownerId);
 

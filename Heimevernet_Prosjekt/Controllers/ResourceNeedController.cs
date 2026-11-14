@@ -192,6 +192,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 NeededFrom = need.NeededFrom,
                 NeededTo = need.NeededTo,
                 ClosedAt = need.ClosedAt,
+                Status = NeedStatusRules.For(need, _requestRepository.GetForNeed(need.Id)),
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
             ViewData["Log"] = _resourceNeedRepository.GetLog(id.Value);
@@ -264,10 +265,10 @@ namespace Heimevernet_Prosjekt.Controllers
                     continue;
                 }
 
-                // Already asked on this line (and still waiting or accepted)
-                var asked = itemRequests
-                    .Where(request => request.Status == RequestStatus.Godtatt ||
-                                      (request.Status == RequestStatus.Sendt && !request.IsUnanswered(now)))
+                // Already asked in this need (on any line): waiting, not answered or accepted.
+                // Not answered: give more time or withdraw it first, instead of asking again
+                var asked = requests
+                    .Where(request => request.Status == RequestStatus.Godtatt || request.Status == RequestStatus.Sendt)
                     .Select(request => request.ResourceId)
                     .ToHashSet();
 
@@ -330,6 +331,10 @@ namespace Heimevernet_Prosjekt.Controllers
                         Urgency = r.Urgency,
                         NeededFrom = r.NeededFrom,
                         ClosedAt = r.ClosedAt,
+                        Status = NeedStatusRules.For(r, _requestRepository.GetForNeed(r.Id)),
+                        CreatedAt = r.CreatedAt,
+                        City = r.City,
+                        Municipality = r.Municipality,
                         Items = r.Items.ToList()
                     });
                 }

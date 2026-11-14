@@ -10,136 +10,176 @@
 
 <h1>@ViewData["Title"]</h1>
 
-<a class="button"
-   asp-controller="ResourceHandler"
-   asp-action="Create">
-    + Opprett ny ressurs
-</a>
+<div class="no-print">
+    <a class="button"
+       asp-controller="ResourceHandler"
+       asp-action="Create">
+        + Opprett ny ressurs
+    </a>
 
-@* Admin and operator see everyone's resources: "Alle | Mine" lets them see only their own. The search/filter in the URL is kept *@
-@if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
-{
-    var onlyMine = Context.Request.Query["mine"] == "true";
-    var allQuery = Context.Request.Query
-        .Where(q => q.Key != "mine")
-        .ToDictionary(q => q.Key, q => (string?)q.Value.ToString());
-    var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
-    var listUrl = Url.Action("List", "Resource")!;
+    @* Admin and operator see everyone's resources: "Alle | Mine" lets them see only their own. The search/filter in the URL is kept *@
+    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+    {
+        var onlyMine = Context.Request.Query["mine"] == "true";
+        var allQuery = Context.Request.Query
+            .Where(q => q.Key != "mine")
+            .ToDictionary(q => q.Key, q => (string?)q.Value.ToString());
+        var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
+        var listUrl = Url.Action("List", "Resource")!;
 
-    <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
-        <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
-           class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
-           aria-current="@(onlyMine ? null : "page")">Alle</a>
-        <a href="@QueryHelpers.AddQueryString(listUrl, mineQuery)"
-           class="btn @(onlyMine ? "btn-secondary" : "btn-outline-secondary")"
-           aria-current="@(onlyMine ? "page" : null)">Mine</a>
-    </div>
-}
+        <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
+            <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
+               class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
+               aria-current="@(onlyMine ? null : "page")">Alle</a>
+            <a href="@QueryHelpers.AddQueryString(listUrl, mineQuery)"
+               class="btn @(onlyMine ? "btn-secondary" : "btn-outline-secondary")"
+               aria-current="@(onlyMine ? "page" : null)">Mine</a>
+        </div>
+    }
+</div>
 
-@* Shows the active search/filter from the menu, with links to the map and to clear it (text, not only color) *@
+@* Admin and operator: number of open "feil info" messages per resource (fetched once, not per row). Only admin can resolve them *@
 @{
-    var query = Context.Request.Query;
-    var activeSearch = query["search"].ToString();
-    var activeType = query["type"].ToString();
-    var activeWhere = query["where"].ToString();
-    var hasPlace = query["lat"].ToString() != "";
-}
-@if (activeSearch != "" || activeType != "" || hasPlace)
-{
-    <div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
-        <span>
-            <strong>Filter aktivt:</strong>
-            @if (activeSearch != "")
-            {
-                <span>«@activeSearch»</span>
-            }
-            @if (activeType != "")
-            {
-                <span>· type @activeType</span>
-            }
-            @if (hasPlace)
-            {
-                <span>· innen @query["radius"] km fra @(activeWhere == "" ? "valgt punkt" : activeWhere)</span>
-            }
-        </span>
-        <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="button">Vis på kart</a>
-        <a asp-action="List" class="btn btn-sm btn-outline-secondary">Nullstill</a>
-    </div>
-}
-
-@* Admin: number of open messages per resource, for the "⚑ X meldinger" marker (fetched once, not per row) *@
-@{
-    var openReports = User.IsInRole(RoleNames.Admin)
+    var openReports = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)
         ? ReportRepository.CountOpenByResource()
         : new Dictionary<int, int>();
 }
 
-@if (!Model.Any())
-{
-    <p>Ingen ressurser funnet.</p>
-}
-else
-{
-    @* Allow horizontal scrolling when the table does not fit. *@
-    <div class="table-responsive"
-         role="region"
-         aria-label="Registrerte ressurser"
-         tabindex="0">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th scope="col">Navn</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Beskrivelse</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Handlinger</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in Model)
-                {
-                    <tr>
-                        <td>
-                            <a asp-controller="Resource"
-                               asp-action="Index"
-                               asp-route-id="@r.Id">@r.Name</a>
-                        </td>
-                        <td>@r.Type</td>
-                        <td>@r.Description</td>
-                        <td>@r.Status</td>
-                        <td>
-                            @* Keep space between buttons and allow wrapping. *@
-                            <div class="d-flex flex-wrap gap-2">
-                                @* Rediger only shows if the user is allowed (CanEdit set in ResourceController). Slett is on the resource page (Resource/Index) *@
-                                @if (r.CanEdit)
-                                {
-                                    @* A minimum height of 44px makes tapping easier. *@
-                                    <a class="btn btn-secondary d-inline-flex align-items-center justify-content-center"
-                                       style="min-height: 44px; min-width: 44px;"
-                                       asp-controller="ResourceHandler"
-                                       asp-action="Edit"
-                                       asp-route-id="@r.Id">
-                                        Rediger
-                                    </a>
-                                }
+<div class="row g-4">
+    @* The same filter as on Kart (Views/Shared/_ResourceFilter.cshtml), as a column on the left.
+       On small screens it is folded in behind the "Filter" button, so the list comes first - Docs: Bootstrap Collapse *@
+    <aside class="col-md-4 col-lg-3 col-xxl-2 no-print" aria-label="Filter">
+        <button type="button" class="btn btn-success w-100 d-md-none mb-2 d-flex align-items-center justify-content-center gap-2"
+                data-bs-toggle="collapse" data-bs-target="#listFilter" aria-expanded="false" aria-controls="listFilter">
+            <i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="rfCount" class="badge text-bg-light" hidden></span> <i class="ti ti-chevron-down" aria-hidden="true"></i>
+        </button>
+        <div id="listFilter" class="collapse d-md-block">
+            <h2 class="h5 d-none d-md-block">Filter</h2>
+            <partial name="_ResourceFilter" />
+        </div>
+    </aside>
 
-                                @* Admin: open messages from operators - icon + text, so it doesn't rely on color alone *@
-                                @if (r.Id != null && openReports.TryGetValue(r.Id.Value, out var reportCount))
-                                {
-                                    <a class="btn btn-warning d-inline-flex align-items-center justify-content-center"
-                                       style="min-height: 44px;"
-                                       asp-controller="Resource"
+    <div class="col-md-8 col-lg-9 col-xxl-10">
+        @* What is chosen (chips with ✕), the number of resources, and links to the map and to print *@
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+            <strong id="listCount" aria-live="polite"></strong>
+            <div id="rfChips" class="rf-chips" hidden></div>
+            <span class="ms-auto d-flex gap-2 no-print">
+                <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="btn btn-outline-secondary">🗺️ Vis på kart</a>
+                <button type="button" class="btn btn-outline-secondary" onclick="window.print()">🖨 Skriv ut</button>
+            </span>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <p>Ingen ressurser funnet.</p>
+        }
+        else
+        {
+            <p id="listEmpty" hidden>Ingen ressurser passer filteret.</p>
+            @* Allow horizontal scrolling when the table does not fit. *@
+            <div class="table-responsive"
+                 role="region"
+                 aria-label="Registrerte ressurser"
+                 tabindex="0">
+                <table id="resourceTable" class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Navn</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Beskrivelse</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="no-print">Handlinger</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model)
+                        {
+                            @* data-*: used by the filter to hide rows without reloading. InvariantCulture gives 58.14 (not 58,14), so JS can read the position *@
+                            <tr data-type="@r.Type" data-status="@r.Status" data-municipality="@r.Municipality" data-lat="@r.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@r.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                                <td>
+                                    <a asp-controller="Resource"
                                        asp-action="Index"
-                                       asp-route-id="@r.Id"
-                                       aria-label="@reportCount @(reportCount == 1 ? "åpen melding" : "åpne meldinger") til admin">
-                                        ⚑ @reportCount @(reportCount == 1 ? "melding" : "meldinger")
-                                    </a>
-                                }
-                            </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                                       asp-route-id="@r.Id">@r.Name</a>
+                                </td>
+                                <td>@r.Type</td>
+                                <td>@r.Description</td>
+                                <td>@r.Status</td>
+                                <td class="no-print">
+                                    @* Keep space between buttons and allow wrapping. *@
+                                    <div class="d-flex flex-wrap gap-2">
+                                        @* Rediger only shows if the user is allowed (CanEdit set in ResourceController). Slett is on the resource page (Resource/Index) *@
+                                        @if (r.CanEdit)
+                                        {
+                                            @* A minimum height of 44px makes tapping easier. *@
+                                            <a class="btn btn-secondary d-inline-flex align-items-center justify-content-center"
+                                               style="min-height: 44px; min-width: 44px;"
+                                               asp-controller="ResourceHandler"
+                                               asp-action="Edit"
+                                               asp-route-id="@r.Id">
+                                                Rediger
+                                            </a>
+                                        }
+
+                                        @* Admin: open messages from operators - icon + text, so it doesn't rely on color alone *@
+                                        @if (r.Id != null && openReports.TryGetValue(r.Id.Value, out var reportCount))
+                                        {
+                                            <a class="btn btn-warning d-inline-flex align-items-center justify-content-center"
+                                               style="min-height: 44px;"
+                                               asp-controller="Resource"
+                                               asp-action="Index"
+                                               asp-route-id="@r.Id"
+                                               aria-label="@reportCount @(reportCount == 1 ? "melding" : "meldinger") om feil i ressursen">
+                                                ⚑ @reportCount meldt som feil
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
     </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/resource-filter.js" asp-append-version="true"></script>
+    <script>
+        // Ressursoversikt: type and status hide rows right away, without reloading.
+        // Search and "Mine" are done by the server, so the page reloads when they change (help with AI)
+        (function () {
+            var resources = Array.from(document.querySelectorAll('#resourceTable tbody tr')).map(function (row) {
+                return { type: row.dataset.type, status: row.dataset.status, municipality: row.dataset.municipality, latitude: row.dataset.lat, longitude: row.dataset.lng, row: row };
+            });
+            var start = Object.fromEntries(new URLSearchParams(window.location.search));
+            var serverKeys = ['search', 'type'];
+
+            function show(params) {
+                var shown = 0;
+                resources.forEach(function (r) {
+                    var ok = ResourceFilter.matches(r, params);
+                    r.row.hidden = !ok;
+                    if (ok) shown++;
+                });
+                document.getElementById('listCount').textContent = shown === 1 ? '1 ressurs' : shown + ' ressurser';
+                var empty = document.getElementById('listEmpty');
+                if (empty) empty.hidden = shown > 0;
+                ResourceFilter.render(resources, params);
+            }
+
+            // Called by site.js when something in the filter changes
+            window.onResourceSearch = function (params) {
+                if (serverKeys.some(function (k) { return (params[k] || '') !== (start[k] || ''); })) {
+                    if (start.mine) params.mine = start.mine;
+                    window.location.href = window.location.pathname + '?' + new URLSearchParams(params);
+                    return;
+                }
+                show(params);
+            };
+
+            show(start);
+        })();
+    </script>
 }

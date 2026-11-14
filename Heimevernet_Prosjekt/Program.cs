@@ -107,6 +107,7 @@ using (var scope = app.Services.CreateScope())
         await IdentitySeeder.SeedDevelopmentUserAsync(userManager);
 
         ResourceDbSeeder.SeedTestResources(db);
+        ResourceDbSeeder.SeedOneTestPerType(db);
     }
 }
 

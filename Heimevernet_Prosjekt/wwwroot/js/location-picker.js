@@ -3,9 +3,7 @@
 
 // 1. Lag kartet (starter i Kristiansand)
 const pickMap = L.map('pickMap').setView([58.14671, 7.9956], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(pickMap);
+addMapPictures(pickMap);
 
 // 2. Feltene i skjemaet vi trenger
 const latInput = document.getElementById('Latitude');
@@ -38,6 +36,12 @@ function showPosition(lat, lng, message) {
     statusText.textContent = message;
 }
 
+// The municipality ("KRISTIANSAND") from Kartverket, for the region in the filters. Only forms with the field get it
+function setMunicipality(name) {
+    const field = document.getElementById('Municipality');
+    if (field) field.value = name ?? '';
+}
+
 // 5. Finner nærmeste adresse til et punkt og fyller inn skjemaet (help with AI) - Docs: Kartverket Adresse-API, punktsok
 // https://ws.geonorge.no/adresser/v1/#/default/get_punktsok
 async function fillAddress(lat, lng) {
@@ -50,6 +54,7 @@ async function fillAddress(lat, lng) {
         document.getElementById('Address').value = a.adressetekst ?? '';
         document.getElementById('ZipCode').value = a.postnummer ?? '';
         document.getElementById('City').value = a.poststed ?? '';
+        setMunicipality(a.kommunenavn);
     } catch {
         // Ingen adresse funnet, koordinatene lagres uansett
     }
@@ -87,6 +92,7 @@ document.getElementById('findOnMap').addEventListener('click', async () => {
             statusText.textContent = 'Fant ikke adressen. Klikk på kartet i stedet.';
             return;
         }
+        setMunicipality(a.kommunenavn);
         showPosition(a.representasjonspunkt.lat, a.representasjonspunkt.lon,
             'Adressen ble funnet. Sjekk at markøren står riktig.');
     } catch {
@@ -121,4 +127,38 @@ if (latInput.value && lngInput.value) {
     if (!document.getElementById('Address').value) {
         fillAddress(startLat, startLng);
     }
+}
+
+// The page can move the pin to the place in the hidden fields (used when the form comes from the side panel on the map)
+window.moveResourcePin = () => showPosition(parseFloat(latInput.value), parseFloat(lngInput.value), '');
+
+// In the side panel on the map ("Rediger" from Kart): the resource is moved on the big map, not on the small one here.
+// While step 3 is shown, the big map gets a blue pin; it sends the new place back here (help with AI)
+// Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
+const inPanel = window.parent !== window && document.getElementById('resourceWizard') !== null;
+if (inPanel) {
+    const placeStep = document.getElementById('pickMap').closest('.wizard-step');
+    const hint = document.createElement('div');
+    hint.className = 'alert alert-success py-2';
+    hint.innerHTML = '<i class="ti ti-pointer" aria-hidden="true"></i> Trykk på kartet eller dra den blå nålen for å flytte ressursen.';
+    document.getElementById('pickMap').style.display = 'none';
+    document.getElementById('pickMap').after(hint);
+
+    const send = (data) => window.parent.postMessage(data, window.location.origin);
+    const tellMap = () => send({ type: 'place-mode', on: !placeStep.hidden, lat: parseFloat(latInput.value) || null, lng: parseFloat(lngInput.value) || null });
+    new MutationObserver(tellMap).observe(placeStep, { attributes: true, attributeFilter: ['hidden'] });
+    window.addEventListener('pagehide', () => send({ type: 'place-mode', on: false }));
+
+    // The map sends a new place: fill in the fields and the address, like a click on the small map
+    window.addEventListener('message', (e) => {
+        if (e.origin !== window.location.origin || e.data?.type !== 'place-picked') return;
+        setPosition(e.data.lat, e.data.lng);
+        fillAddress(e.data.lat, e.data.lng);
+        statusText.textContent = 'Plassering valgt på kartet.';
+    });
+    // "Finn på kartet" or "Bruk min posisjon" here: the pin on the big map moves too
+    latInput.addEventListener('change', () => {
+        if (!placeStep.hidden) send({ type: 'place-pin', lat: parseFloat(latInput.value), lng: parseFloat(lngInput.value) });
+    });
+    tellMap();
 }

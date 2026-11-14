@@ -505,6 +505,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Address = need.Address,
                 ZipCode = need.ZipCode,
                 City = need.City,
+                Municipality = need.Municipality,
                 Latitude = need.Latitude,
                 Longitude = need.Longitude,
                 NeededFrom = ToOslo(need.NeededFrom),

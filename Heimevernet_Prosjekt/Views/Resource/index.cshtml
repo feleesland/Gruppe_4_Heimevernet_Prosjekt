@@ -5,21 +5,36 @@
 @using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 @{
-    ViewData["Title"] = Model.Name;
+    ViewData["Title"] = "Ressurs";
+    // In the side panel on the map (?embed=1): no menu, and the name on top
+    var embed = Context.Request.Query["embed"] == "1";
+    if (embed)
+    {
+        Layout = "_EmbedLayout";
+    }
 }
-<h1 class="text-break">@Model.Name</h1>
+
+@if (embed)
+{
+    <h2 class="h4 mb-0">@Model.Name</h2>
+    <div class="small text-body-secondary mb-3">@Model.Type · @Model.Status</div>
+}
+
 @* Rediger/Slett only show when the user is allowed (CanEdit/CanDelete set in ResourceController.Index) *@
 @if (Model.CanEdit || Model.CanDelete)
 {
-    
+    @if (!embed)
+    {
+        <h1>@ViewData["Title"]</h1>
+    }
     <div class="d-flex flex-wrap gap-2 mb-3">
         @if (Model.CanEdit)
         {
-            <a class="btn btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id">Rediger</a>
+            <a class="btn btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id" asp-route-embed="@(embed ? "1" : null)">Rediger</a>
         }
         @if (Model.CanDelete)
         {
-            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@Model.Id" method="post" class="m-0">
+            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@Model.Id" method="post" class="m-0" target="_top">
                 <button type="submit" class="btn btn-danger"
                         onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
                     Slett
@@ -139,26 +154,33 @@
 }
 
 
-@* Admin: open messages from operators about this resource, with "Marker som løst" - Docs: Dependency injection into views *@
+@* Admin and operator see what has been reported as wrong. Only admin can mark it as resolved - Docs: Dependency injection into views *@
 @* https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection *@
-@if (User.IsInRole(RoleNames.Admin) && Model.Id != null)
+@if ((User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)) && Model.Id != null)
 {
     var reports = ReportRepository.GetOpenForResource(Model.Id.Value);
     if (reports.Count > 0)
     {
         <div class="alert alert-warning">
-            <h5 class="alert-heading">⚑ Meldinger til admin (@reports.Count)</h5>
+            <h5 class="alert-heading">⚑ Meldt som feil (@reports.Count)</h5>
+            @if (!User.IsInRole(RoleNames.Admin))
+            {
+                <p class="small mb-1">Admin er varslet og retter opp. Vurder om ressursen kan brukes.</p>
+            }
             @foreach (var report in reports)
             {
                 var sent = TimeZoneInfo.ConvertTimeFromUtc(report.CreatedAt, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
                 <div class="border-top pt-2 mt-2">
                     <div class="small">@report.ReporterEmail · @sent.ToString("dd.MM.yyyy HH:mm")</div>
-                    <p class="mb-2">@report.Message</p>
-                    <form asp-controller="ResourceReport" asp-action="Resolve" method="post" class="m-0">
-                        <input type="hidden" name="id" value="@report.Id" />
-                        <input type="hidden" name="resourceId" value="@Model.Id" />
-                        <button type="submit" class="btn btn-sm btn-success">✓ Marker som løst</button>
-                    </form>
+                    <p class="mb-2">«@report.Message»</p>
+                    @if (User.IsInRole(RoleNames.Admin))
+                    {
+                        <form asp-controller="ResourceReport" asp-action="Resolve" method="post" class="m-0">
+                            <input type="hidden" name="id" value="@report.Id" />
+                            <input type="hidden" name="resourceId" value="@Model.Id" />
+                            <button type="submit" class="btn btn-sm btn-success">✓ Marker som løst</button>
+                        </form>
+                    }
                 </div>
             }
         </div>
@@ -167,6 +189,25 @@
 
 <p>@Model.Description</p>
 <p>Type: @Model.Type</p>
+@* When it can be used (from "Ny ressurs", step 2), and "Ledig fra 16:00" when it is outside its times right now *@
+@{
+    string[] dayShort = ["man", "tir", "ons", "tor", "fre", "lør", "søn"];
+    var days = Enumerable.Range(0, 7).Where(i => Model.AvailableDayBits.Contains(1 << i)).Select(i => dayShort[i]).ToList();
+    var dayText = days.Count == 7 ? "alle dager" : Model.AvailableDayBits.Sum() == 31 ? "man–fre" : string.Join(", ", days);
+    var availabilityText = Model.AvailabilityKind switch
+    {
+        AvailabilityKind.Weekly => $"{Model.AvailableFromTime?.ToString(@"hh\:mm")}–{Model.AvailableToTime?.ToString(@"hh\:mm")}, {dayText}",
+        AvailabilityKind.Period => $"{Model.AvailableFromDate?.ToString("dd.MM.yyyy")}–{Model.AvailableToDate?.ToString("dd.MM.yyyy")}",
+        _ => "Hele tiden"
+    };
+}
+<p>
+    <i class="ti ti-clock" aria-hidden="true"></i> Tilgjengelig: @availabilityText
+    @if (Model.FreeFrom != null)
+    {
+        <span class="badge text-bg-secondary ms-1">@Model.FreeFrom</span>
+    }
+</p>
 @if (Model.HasImage)
 {
     <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="img-fluid mb-3" style="max-height: 300px;" />
@@ -273,18 +314,22 @@ else if (Model.OwnerEmail != null)
         </div>
     }
 }
-@if (Model.Latitude != null && Model.Longitude != null)
+@if (!embed && Model.Latitude != null && Model.Longitude != null)
 {
     <a class="btn btn-sm btn-outline-secondary mb-2" asp-controller="Home" asp-action="Map" asp-route-focus="@Model.Id">🗺 Vis på hovedkartet</a>
 }
 
-@if (Model.Latitude != null && Model.Longitude != null)
+@if (!embed && Model.Latitude != null && Model.Longitude != null)
 {
     <div id="detailMap" style="height: 300px;"
          data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
          data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
 }
 
+@if (embed)
+{
+            <a class="btn btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id" target="_top">Rediger</a>
+}
 @section Scripts {
     <script>
         // Show the resource's position on a small map - Docs: Leaflet API reference
@@ -294,9 +339,7 @@ else if (Model.OwnerEmail != null)
             const lat = parseFloat(mapDiv.dataset.lat);
             const lng = parseFloat(mapDiv.dataset.lng);
             const detailMap = L.map('detailMap').setView([lat, lng], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(detailMap);
+            addMapPictures(detailMap);
             L.marker([lat, lng]).addTo(detailMap);
         }
     </script>
