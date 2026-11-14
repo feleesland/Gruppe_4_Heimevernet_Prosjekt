@@ -106,6 +106,24 @@ namespace Heimevernet_Prosjekt.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<int>("AvailabilityKind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AvailableDays")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("AvailableFromDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeSpan?>("AvailableFromTime")
+                        .HasColumnType("time(6)");
+
+                    b.Property<DateTime?>("AvailableToDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<TimeSpan?>("AvailableToTime")
+                        .HasColumnType("time(6)");
+
                     b.Property<string>("City")
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");

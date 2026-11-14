@@ -67,6 +67,7 @@
         }
         // The summary on the right follows the step
         updateSummary();
+        updateMoreHint();
     }
 
     // Checks the fields in the step before going on. Step 1: a type must be chosen.
@@ -254,6 +255,84 @@
         if (!narrow.matches) e.preventDefault();
     });
 
+    // "Rull ned for mer" in the button bar when part of the step (e.g. the bottom of the map) is hidden under it (help with AI)
+    const moreHint = form.querySelector('[data-more-hint]');
+    const nav = form.querySelector('.wizard-nav');
+    function updateMoreHint() {
+        const stepBottom = steps[current].getBoundingClientRect().bottom;
+        moreHint.hidden = stepBottom <= nav.getBoundingClientRect().top + 10;
+    }
+    moreHint.addEventListener('click', () => window.scrollBy({ top: window.innerHeight * 0.6, behavior: 'smooth' }));
+    window.addEventListener('scroll', updateMoreHint, { passive: true });
+    window.addEventListener('resize', updateMoreHint);
+    // Also when the page changes height after loading (icon font, the "Velkommen tilbake" message) - Docs: https://developer.mozilla.org/docs/Web/API/ResizeObserver
+    new ResizeObserver(updateMoreHint).observe(document.body);
+
+    // Not logged in: "Logg inn for å opprette" saves what is filled in (a draft) in the browser and goes to login.
+    // After login (or register + confirm email) the user comes back here and the draft is filled in again (help with AI)
+    // Docs: Window.localStorage - https://developer.mozilla.org/docs/Web/API/Window/localStorage
+    const draftKey = 'nyRessursUtkast';
+    const draftMaxAge = 24 * 60 * 60 * 1000; // kept for 24 hours
+    const isGuest = form.dataset.guest === 'true';
+    const isCreate = !form.querySelector('input[name="Id"]');
+    let restored = false;
+
+    function saveDraft() {
+        const fields = [];
+        for (const field of form.elements) {
+            if (!field.name || field.disabled || field.type === 'file' || field.name === '__RequestVerificationToken') continue;
+            if ((field.type === 'radio' || field.type === 'checkbox') && !field.checked) continue;
+            fields.push([field.name, field.value]);
+        }
+        const hadPicture = !!document.getElementById('Image')?.files?.length;
+        try {
+            localStorage.setItem(draftKey, JSON.stringify({ saved: Date.now(), hadPicture, fields }));
+        } catch { /* storage full or blocked: the user has to fill in again */ }
+    }
+
+    function restoreDraft() {
+        let draft = null;
+        try { draft = JSON.parse(localStorage.getItem(draftKey) ?? 'null'); } catch { /* broken draft */ }
+        if (!draft || Date.now() - draft.saved > draftMaxAge) {
+            try { localStorage.removeItem(draftKey); } catch { /* blocked */ }
+            return false;
+        }
+        for (const [name, value] of draft.fields) {
+            form.querySelectorAll(`[name="${CSS.escape(name)}"]`).forEach(field => {
+                if (field.type === 'radio' || field.type === 'checkbox') field.checked = field.value === value;
+                else field.value = value;
+            });
+        }
+        const note = form.querySelector('[data-draft-note]');
+        note.textContent = 'Velkommen tilbake! Det du fylte inn er tatt vare på. Sjekk at alt stemmer, og trykk «Opprett ressurs».'
+            + (draft.hadPicture ? ' Bildet må velges på nytt i steg 2.' : '');
+        note.hidden = false;
+
+        // The marker back on the map (setPosition is in location-picker.js)
+        const lat = parseFloat(document.getElementById('Latitude').value);
+        const lng = parseFloat(document.getElementById('Longitude').value);
+        if (!isNaN(lat) && !isNaN(lng) && typeof setPosition === 'function') setPosition(lat, lng);
+        return true;
+    }
+
+    form.addEventListener('submit', e => {
+        if (isGuest) {
+            e.preventDefault();
+            // The name is required: show step 2 with the error instead of going to login without it
+            if (!document.getElementById('Name').value.trim()) {
+                showStep(1);
+                if (window.jQuery && jQuery.fn.valid) jQuery('#Name').valid();
+                return;
+            }
+            saveDraft();
+            window.location.href = form.dataset.loginUrl;
+            return;
+        }
+        // Logged in: the draft is used now, so it is deleted
+        try { localStorage.removeItem(draftKey); } catch { /* blocked */ }
+    });
+
+    if (isCreate) restored = restoreDraft();
     // Start: the chosen type's category is open (Edit), otherwise all are closed.
     // Then the step with a server error (e.g. missing name), otherwise step 1
     const checkedGroup = form.querySelector('input[name="Type"]:checked')?.closest('[data-types-for]');
@@ -261,5 +340,5 @@
     markPicked();
     showQuestions();
     const errorStep = steps.findIndex(step => step.querySelector('.field-validation-error'));
-    showStep(errorStep >= 0 ? errorStep : 0, errorStep >= 0);
+    showStep(errorStep >= 0 ? errorStep : restored ? last : 0, errorStep >= 0 || restored);
 })();

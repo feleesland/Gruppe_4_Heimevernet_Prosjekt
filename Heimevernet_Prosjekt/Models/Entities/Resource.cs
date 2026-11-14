@@ -14,6 +14,21 @@ namespace Heimevernet_Prosjekt.Models.Entities
         public string? UnavailableReason { get; set; }
 
         public DateTime? UnavailableUntil { get; set; }
+
+        // When the resource can be used (help with AI): always, at fixed times (e.g. 16:00-08:00 Mon-Fri) or in one period.
+        // Norwegian time. Checked in Services/ResourceAvailabilityService.cs
+        public AvailabilityKind AvailabilityKind { get; set; } = AvailabilityKind.Always;
+
+        public TimeSpan? AvailableFromTime { get; set; }
+
+        public TimeSpan? AvailableToTime { get; set; }
+
+        // The weekdays as bits: Monday = 1, Tuesday = 2 ... Sunday = 64. 31 = Mon-Fri, 127 = every day
+        public int AvailableDays { get; set; } = 127;
+
+        public DateTime? AvailableFromDate { get; set; }
+
+        public DateTime? AvailableToDate { get; set; }
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;

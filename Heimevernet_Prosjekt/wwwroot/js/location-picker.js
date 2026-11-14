@@ -128,3 +128,37 @@ if (latInput.value && lngInput.value) {
         fillAddress(startLat, startLng);
     }
 }
+
+// The page can move the pin to the place in the hidden fields (used when the form comes from the side panel on the map)
+window.moveResourcePin = () => showPosition(parseFloat(latInput.value), parseFloat(lngInput.value), '');
+
+// In the side panel on the map ("Rediger" from Kart): the resource is moved on the big map, not on the small one here.
+// While step 3 is shown, the big map gets a blue pin; it sends the new place back here (help with AI)
+// Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
+const inPanel = window.parent !== window && document.getElementById('resourceWizard') !== null;
+if (inPanel) {
+    const placeStep = document.getElementById('pickMap').closest('.wizard-step');
+    const hint = document.createElement('div');
+    hint.className = 'alert alert-success py-2';
+    hint.innerHTML = '<i class="ti ti-pointer" aria-hidden="true"></i> Trykk på kartet eller dra den blå nålen for å flytte ressursen.';
+    document.getElementById('pickMap').style.display = 'none';
+    document.getElementById('pickMap').after(hint);
+
+    const send = (data) => window.parent.postMessage(data, window.location.origin);
+    const tellMap = () => send({ type: 'place-mode', on: !placeStep.hidden, lat: parseFloat(latInput.value) || null, lng: parseFloat(lngInput.value) || null });
+    new MutationObserver(tellMap).observe(placeStep, { attributes: true, attributeFilter: ['hidden'] });
+    window.addEventListener('pagehide', () => send({ type: 'place-mode', on: false }));
+
+    // The map sends a new place: fill in the fields and the address, like a click on the small map
+    window.addEventListener('message', (e) => {
+        if (e.origin !== window.location.origin || e.data?.type !== 'place-picked') return;
+        setPosition(e.data.lat, e.data.lng);
+        fillAddress(e.data.lat, e.data.lng);
+        statusText.textContent = 'Plassering valgt på kartet.';
+    });
+    // "Finn på kartet" or "Bruk min posisjon" here: the pin on the big map moves too
+    latInput.addEventListener('change', () => {
+        if (!placeStep.hidden) send({ type: 'place-pin', lat: parseFloat(latInput.value), lng: parseFloat(lngInput.value) });
+    });
+    tellMap();
+}

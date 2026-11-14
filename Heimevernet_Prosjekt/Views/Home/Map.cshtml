@@ -38,6 +38,27 @@
 </aside>
 @* A short message at the bottom after you choose a resource (gone after 3 seconds) *@
 <div id="mapToast" class="map-toast" role="status" aria-live="polite" hidden></div>
+@* "Ressurser i området" at the bottom of the map: change the distance with the slider, the number, the quick buttons
+   or the white dot on the edge of the circle. Shown when a point is chosen; "Ferdig" makes it small (updateRadiusBar below) *@
+<div id="radiusBar" class="radius-bar" role="group" aria-labelledby="radiusBarTitle" hidden>
+	<div class="d-flex align-items-center gap-2 mb-2">
+		<i class="ti ti-map-pin" aria-hidden="true"></i>
+		<strong id="radiusBarTitle">Ressurser i området</strong>
+		<span id="radiusBarCount" class="ms-auto small text-body-secondary" aria-live="polite"></span>
+	</div>
+	<div class="d-flex align-items-center gap-2 mb-2">
+		<label for="radiusSlider" class="small">Innen</label>
+		<input type="range" id="radiusSlider" class="form-range flex-grow-1" min="0" max="1000" step="1" />
+		<input type="number" id="radiusNumber" class="form-control form-control-sm" style="width: 5rem;" min="0.1" max="500" step="0.1" aria-label="Avstand i km" />
+		<span class="small">km</span>
+	</div>
+	<div class="d-flex flex-wrap align-items-center gap-2">
+		<span id="radiusChips" class="d-flex flex-wrap gap-2"></span>
+		<button type="button" id="radiusRemove" class="btn btn-sm rf-reset ms-auto"><i class="ti ti-x" aria-hidden="true"></i> Fjern</button>
+		<button type="button" id="radiusDone" class="btn btn-sm btn-success"><i class="ti ti-check" aria-hidden="true"></i> Ferdig</button>
+	</div>
+</div>
+<button type="button" id="radiusBarSmall" class="radius-bar-small" hidden></button>
 
 <style>
 
@@ -296,6 +317,60 @@
 		.map-toast[hidden] {
 			display: none;
 		}
+	/* "Ressurser i området" at the bottom of the map, and the small button after "Ferdig". Colours follow light/dark mode */
+	.radius-bar, .radius-bar-small {
+		position: fixed;
+		bottom: 24px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 1050;
+		background: var(--bs-body-bg);
+		color: var(--bs-body-color);
+		border: 1px solid var(--bs-border-color);
+		box-shadow: 0 2px 12px rgba(0,0,0,.35);
+	}
+
+	.radius-bar {
+		width: min(640px, calc(100vw - 24px));
+		padding: 12px 16px;
+		border-radius: 12px;
+	}
+
+	.radius-bar-small {
+		padding: 8px 16px;
+		border-radius: 999px;
+		font-weight: 600;
+	}
+
+		.radius-bar[hidden], .radius-bar-small[hidden] {
+			display: none;
+		}
+
+	.radius-chip {
+		border: 1px solid var(--bs-border-color);
+		border-radius: 999px;
+		padding: 3px 12px;
+		background: none;
+		color: inherit;
+	}
+
+		.radius-chip.active {
+			background: var(--bs-success-bg-subtle);
+			border-color: var(--bs-success-border-subtle);
+			color: var(--bs-success-text-emphasis);
+			font-weight: 600;
+		}
+
+	/* The white dot on the edge of the circle: drag it to change the distance */
+	.radius-handle {
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: #fff;
+		border: 4px solid #3388ff;
+		box-shadow: 0 1px 4px rgba(0,0,0,.5);
+		cursor: ew-resize;
+	}
 	/* + −, Filter and the chips in one row at the top left, like Google Maps */
 	.leaflet-top.leaflet-left {
 		display: flex;
@@ -363,6 +438,31 @@
 		width: 22px;
 		margin-right: 8px;
 		border-top: 2px dashed #378ADD;
+	}
+
+	/* "Endre ressurs" in the panel, step 3: the line at the top of the map, and the other markers faded and not clickable */
+	.place-bar {
+		position: absolute;
+		top: 12px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 1000;
+		background: #1e6447;
+		color: #fff;
+		font-weight: 600;
+		padding: 6px 16px;
+		border-radius: 999px;
+		box-shadow: 0 1px 6px rgba(0,0,0,.35);
+		pointer-events: none;
+	}
+
+	#map.place-mode .leaflet-marker-icon:not(.place-pin) {
+		opacity: .45;
+		pointer-events: none;
+	}
+
+	.place-pin:focus {
+		outline: none;
 	}
 </style>
 
@@ -630,6 +730,7 @@
 
 			var markers = await loadResources(params);
 			document.getElementById('rfResourcesCount').textContent = markers.length;
+			updateRadiusBar(params, markers.length);
 
 			// Only type/status chosen (no search or place): the map stays where it is, so it doesn't jump on every tick
 			if (!params.search && !params.lat) {
@@ -663,6 +764,7 @@
 				map.removeLayer(radiusCircle);
 				radiusCircle = null;
 			}
+			updateRadiusBar({}, 0);
 			await loadResources({});
 			map.setView([resource.latitude, resource.longitude], 16);
 			openResource(resource.id);
@@ -680,13 +782,134 @@
 			});
 		};
 
+			// "Ressurser i området" (help with AI): change the distance right on the map - the slider, the number,
+			// the quick buttons or the white dot on the edge of the circle. It uses the same radius in the URL as the filter
+			// Docs: Leaflet Marker (draggable) - https://leafletjs.com/reference.html#marker
+			var radiusQuick = [1, 2, 5, 10, 50];
+			var radiusHandle = null;
+			var radiusBarSmall = false; // true after "Ferdig", until a new point is chosen
+			var radiusPointKey = '';
+
+			// The slider goes from 0.1 to 500 km, with most of it for short distances (middle = about 7 km)
+			function sliderToKm(value) { return roundKm(0.1 * Math.pow(5000, value / 1000)); }
+			function kmToSlider(km) { return Math.round(1000 * Math.log(km / 0.1) / Math.log(5000)); }
+			function roundKm(km) { return km < 10 ? Math.round(km * 10) / 10 : Math.round(km); }
+			function kmText(km) { return km < 1 ? Math.round(km * 1000) + ' m' : String(km).replace('.', ',') + ' km'; }
+
+			// Use a new radius: the filter, the chips and the circle are updated, and the resources counted again
+			function applyRadius(km) {
+				var params = window.getResourceParams();
+				if (!params.lat) return;
+				params.radius = String(Math.min(Math.max(roundKm(km), 0.1), 500));
+				window.applyResourceParams(params);
+			}
+
+			// While dragging: only the circle and the numbers change; the resources are counted when you let go
+			function previewRadius(km, dragging) {
+				if (!radiusCircle) return;
+				radiusCircle.setRadius(km * 1000);
+				showRadiusNumbers(km, dragging);
+			}
+
+			function showRadiusNumbers(km, dragging) {
+				var slider = document.getElementById('radiusSlider');
+				slider.value = kmToSlider(km);
+				slider.setAttribute('aria-valuetext', kmText(km));
+				document.getElementById('radiusNumber').value = km;
+				if (radiusHandle) {
+					if (!dragging) radiusHandle.setLatLng(edgePoint(km));
+					radiusHandle.setTooltipContent(kmText(km));
+				}
+				document.querySelectorAll('.radius-chip').forEach(function (chip) {
+					var on = parseFloat(chip.dataset.km) === km;
+					chip.classList.toggle('active', on);
+					chip.setAttribute('aria-pressed', on);
+					chip.textContent = (on ? '✓ ' : '') + chip.dataset.km + ' km';
+				});
+			}
+
+			// The point on the right edge of the circle (1 degree of latitude is about 111.32 km)
+			function edgePoint(km) {
+				var center = radiusCircle.getLatLng();
+				return L.latLng(center.lat, center.lng + km / (111.32 * Math.cos(center.lat * Math.PI / 180)));
+			}
+
+			// Called after every search or filter change: show, update or hide the bar, the small button and the dot
+			function updateRadiusBar(params, count) {
+				var bar = document.getElementById('radiusBar');
+				var small = document.getElementById('radiusBarSmall');
+				if (radiusHandle) { map.removeLayer(radiusHandle); radiusHandle = null; }
+				if (!radiusCircle) {
+					bar.hidden = true;
+					small.hidden = true;
+					radiusPointKey = '';
+					return;
+				}
+				var key = params.lat + ',' + params.lng;
+				if (key !== radiusPointKey) radiusBarSmall = false; // a new point: show the whole bar again
+				radiusPointKey = key;
+				var km = roundKm(parseFloat(params.radius));
+				var hits = count === 1 ? '1 treff' : count + ' treff';
+
+				radiusHandle = L.marker(edgePoint(km), {
+					draggable: true,
+					keyboard: false, // the slider and the number field are the keyboard way
+					icon: L.divIcon({ className: '', html: '<div class="radius-handle"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
+				}).bindTooltip(kmText(km), { permanent: true, direction: 'top', offset: [0, -12] }).addTo(map);
+				radiusHandle.on('drag', function (e) {
+					previewRadius(roundKm(Math.max(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000, 0.1)), true);
+				});
+				radiusHandle.on('dragend', function (e) {
+					applyRadius(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000);
+				});
+
+				document.getElementById('radiusBarCount').textContent = hits;
+				small.textContent = '⟷ Innen ' + kmText(km) + ' · ' + hits + ' · Endre';
+				bar.hidden = radiusBarSmall;
+				small.hidden = !radiusBarSmall;
+				showRadiusNumbers(km);
+			}
+
+			// The quick buttons and the other controls in the bar (set up once)
+			radiusQuick.forEach(function (km) {
+				var chip = document.createElement('button');
+				chip.type = 'button';
+				chip.className = 'radius-chip';
+				chip.dataset.km = km;
+				chip.textContent = km + ' km';
+				chip.addEventListener('click', function () { applyRadius(km); });
+				document.getElementById('radiusChips').appendChild(chip);
+			});
+			document.getElementById('radiusSlider').addEventListener('input', function () { previewRadius(sliderToKm(this.value)); });
+			document.getElementById('radiusSlider').addEventListener('change', function () { applyRadius(sliderToKm(this.value)); });
+			document.getElementById('radiusNumber').addEventListener('change', function () {
+				var km = parseFloat(this.value);
+				if (!isNaN(km)) applyRadius(km);
+			});
+			document.getElementById('radiusRemove').addEventListener('click', function () {
+				var params = window.getResourceParams();
+				delete params.lat; delete params.lng; delete params.where; delete params.radius;
+				window.applyResourceParams(params);
+			});
+			document.getElementById('radiusDone').addEventListener('click', function () {
+				radiusBarSmall = true;
+				document.getElementById('radiusBar').hidden = true;
+				document.getElementById('radiusBarSmall').hidden = false;
+			});
+			document.getElementById('radiusBarSmall').addEventListener('click', function () {
+				radiusBarSmall = false;
+				document.getElementById('radiusBarSmall').hidden = true;
+				document.getElementById('radiusBar').hidden = false;
+				document.getElementById('radiusSlider').focus();
+			});
+
 		var resourceCreateUrl = '@Url.Action("Create", "ResourceHandler")';
 		var mapUrl = '@Url.Action("Map", "Home")';
 		var signedIn = @(signedIn ? "true" : "false");
 
 		map.on('click', function (e) {
 			// Not while "Velg punkt på kartet" is choosing the centre of the filter
-			if (pickingCenter || !signedIn) return;
+			if (pickingCenter || placeMode || !signedIn) return;
 
 			var lat = e.latlng.lat.toFixed(6);
 			var lng = e.latlng.lng.toFixed(6);
@@ -851,7 +1074,7 @@
 			document.getElementById('resourcePanelList').hidden = view !== 'list';
 			document.getElementById('resourcePanelFrame').hidden = view !== 'resource';
 			document.getElementById('needPanelFrame').hidden = view !== 'need';
-			document.getElementById('sidePanelFull').hidden = view !== 'need';
+			document.getElementById('sidePanelFull').hidden = view !== 'need' && view !== 'resource';
 			document.getElementById('filterPanelBody').hidden = view !== 'filter';
 			if (view === 'filter') document.getElementById('sidePanelTitle').textContent = 'Filter';
 			if (view === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
@@ -878,6 +1101,96 @@
 			document.getElementById('sidePanelTitle').textContent = '';
 			showView('resource');
 		}
+
+		// "Åpne på egen side ↗" in the panel head follows the page in the panel (the resource, or "Endre ressurs"), without ?embed=1
+		document.getElementById('resourcePanelFrame').addEventListener('load', function () {
+			try {
+				var url = new URL(this.contentWindow.location.href);
+				url.searchParams.delete('embed');
+				document.getElementById('sidePanelFull').href = url.pathname + url.search;
+				// Saved after moving it: draw the resources again, so the green pin stands in the new place
+				if (placeMoved && url.pathname.toLowerCase().startsWith('/resource/index')) { placeMoved = false; loadResources(window.getResourceParams()); }
+			} catch (e) { }
+		});
+		
+		// Moving from the panel to the big form: what is typed and the step you are on come along (sessionStorage, help with AI)
+		document.getElementById('sidePanelFull').addEventListener('click', function () {
+			try {
+				var doc = document.getElementById('resourcePanelFrame').contentDocument;
+				var form = doc && doc.getElementById('resourceWizard');
+				if (panelView !== 'resource' || !form) return;
+				var fields = [];
+				new FormData(form).forEach(function (value, name) { if (typeof value === 'string' && name !== '__RequestVerificationToken') fields.push([name, value]); });
+				var step = Array.from(form.querySelectorAll('.wizard-step')).findIndex(function (s) { return !s.hidden; });
+				sessionStorage.setItem('wizardHandover', JSON.stringify({ path: new URL(this.href, location.href).pathname, fields: fields, step: step }));
+			} catch (e) { }
+		});
+
+		// "Endre ressurs" in the side panel, step 3: the resource is moved on the big map instead of the small one.
+		// Tap the map or drag the blue pin; ↶ Angre in the message at the bottom. Nothing is saved before "Lagre" (help with AI)
+		// Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
+		var placeMode = false, placePin = null, placeStart = null, placeLine = null, placeBar = null, placeHidden = null, placeMoved = false;
+
+		function sendPlace(latlng) {
+			document.getElementById('resourcePanelFrame').contentWindow.postMessage(
+				{ type: 'place-picked', lat: latlng.lat, lng: latlng.lng }, window.location.origin);
+		}
+
+		// Move the pin (and the dotted line from where it stood). send: tell the form in the panel, and offer ↶ Angre
+		function movePlace(latlng, send, before) {
+			before = before || placePin.getLatLng();
+			placePin.setLatLng(latlng);
+			placeLine.setLatLngs([placeStart, latlng]);
+			if (!send) return;
+			placeMoved = true;
+			sendPlace(placePin.getLatLng());
+			var toast = document.getElementById('mapToast');
+			var undo = document.createElement('button');
+			undo.type = 'button';
+			undo.className = 'btn btn-link btn-sm p-0 ms-2 text-info';
+			undo.textContent = '↶ Angre';
+			undo.addEventListener('click', function () { movePlace(before, false); sendPlace(before); toast.hidden = true; });
+			toast.replaceChildren(document.createTextNode('Ressursen er flyttet.'), undo);
+			toast.hidden = false;
+			clearTimeout(toastTimer);
+			toastTimer = setTimeout(function () { toast.hidden = true; }, 6000);
+		}
+
+		function placeOn(lat, lng) {
+			placeOff();
+			placeMode = true;
+			placeStart = lat && lng ? L.latLng(lat, lng) : map.getCenter();
+			map.getContainer().classList.add('place-mode');
+			placeHidden = markersById[openResourceId] || null; // the resource's own green pin is hidden; the blue one takes its place
+			if (placeHidden) markerLayer.removeLayer(placeHidden);
+			placeLine = L.polyline([placeStart, placeStart], { color: '#378ADD', weight: 2, dashArray: '6 6', interactive: false }).addTo(map);
+			placePin = L.marker(placeStart, { draggable: true, zIndexOffset: 1000, icon: new L.Icon.Default({ className: 'place-pin' }) }).addTo(map);
+			var dragFrom = null;
+			placePin.on('dragstart', function () { dragFrom = placePin.getLatLng(); });
+			placePin.on('drag', function () { placeLine.setLatLngs([placeStart, placePin.getLatLng()]); });
+			placePin.on('dragend', function () { movePlace(placePin.getLatLng(), true, dragFrom); });
+			placeBar = L.DomUtil.create('div', 'place-bar', map.getContainer());
+			placeBar.innerHTML = '<i class="ti ti-map-pin" aria-hidden="true"></i> Trykk på kartet eller dra den blå nålen for å flytte ressursen';
+			map.setView(placeStart, Math.max(map.getZoom(), 15));
+		}
+
+		function placeOff() {
+			placeMode = false;
+			map.getContainer().classList.remove('place-mode');
+			[placePin, placeLine, placeBar].forEach(function (item) { if (item) item.remove(); });
+			placePin = placeLine = placeBar = null;
+			if (placeHidden) markerLayer.addLayer(placeHidden);
+			placeHidden = null;
+		}
+
+		// A tap on the map moves the resource while step 3 is open (the normal click menu is off then)
+		map.on('click', function (e) { if (placeMode) movePlace(e.latlng, true); });
+
+		window.addEventListener('message', function (e) {
+			if (e.origin !== window.location.origin || !e.data) return;
+			if (e.data.type === 'place-mode') { if (e.data.on) placeOn(e.data.lat, e.data.lng); else placeOff(); }
+			if (e.data.type === 'place-pin' && placeMode) { movePlace(L.latLng(e.data.lat, e.data.lng), false); map.panTo([e.data.lat, e.data.lng]); }
+		});
 
 		function showClusterList() {
 			if (!lastCluster) return;
@@ -1044,6 +1357,9 @@
 		function moveMapControls() {
 			var panel = document.getElementById('sidePanel');
 			document.querySelector('.leaflet-left').style.left = panel.hidden ? '' : panel.offsetWidth + 'px';
+			// "Ressurser i området" stays in the middle of the part of the map you can see
+			var left = panel.hidden ? 0 : panel.offsetWidth;
+			['radiusBar', 'radiusBarSmall'].forEach(function (id) { document.getElementById(id).style.left = 'calc(' + left + 'px + (100% - ' + left + 'px) / 2)'; });
 		}
 
 		// "Vis på kartet" in the filter (only on Kart): turn resources and needs on and off.

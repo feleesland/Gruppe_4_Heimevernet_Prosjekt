@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using System.Security.Claims;
+using Heimevernet_Prosjekt.Models.Entities;
 
 
 
@@ -44,6 +45,8 @@ namespace Heimevernet_Prosjekt.Controllers
         }
         // From the map's click menu, the place comes in the address (?lat=..&lng=..)
         [HttpGet]
+        // Anyone can fill in the form; saving (POST) still needs login - Docs: https://learn.microsoft.com/aspnet/core/security/authorization/simple
+        [AllowAnonymous]
         public IActionResult Create(double? lat, double? lng)
         {
             LoadTypes();
@@ -56,6 +59,7 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             ValidateImage(model.Image);
             ValidateType(model.Type, null);
+            ValidateAvailability(model);
             if (!ModelState.IsValid)
             {
                 LoadTypes();
@@ -101,7 +105,15 @@ namespace Heimevernet_Prosjekt.Controllers
                 ZipCode = resource.ZipCode,
                 Latitude = resource.Latitude,
                 Longitude = resource.Longitude,
-                CreatedAt = resource.CreatedAt
+                CreatedAt = resource.CreatedAt,
+
+                // "Når er den tilgjengelig?" - the weekdays number is split back into ticked boxes (1, 2, 4 ... 64)
+                AvailabilityKind = resource.AvailabilityKind,
+                AvailableFromTime = resource.AvailableFromTime,
+                AvailableToTime = resource.AvailableToTime,
+                AvailableDayBits = Enumerable.Range(0, 7).Select(i => 1 << i).Where(bit => (resource.AvailableDays & bit) != 0).ToList(),
+                AvailableFromDate = resource.AvailableFromDate,
+                AvailableToDate = resource.AvailableToDate
             };
             model.Answers = _resourceRepository.GetAnswers(id).ToDictionary(v => v.ResourceAttributeId, v => (string?)v.Value);
             LoadTypes();
@@ -117,6 +129,7 @@ namespace Heimevernet_Prosjekt.Controllers
 
             ValidateImage(model.Image);
             ValidateType(model.Type, oldType);
+            ValidateAvailability(model);
             if (!ModelState.IsValid)
             {
                 LoadTypes();
@@ -144,7 +157,13 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return NotFound();
             }
-            _resourceRepository.SaveAnswers(model.Id.Value, model.Answers);
+
+            _resourceRepository.SaveAnswers(model.Id.Value, model.Answers);  
+          // Saved from the side panel on the map: back to the resource in the panel
+            if (Request.Query["embed"] == "1")
+            {
+                return RedirectToAction("Index", "Resource", new { id = model.Id, embed = "1" });
+            }
             return RedirectToAction("List", "Resource");
         }
         [HttpPost]
@@ -215,6 +234,34 @@ namespace Heimevernet_Prosjekt.Controllers
             if (image.Length > MaxImageSize)
             {
                 ModelState.AddModelError(nameof(ResourceViewModel.Image), "Bildet kan ikke være større enn 5 MB.");
+            }
+        }
+
+        // "Når er den tilgjengelig?": fixed times need both times and at least one weekday, a period needs a start date
+        // and an end date that isn't before it. Checked on the server too, like the type (help with AI)
+        private void ValidateAvailability(ResourceViewModel model)
+        {
+            if (model.AvailabilityKind == AvailabilityKind.Weekly)
+            {
+                if (model.AvailableFromTime == null || model.AvailableToTime == null)
+                {
+                    ModelState.AddModelError(nameof(ResourceViewModel.AvailableFromTime), "Velg fra og til klokkeslett.");
+                }
+                if (model.AvailableDayBits.Count == 0)
+                {
+                    ModelState.AddModelError(nameof(ResourceViewModel.AvailableDayBits), "Velg minst én ukedag.");
+                }
+            }
+            else if (model.AvailabilityKind == AvailabilityKind.Period)
+            {
+                if (model.AvailableFromDate == null)
+                {
+                    ModelState.AddModelError(nameof(ResourceViewModel.AvailableFromDate), "Velg når perioden starter.");
+                }
+                else if (model.AvailableToDate != null && model.AvailableToDate < model.AvailableFromDate)
+                {
+                    ModelState.AddModelError(nameof(ResourceViewModel.AvailableToDate), "Sluttdatoen kan ikke være før startdatoen.");
+                }
             }
         }
 

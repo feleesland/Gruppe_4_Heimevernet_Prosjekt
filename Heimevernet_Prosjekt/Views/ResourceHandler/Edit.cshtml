@@ -3,6 +3,11 @@
 
 @{
     ViewData["Title"] = "Endre ressurs";
+    // In the side panel on the map (?embed=1): no menu, like the resource page
+    if (Context.Request.Query["embed"] == "1")
+    {
+        Layout = "_EmbedLayout";
+    }
 }
 
 <div class="wizard">
@@ -17,4 +22,24 @@
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
     <script src="~/js/resource-veiviser.js" asp-append-version="true"></script>
+    <script>
+        // Coming from the side panel on the map ("Åpne på egen side ↗"): fill in what was typed there, and go to the same step (help with AI)
+        (function () {
+            var saved = null;
+            try { saved = JSON.parse(sessionStorage.getItem('wizardHandover')); sessionStorage.removeItem('wizardHandover'); } catch (e) { }
+            var form = document.getElementById('resourceWizard');
+            if (!saved || !form || saved.path.toLowerCase() !== location.pathname.toLowerCase()) return;
+            var names = new Set(saved.fields.map(function (f) { return f[0]; }));
+            form.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function (input) {
+                if (names.has(input.name)) input.checked = saved.fields.some(function (f) { return f[0] === input.name && f[1] === input.value; });
+            });
+            saved.fields.forEach(function (f) {
+                var input = form.querySelector('[name="' + CSS.escape(f[0]) + '"]:not([type=checkbox]):not([type=radio]):not([type=file])');
+                if (input) input.value = f[1];
+            });
+            form.querySelectorAll('input, select, textarea').forEach(function (input) { input.dispatchEvent(new Event('change', { bubbles: true })); });
+            if (window.moveResourcePin && document.getElementById('Latitude').value) moveResourcePin();
+            for (var i = 0; i < saved.step; i++) form.querySelector('[data-wizard-next]').click();
+        })();
+    </script>
 }

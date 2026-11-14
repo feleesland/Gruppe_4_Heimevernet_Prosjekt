@@ -136,6 +136,12 @@ a {
 
 .nav-search {
     flex-grow: 1;
+    min-width: 0; /* the search can get narrower on phones, so everything fits on one row */
+}
+
+/* The bell and the account menu stay on the top row on small screens too: their lists open as a box over the page */
+.navbar .account-nav .dropdown-menu {
+    position: absolute;
 }
 
 .search-box {
@@ -348,14 +354,14 @@ footer.footer {
     /* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
    Narrower when the screen is small, so it never covers the links. On phones the menu folds up, so it stays in the flow */
     @media (min-width: 1460px) {
-        #mainNavigation .nav-search {
+        .navbar .nav-search {
             position: absolute;
             left: 50%;
             transform: translateX(-50%);
             width: clamp(300px, calc(100vw - 1160px), 640px);
         }
 
-        #mainNavigation > .navbar-nav:last-child {
+        .navbar .account-nav {
             margin-left: auto;
         }
     }
@@ -1019,4 +1025,314 @@ footer.footer {
     .wizard-map {
         height: 400px;
     }
+}
+
+/* "Rull ned for mer" in the button bar when part of the step is under it. The arrows move a little, unless animations are turned off */
+.wizard-more {
+    padding: 0;
+    color: var(--bs-primary-text-emphasis);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+    .wizard-more i {
+        display: inline-block;
+        animation: wizard-more-bounce 1.2s ease-in-out infinite;
+    }
+
+@keyframes wizard-more-bounce {
+    50% {
+        transform: translateY(3px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wizard-more i {
+        animation: none;
+    }
+}
+
+/* "Når er den tilgjengelig?" in "Ny ressurs": three choices as rows, the chosen one is green (and has the dot).
+   The fields under a choice only show while it is chosen (help with AI) - Docs: :has() (MDN) - https://developer.mozilla.org/docs/Web/CSS/:has */
+.availability-option {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-top: .5rem;
+    padding: .6rem .9rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .6rem;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+    .availability-option:has(input:checked) {
+        border-color: var(--bs-success);
+        background: var(--bs-success-bg-subtle);
+    }
+
+
+    .availability-option .form-check-input:checked {
+        background-color: var(--bs-success);
+        border-color: var(--bs-success);
+    }
+
+.availability-detail {
+    display: none;
+    padding: .75rem .9rem 0 2.2rem;
+}
+
+.availability-option:has(input:checked) + .availability-detail {
+    display: block;
+}
+
+.availability-time {
+    width: 7.5rem;
+}
+
+.availability-date {
+    width: 11rem;
+}
+
+.availability-day {
+    min-width: 3.2rem;
+}
+
+/* Login and register: a card in the middle of the screen (help with AI) */
+.auth-box {
+    max-width: 460px;
+    margin: 3rem auto;
+    padding: 2rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    background: var(--bs-tertiary-bg);
+}
+
+    .auth-box .button {
+        width: 100%;
+    }
+
+    /* The second button in the login/register box ("Registrer deg" / "Logg inn"): normal text colour, so it doesn't look disabled */
+    .auth-box .btn-outline-secondary {
+        color: var(--bs-body-color);
+        border-color: var(--bs-secondary-color);
+        font-weight: 600;
+    }
+
+        .auth-box .btn-outline-secondary:hover {
+            background: var(--bs-secondary-bg);
+        }
+
+/* "Type ressurs" in the filter, grouped by category (resource-filter.js): ▸/▾, the category's checkbox and the sum */
+.rf-cat {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .2rem 0;
+}
+
+    .rf-cat:not(:has(.rf-cat-toggle)) {
+        padding-left: 1.9rem; /* lines up with the categories that have an arrow */
+    }
+
+.rf-cat-name {
+    font-weight: 500;
+}
+
+.rf-cat-toggle {
+    width: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+}
+
+.rf-cat-types {
+    margin: 0 0 .25rem 1.9rem;
+    padding-left: .5rem;
+    border-left: 2px solid var(--bs-border-color);
+}
+
+/* The filter: each part is a card with an icon, the numbers are small pills, and a chosen row has
+   a bold name and a green pill (the tick shows it too, not only the colour) (help with AI) */
+.rf-section {
+    margin-bottom: 1rem;
+    padding: .75rem 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .75rem;
+    background: var(--bs-tertiary-bg);
+}
+
+.rf-section-title {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    margin-bottom: .5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.rf-pill {
+    min-width: 1.75rem;
+    padding: 0 .5rem;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .8rem;
+    text-align: center;
+}
+
+    .rf-pill:empty {
+        display: none;
+    }
+
+.rf-cat-icon {
+    font-size: 1.15rem;
+}
+/* A chosen row: the name a little bolder and a green pill. Not too heavy, also in light mode */
+#rfPanel .is-picked > label,
+#rfPanel .is-picked > .rf-cat-name {
+    font-weight: 600;
+}
+
+#rfPanel .is-picked .rf-pill {
+    background: var(--bs-success);
+    color: #fff;
+}
+
+/* The pills keep the same height and don't shrink, so the numbers line up */
+#rfPanel .rf-pill {
+    flex-shrink: 0;
+    align-self: center;
+    line-height: 1.35rem;
+    font-weight: 600;
+}
+
+/* Green checkboxes in the filter, like the rest of the site (also the half-ticked category) */
+#rfPanel .form-check-input:checked,
+#rfPanel .form-check-input:indeterminate {
+    border-color: var(--bs-success);
+    background-color: var(--bs-success);
+}
+
+/* "Nullstill alt" and "Velg punkt på kartet": clear buttons with an icon, also in dark mode */
+.rf-reset {
+    border: 1px solid var(--bs-secondary-color);
+    color: var(--bs-body-color);
+    font-weight: 600;
+}
+
+    .rf-reset:hover {
+        background: var(--bs-secondary-bg);
+    }
+
+/* "Sted": small headings, a line with text in the middle, the "Fra" list and the chosen place as a green tag (help with AI) */
+.rf-sub {
+    margin-bottom: .25rem;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.rf-divider {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: .75rem 0 .5rem;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+    .rf-divider::before,
+    .rf-divider::after {
+        content: "";
+        flex: 1;
+        border-top: 1px solid var(--bs-border-color);
+    }
+
+.rf-from {
+    position: relative;
+}
+
+/* The places under the "Fra" field, on top of the rest of the filter */
+.rf-from-list {
+    position: absolute;
+    z-index: 1200;
+    left: 0;
+    right: 0;
+    max-height: 16rem;
+    overflow-y: auto;
+    margin-top: .25rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .2);
+}
+
+.rf-from-item {
+    display: block;
+    width: 100%;
+    padding: .4rem .75rem;
+    border: 0;
+    background: none;
+    color: var(--bs-body-color);
+    text-align: left;
+}
+
+    .rf-from-item small {
+        display: block;
+        color: var(--bs-secondary-color);
+    }
+
+    .rf-from-item:hover,
+    .rf-from-item:focus {
+        background: var(--bs-secondary-bg);
+        outline: none;
+    }
+
+.rf-from-empty {
+    padding: .5rem .75rem;
+    color: var(--bs-secondary-color);
+}
+
+.rf-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .3rem .15rem .6rem;
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: 999px;
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+    font-weight: 600;
+}
+
+.rf-tag-clear {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: inherit;
+    line-height: 1;
+}
+
+    .rf-tag-clear:hover {
+        background: var(--bs-success-border-subtle);
+    }
+
+/* "Flere avstander" */
+.rf-more {
+    color: var(--bs-body-color);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* The distances are grey until a place is chosen ("Velg et sted først" says why) */
+.rf-disabled {
+    opacity: .5;
+}
+#rfRadiusCustom[hidden] {
+    display: none !important; /* d-flex would otherwise win over hidden */
 }

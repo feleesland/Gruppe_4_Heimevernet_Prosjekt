@@ -46,13 +46,20 @@
 }
 
 <div class="row g-4">
-    @* The same filter as on Kart (Views/Shared/_ResourceFilter.cshtml), as a column on the left *@
-    <aside class="col-lg-3 col-xxl-2 no-print" aria-label="Filter">
-        <h2 class="h5">Filter</h2>
-        <partial name="_ResourceFilter" />
+    @* The same filter as on Kart (Views/Shared/_ResourceFilter.cshtml), as a column on the left.
+       On small screens it is folded in behind the "Filter" button, so the list comes first - Docs: Bootstrap Collapse *@
+    <aside class="col-md-4 col-lg-3 col-xxl-2 no-print" aria-label="Filter">
+        <button type="button" class="btn btn-success w-100 d-md-none mb-2 d-flex align-items-center justify-content-center gap-2"
+                data-bs-toggle="collapse" data-bs-target="#listFilter" aria-expanded="false" aria-controls="listFilter">
+            <i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="rfCount" class="badge text-bg-light" hidden></span> <i class="ti ti-chevron-down" aria-hidden="true"></i>
+        </button>
+        <div id="listFilter" class="collapse d-md-block">
+            <h2 class="h5 d-none d-md-block">Filter</h2>
+            <partial name="_ResourceFilter" />
+        </div>
     </aside>
 
-    <div class="col-lg-9 col-xxl-10">
+    <div class="col-md-8 col-lg-9 col-xxl-10">
         @* What is chosen (chips with ✕), the number of resources, and links to the map and to print *@
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
             <strong id="listCount" aria-live="polite"></strong>
@@ -88,8 +95,8 @@
                     <tbody>
                         @foreach (var r in Model)
                         {
-                            @* data-type and data-status: used by the filter to hide rows without reloading *@
-                            <tr data-type="@r.Type" data-status="@r.Status">
+                            @* data-*: used by the filter to hide rows without reloading. InvariantCulture gives 58.14 (not 58,14), so JS can read the position *@
+                            <tr data-type="@r.Type" data-status="@r.Status" data-municipality="@r.Municipality" data-lat="@r.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@r.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                                 <td>
                                     <a asp-controller="Resource"
                                        asp-action="Index"
@@ -141,13 +148,13 @@
     <script src="~/js/resource-filter.js" asp-append-version="true"></script>
     <script>
         // Ressursoversikt: type and status hide rows right away, without reloading.
-        // Search, distance and "Mine" are done by the server, so the page reloads when they change (help with AI)
+        // Search and "Mine" are done by the server, so the page reloads when they change (help with AI)
         (function () {
             var resources = Array.from(document.querySelectorAll('#resourceTable tbody tr')).map(function (row) {
-                return { type: row.dataset.type, status: row.dataset.status, row: row };
+                return { type: row.dataset.type, status: row.dataset.status, municipality: row.dataset.municipality, latitude: row.dataset.lat, longitude: row.dataset.lng, row: row };
             });
             var start = Object.fromEntries(new URLSearchParams(window.location.search));
-            var serverKeys = ['search', 'lat', 'lng', 'radius', 'type'];
+            var serverKeys = ['search', 'type'];
 
             function show(params) {
                 var shown = 0;

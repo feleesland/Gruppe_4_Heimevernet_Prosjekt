@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Heimevernet_Prosjekt.Models.Entities;
 
 namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
 {
@@ -45,6 +46,18 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         // The answers in step 2: question id -> answer ("true", "5", "BE"). The form fields are named Answers[12]
         // Docs: Model binding to dictionaries - https://learn.microsoft.com/aspnet/core/mvc/models/model-binding#dictionaries
         public Dictionary<int, string?> Answers { get; set; } = new();
+
+        // "Når er den tilgjengelig?" in step 2 (see AvailabilityKind). Saved on the resource, checked in ResourceAvailabilityService
+        public AvailabilityKind AvailabilityKind { get; set; } = AvailabilityKind.Always;
+        public TimeSpan? AvailableFromTime { get; set; }
+        public TimeSpan? AvailableToTime { get; set; }
+        // The ticked weekdays (1 = Monday, 2 = Tuesday ... 64 = Sunday); added together to one number when saving
+        public List<int> AvailableDayBits { get; set; } = new();
+        public DateTime? AvailableFromDate { get; set; }
+        public DateTime? AvailableToDate { get; set; }
+
+        // "Ledig fra 16:00" in the list, when it is free later (worked out in ResourceController.ShownStatus)
+        public string? FreeFrom { get; set; }
 
         // Address (used to find the position on the map)
         [Display(Name = "Adresse")]

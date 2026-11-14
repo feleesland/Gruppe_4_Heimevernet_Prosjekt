@@ -38,6 +38,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             resource.ImageContentType = model.Image.ContentType;
         }
 
+        CopyAvailability(model, resource);
         dbContext.Resources.Add(resource);
         dbContext.SaveChanges();
         return resource;
@@ -81,6 +82,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         resource.ZipCode = model.ZipCode ?? string.Empty;
         resource.Latitude = model.Latitude;
         resource.Longitude = model.Longitude;
+        CopyAvailability(model, resource);
 
         // Only replace the picture if a new one was uploaded, otherwise keep the old one
         if (model.Image != null)
@@ -143,6 +145,20 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
 
         dbContext.SaveChanges();
         return resources.Count;
+    }
+
+    // "Når er den tilgjengelig?" from the form (help with AI). Only the fields for the chosen kind are kept, so a resource
+    // changed back to "Hele tiden" doesn't keep old times. The ticked weekdays become one number (Mon = 1 ... Sun = 64)
+    private static void CopyAvailability(ResourceViewModel model, Resource resource)
+    {
+        var weekly = model.AvailabilityKind == AvailabilityKind.Weekly;
+        var period = model.AvailabilityKind == AvailabilityKind.Period;
+        resource.AvailabilityKind = model.AvailabilityKind;
+        resource.AvailableFromTime = weekly ? model.AvailableFromTime : null;
+        resource.AvailableToTime = weekly ? model.AvailableToTime : null;
+        resource.AvailableDays = weekly ? model.AvailableDayBits.Where(bit => bit is 1 or 2 or 4 or 8 or 16 or 32 or 64).Distinct().Sum() : 127;
+        resource.AvailableFromDate = period ? model.AvailableFromDate?.Date : null;
+        resource.AvailableToDate = period ? model.AvailableToDate?.Date : null;
     }
 
     // Copies the uploaded file into a byte array so it can be saved in the database - Docs: Upload files in ASP.NET Core

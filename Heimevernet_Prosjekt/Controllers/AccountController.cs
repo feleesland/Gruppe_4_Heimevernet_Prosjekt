@@ -70,16 +70,21 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
 
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult Register()
+    public IActionResult Register(string? returnUrl = null)
     {
+        // Back to the page they came from after confirming the email (e.g. "Ny ressurs" with the draft)
+        ViewData["ReturnUrl"] = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
         return View(new RegisterViewModel());
     }
 
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Register(RegisterViewModel model)
+    public async Task<IActionResult> Register(RegisterViewModel model, string? returnUrl = null)
     {
+        // Kept on the page if the form comes back with an error, and sent along in the email link
+        ViewData["ReturnUrl"] = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -109,7 +114,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             var callbackUrl = Url.Action(
                 nameof(ConfirmEmail),
                 "Account",
-                new { userId = user.Id, code = encodedCode },
+                new { userId = user.Id, code = encodedCode, returnUrl = ViewData["ReturnUrl"] },
                 Request.Scheme)
                 ?? throw new InvalidOperationException("Could not generate the confirmation URL.");
 
@@ -153,7 +158,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
     // The link in the email ends up here and confirms the account - Docs: Account confirmation and password recovery
     [AllowAnonymous]
     [HttpGet]
-    public async Task<IActionResult> ConfirmEmail(string? userId, string? code)
+    public async Task<IActionResult> ConfirmEmail(string? userId, string? code, string? returnUrl = null)
     {
         if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(code))
         {
@@ -177,7 +182,12 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             result = IdentityResult.Failed();
         }
 
-        ViewData["Succeeded"] = result.Succeeded;
+        // Came from "Ny ressurs": straight to login, and then back to the draft
+        if (result.Succeeded && Url.IsLocalUrl(returnUrl))
+        {
+            TempData["Message"] = "E-posten er bekreftet. Logg inn for å fortsette der du slapp.";
+            return RedirectToAction(nameof(Login), new { returnUrl });
+        }
         return View();
     }
 

@@ -13,6 +13,8 @@
     var currentType = Model.Type;
     var hasOldType = !string.IsNullOrEmpty(currentType) && !allTypes.Any(type => type.Name == currentType);
     var canSetStatus = isEdit && (User.IsInRole("Admin") || User.IsInRole("Operator"));
+    var isLoggedIn = User.Identity?.IsAuthenticated == true;
+    var loginUrl = Url.Action("Register", "Account", new { returnUrl = Url.Action("Create", "ResourceHandler") }); // most guests are new: register first, "Logg inn" is right under
     string[] statuses = ["Ledig", "Opptatt", "Ugyldig", "Ikke tilgjengelig"];
     (int Step, string Label)[] stepLabels = [(0, "Type"), (1, "Om ressursen"), (2, "Hvor")];
 
@@ -22,9 +24,6 @@
     // The category's Tabler icon class ("car" or "ti-car" both work), with a default icon if it is empty
     string IconClass(string? icon) => string.IsNullOrEmpty(icon) ? "ti-category" : icon.StartsWith("ti-") ? icon : "ti-" + icon;
 }
-
-@* Tabler icons for the cards and buttons - Docs: https://tabler.io/docs/icons/webfont *@
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@tabler/icons-webfont@@3/dist/tabler-icons.min.css" />
 
 @* The step line: done = green ✓, the step you are on = blue "du er her", not started = grey *@
 <ol class="wizard-steps" aria-label="Steg i skjemaet">
@@ -36,11 +35,15 @@
 
 <form asp-controller="ResourceHandler"
       asp-action="@(isEdit ? "Edit" : "Create")"
+      asp-route-embed="@(Context.Request.Query["embed"] == "1" ? "1" : null)"
       method="post"
       enctype="multipart/form-data"
-      id="resourceWizard">
+      id="resourceWizard"
+      data-guest="@((!isLoggedIn).ToString().ToLower())"
+      data-login-url="@loginUrl">
 
     <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <div class="alert alert-info" role="status" data-draft-note hidden></div>
 
     @* Two columns: the step on the left, "Din ressurs" on the right, the same on all 3 steps (on phones the summary comes first) *@
     <div class="wizard-layout">
@@ -207,6 +210,59 @@
                     <span asp-validation-for="Notes" class="text-danger"></span>
                 </div>
 
+                @* "Når er den tilgjengelig?": Hele tiden, Faste tider (from-to, may go over midnight, chosen weekdays) or En bestemt periode.
+                   Only the chosen option's fields are shown (CSS :has in site.css) and saved (EfResourceRepository.CopyAvailability) *@
+                @{
+                    (int Bit, string Short, string Long)[] weekDays = [(1, "Man", "mandag"), (2, "Tir", "tirsdag"), (4, "Ons", "onsdag"), (8, "Tor", "torsdag"), (16, "Fre", "fredag"), (32, "Lør", "lørdag"), (64, "Søn", "søndag")];
+                    var pickedDays = Model.AvailableDayBits.Count > 0 ? Model.AvailableDayBits : new List<int> { 1, 2, 4, 8, 16 }; // new resource: Mon-Fri ticked
+                }
+                <fieldset class="wizard-availability mt-3">
+                    <legend class="wizard-subtitle"><i class="ti ti-clock" aria-hidden="true"></i> Når er den tilgjengelig?</legend>
+                    <span asp-validation-for="AvailableFromTime" class="text-danger d-block"></span>
+                    <span asp-validation-for="AvailableDayBits" class="text-danger d-block"></span>
+                    <span asp-validation-for="AvailableFromDate" class="text-danger d-block"></span>
+                    <span asp-validation-for="AvailableToDate" class="text-danger d-block"></span>
+
+                    <label class="availability-option">
+                        <input type="radio" class="form-check-input" name="AvailabilityKind" value="Always" checked="@(Model.AvailabilityKind == AvailabilityKind.Always)" />
+                        Hele tiden
+                    </label>
+
+                    <label class="availability-option">
+                        <input type="radio" class="form-check-input" name="AvailabilityKind" value="Weekly" checked="@(Model.AvailabilityKind == AvailabilityKind.Weekly)" />
+                        Faste tider
+                    </label>
+                    <div class="availability-detail">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <label for="availableFrom">Fra</label>
+                            <input type="time" id="availableFrom" name="AvailableFromTime" class="form-control availability-time" value="@(Model.AvailableFromTime?.ToString("hh\\:mm"))" />
+                            <label for="availableTo">til</label>
+                            <input type="time" id="availableTo" name="AvailableToTime" class="form-control availability-time" value="@(Model.AvailableToTime?.ToString("hh\\:mm"))" />
+                        </div>
+                        <p class="small text-body-secondary mb-2"><i class="ti ti-moon" aria-hidden="true"></i> Er til-tiden før fra-tiden, går den over midnatt: 16:00 til 08:00 betyr til neste morgen.</p>
+                        <div class="d-flex flex-wrap gap-1" role="group" aria-label="Ukedager">
+                            @foreach (var day in weekDays)
+                            {
+                                <input type="checkbox" class="btn-check" name="AvailableDayBits" value="@day.Bit" id="day@(day.Bit)" checked="@(pickedDays.Contains(day.Bit))" />
+                                <label class="btn btn-sm btn-outline-success availability-day" for="day@(day.Bit)" title="@day.Long">@day.Short</label>
+                            }
+                        </div>
+                    </div>
+
+                    <label class="availability-option">
+                        <input type="radio" class="form-check-input" name="AvailabilityKind" value="Period" checked="@(Model.AvailabilityKind == AvailabilityKind.Period)" />
+                        En bestemt periode <small class="text-body-secondary fw-normal">(f.eks. 20.–24. nov.)</small>
+                    </label>
+                    <div class="availability-detail">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <label for="availableFromDate">Fra</label>
+                            <input type="date" id="availableFromDate" name="AvailableFromDate" class="form-control availability-date" value="@(Model.AvailableFromDate?.ToString("yyyy-MM-dd"))" />
+                            <label for="availableToDate">til</label>
+                            <input type="date" id="availableToDate" name="AvailableToDate" class="form-control availability-date" value="@(Model.AvailableToDate?.ToString("yyyy-MM-dd"))" />
+                        </div>
+                    </div>
+                </fieldset>
+
                 @if (canSetStatus)
                 {
                     <div class="mt-3">
@@ -282,8 +338,17 @@
             <div class="wizard-nav">
                 <button type="button" class="btn btn-outline-secondary" data-wizard-back hidden><i class="ti ti-chevron-left" aria-hidden="true"></i> Tilbake</button>
                 <span class="wizard-nav-count" data-step-count></span>
+                <button type="button" class="btn btn-link wizard-more" data-more-hint hidden><i class="ti ti-chevrons-down" aria-hidden="true"></i> Rull ned for mer</button>
                 <button type="button" class="button" data-wizard-next hidden>Neste <i class="ti ti-chevron-right" aria-hidden="true"></i></button>
-                <button type="submit" class="button" data-wizard-submit><i class="ti @(isEdit ? "ti-device-floppy" : "ti-check")" aria-hidden="true"></i> @(isEdit ? "Lagre" : "Opprett ressurs")</button>
+                @if (isLoggedIn)
+                {
+                    <button type="submit" class="button" data-wizard-submit><i class="ti @(isEdit ? "ti-device-floppy" : "ti-check")" aria-hidden="true"></i> @(isEdit ? "Lagre" : "Opprett ressurs")</button>
+                }
+                else
+                {
+                    @* Not logged in: resource-veiviser.js saves the draft in the browser and goes to login *@
+                    <button type="submit" class="button" data-wizard-submit><i class="ti ti-user-plus" aria-hidden="true"></i> Registrer deg og opprett</button>
+                }
             </div>
         </div>
 
