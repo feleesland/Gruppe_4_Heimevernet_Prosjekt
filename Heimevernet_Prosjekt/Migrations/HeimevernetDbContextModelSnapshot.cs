@@ -138,7 +138,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(4921),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Politistasjon",
                             IconType = "police",
                             Latitude = 58.146000000000001,
@@ -149,7 +149,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6351),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Brannstasjon",
                             IconType = "firestation",
                             Latitude = 58.168999999999997,
@@ -160,7 +160,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6353),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Akuttsykehus",
                             IconType = "hospital",
                             Latitude = 58.155999999999999,

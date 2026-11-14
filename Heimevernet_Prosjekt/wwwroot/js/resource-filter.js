@@ -3,7 +3,7 @@
 // The choices are kept in the URL (types, status, kommune, where, lat, lng, radius) through site.js, so Kart and Ressursoversikt show the same
 // Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
 window.ResourceFilter = (function () {
-    var statuses = ['Ledig', 'Opptatt', 'Ikke tilgjengelig', 'Ugyldig'];
+    var statuses = ['Ledig', 'Ledig senere', 'I bruk', 'Lever tilbake', 'Ikke tilgjengelig', 'Ugyldig']; // as ResourceController.ShownStatus sends them
     var radiusMain = ['1', '2', '5', '10'];   // always shown
     var radiusMore = ['20', '50', '100'];     // under "Flere avstander"
     var allTypes = null; // the categories with their types from the server

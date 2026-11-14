@@ -205,6 +205,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 1,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Kristiansand Politistasjon",
                 Type = "Politi",
                 IconType = "police",
@@ -216,6 +217,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 2,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Kristiansand Brannstasjon",
                 Type = "Brann",
                 IconType = "firestation",
@@ -227,6 +229,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 3,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Sørlandet Sykehus Kristiansand",
                 Type = "Sykehus",
                 IconType = "hospital",
