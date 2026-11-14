@@ -222,6 +222,10 @@
                                     }
 
                                     <a class="dropdown-item small py-2" asp-controller="ResourceRequest" asp-action="Mine">Alle mine forespørsler</a>
+                                                                @if (User.IsInRole(RoleNames.Admin))
+                            {
+                                <a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">⚑ Alle varsler</a>
+                            }
                                 </div>
                             </li>
 
@@ -244,6 +248,7 @@
                                         <div class="small text-body-secondary">@currentUser?.Email · @roleName</div>
                                     </div>
                                     <div class="dropdown-divider"></div>
+                                                                <a class="dropdown-item" asp-controller="MinSide" asp-action="Index">👤 Min side</a>
                                     <a class="dropdown-item" asp-controller="Resource" asp-action="List" asp-route-mine="true">📦 Mine ressurser</a>
                                     <a class="dropdown-item" asp-controller="ResourceRequest" asp-action="Mine">🔔 Mine forespørsler</a>
                                                                         @* Innstillinger: only for the look for now, the page isn't made yet *@
