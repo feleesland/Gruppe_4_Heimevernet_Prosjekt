@@ -94,6 +94,82 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.PermanentMapMarker", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("IconType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<double>("Latitude")
+                        .HasColumnType("double");
+
+                    b.Property<double>("Longitude")
+                        .HasColumnType("double");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("PermanentMapMarkers", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(4921),
+                            Description = "Politistasjon",
+                            IconType = "police",
+                            Latitude = 58.146000000000001,
+                            Longitude = 7.9960000000000004,
+                            Name = "Kristiansand Politistasjon",
+                            Type = "Politi"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6351),
+                            Description = "Brannstasjon",
+                            IconType = "firestation",
+                            Latitude = 58.168999999999997,
+                            Longitude = 8.0190000000000001,
+                            Name = "Kristiansand Brannstasjon",
+                            Type = "Brann"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6353),
+                            Description = "Akuttsykehus",
+                            IconType = "hospital",
+                            Latitude = 58.155999999999999,
+                            Longitude = 7.9779999999999998,
+                            Name = "Sørlandet Sykehus Kristiansand",
+                            Type = "Sykehus"
+                        });
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.Resource", b =>
                 {
                     b.Property<int>("Id")
