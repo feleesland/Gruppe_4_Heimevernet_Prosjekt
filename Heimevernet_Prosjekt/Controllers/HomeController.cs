@@ -20,14 +20,6 @@ public class HomeController : Controller
         _context = context;
     }
 
-
-    private readonly HeimevernetDbContext _context;
-
-    public HomeController(HeimevernetDbContext context)
-    {
-        _context = context;
-    }
-
    
     //definerer en liste som en in-memory lagring
     private static List<PositionModel> positions = new List<PositionModel>();
