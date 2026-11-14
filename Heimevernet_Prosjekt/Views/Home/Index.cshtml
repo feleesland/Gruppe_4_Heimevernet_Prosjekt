@@ -117,6 +117,8 @@ overflow-x: clip;
             <a class="button" asp-controller="Account" asp-action="Register">Opprett bruker</a>
         </div>
     </div>
+    @* "Aktive kriser" under the boxes (help with AI) *@
+    <partial name="_ActiveCrises" />
 }
 
 @if (User.Identity?.IsAuthenticated != true)
@@ -243,6 +245,9 @@ else
 
 @if (User.Identity?.IsAuthenticated == true)
 {
+    @* "Aktive kriser" under the boxes (help with AI) *@
+    <partial name="_ActiveCrises" />
+
     @* generell informasjon om siden og hva vi har planlagt*@
     <section class="home-panel">
         <h2 class="h4">Generell informasjon</h2>

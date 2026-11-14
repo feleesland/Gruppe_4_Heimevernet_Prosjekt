@@ -7,6 +7,7 @@
 	ViewData["FilterCanNeeds"] = canNeeds;
 }
 
+<link rel="stylesheet" href="~/css/crisis.css" asp-append-version="true" />
 <div id="map"></div>
 @* One side panel on the left, like Google Maps. It shows one thing at a time: a list (from a box), a resource or a need
    (the pages themselves with ?embed=1). While a need is open you can look at a resource and go back with ‹ *@
@@ -1042,6 +1043,57 @@
 				.catch(error => console.error("Feil ved henting av behov:", error));
 		}
 
+		// Kriser for guests and users who don't see the needs: only needs with "Info til innbyggere",
+		// with the same info as on the front page. A click opens a small card (help with AI)
+		// Docs: Leaflet Popup - https://leafletjs.com/reference.html#popup
+		function osloTime(utc) {
+			var date = new Date(utc.endsWith('Z') ? utc : utc + 'Z');
+			var day = date.toLocaleDateString('nb-NO', { timeZone: 'Europe/Oslo' });
+			var time = date.toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
+			return day === new Date().toLocaleDateString('nb-NO', { timeZone: 'Europe/Oslo' }) ? time : shortDate(utc) + ' ' + time;
+		}
+
+		function loadPublicCrises() {
+			return fetch('@Url.Action("PublicCrises", "Home")')
+				.then(response => response.ok ? response.json() : [])
+				.then(crises => {
+					needLayer.clearLayers();
+					needLayer.addTo(map);
+					crises.forEach(crisis => {
+						var lat = parseFloat(crisis.latitude);
+						var lng = parseFloat(crisis.longitude);
+						if (isNaN(lat) || isNaN(lng)) return;
+						var planned = crisis.urgency === 'Planlagt';
+						var icon = planned ? 'ti-calendar' : 'ti-alarm';
+						var when = planned ? 'Planlagt ' + shortDate(crisis.neededFrom) : 'Akutt · siden ' + osloTime(crisis.createdAt);
+						var place = (crisis.place || '').toLowerCase().replace(/(^|[\s-])\p{L}/gu, function (c) { return c.toUpperCase(); });
+
+						var card = '<div class="crisis-pop">'
+							+ '<div class="crisis-pop-head ' + (planned ? 'is-planned' : 'is-acute') + '"><i class="ti ' + icon + '" aria-hidden="true"></i> ' + escapeHtml(when) + '</div>'
+							+ '<strong class="crisis-pop-name">' + escapeHtml(crisis.name) + '</strong>'
+							+ '<div class="crisis-pop-meta">' + (place ? '<i class="ti ti-map-pin" aria-hidden="true"></i> ' + escapeHtml(place) + ' · ' : '')
+							+ 'Oppdatert ' + escapeHtml(osloTime(crisis.latestAt)) + '</div>'
+							+ '<div><i class="ti ti-info-circle" aria-hidden="true"></i> ' + escapeHtml(crisis.latestText) + '</div>'
+							+ '</div>';
+
+						// Bigger and clearer than the operators' markers, with the name always shown under it (no circle for guests)
+						L.marker([lat, lng], {
+							icon: L.divIcon({
+								className: '',
+								html: `<div class="crisis-marker ${planned ? 'is-planned' : 'is-acute'}" aria-label="${escapeHtml(crisis.name)}"><i class="ti ${icon}" aria-hidden="true"></i></div>`,
+								iconSize: [40, 40],
+								iconAnchor: [20, 20]
+							}),
+							keyboard: true
+						})
+							.bindTooltip(escapeHtml(crisis.name), { permanent: true, direction: 'bottom', offset: [0, 18], className: 'crisis-name-tag' })
+							.bindPopup(card, { maxWidth: 280 })
+							.addTo(needLayer);
+					});
+				})
+				.catch(error => console.error("Feil ved henting av kriser:", error));
+		}
+
 		// Offentlige aktører (police, fire station, hospital) from the group's PermanentMapMarkers - shown to everyone, also guests.
 		// Blue in the case = public actor; the group's own icons are used (getPermanentIcon) (help with AI)
 		var actorLayer = L.layerGroup().addTo(map);
@@ -1064,6 +1116,8 @@
 
 		if (canNeeds) {
 			loadNeeds();
+		} else {
+			loadPublicCrises(); // guests and users: only crises with "Info til innbyggere"
 		}
 
 		
@@ -1889,24 +1943,32 @@
 				var box = L.DomUtil.create('details', 'map-legend');
 				// The pins and colours on the map (help with AI): icon + text in every row, so nothing relies on colour alone
 				var pin = function (colour) { return '<svg class="legend-pin" viewBox="0 0 36 46" width="14" height="18" aria-hidden="true"><path fill="' + colour + '" d="M18 45 C6 30 2 24 2 17 A16 16 0 0 1 34 17 C34 24 30 30 18 45Z"/></svg>'; };
-				box.innerHTML = '<summary>ⓘ Tegnforklaring</summary>'
-					+ '<div class="map-legend-title">Ressurser</div>'
+				// What each group sees (help with AI): admin/operator = resources, actors and needs.
+				// Guests and users = Kriser first (the most important for them), then actors; resources only when signed in
+				var resources = '<div class="map-legend-title">Ressurser</div>'
 					+ '<div>' + pin('#2f8a3a') + 'Ledig nå (ikonet viser typen)</div>'
 					+ '<div>' + pin('#888780') + 'I bruk, ledig senere eller ikke tilgjengelig</div>'
 					+ '<div><span class="legend-return">↩</span>Skal leveres tilbake</div>'
-					+ '<div><span class="legend-cluster">2</span>Flere ressurser på samme sted</div>'
-					+ '<div class="map-legend-title">Offentlige aktører</div>'
-					+ '<div><img src="/images/permanent-map-icons/police.png" width="16" height="16" alt="" class="legend-img" />Politi, brann og sykehus</div>'
+					+ '<div><span class="legend-cluster">2</span>Flere ressurser på samme sted</div>';
+				var actors = '<div class="map-legend-title">Offentlige aktører</div>'
+					+ '<div><img src="/images/permanent-map-icons/police.png" width="16" height="16" alt="" class="legend-img" />Politi, brann og sykehus</div>';
+				var needs = '<div class="map-legend-title">Behov</div>'
+					+ '<div><span class="legend-square need-akutt"></span>Akutt</div>'
+					+ '<div><span class="legend-square need-planlagt"></span>Planlagt</div>'
+					+ '<div><span class="legend-circle"></span>Området behovet gjelder</div>'
+					+ '<div class="map-legend-title">Når du jobber med et behov</div>'
+					+ '<div><span class="ring-dot"></span>Kan velges</div>'
+					+ '<div><span class="ring-dot ring-picked">✓</span>Valgt</div>'
+					+ '<div><span class="legend-line"></span>Valgt til behovet</div>';
+				var crises = '<div class="map-legend-title">Kriser</div>'
+					+ '<div><span class="legend-crisis is-acute"><i class="ti ti-alarm" aria-hidden="true"></i></span>Akutt – skjer nå</div>'
+					+ '<div><span class="legend-crisis is-planned"><i class="ti ti-calendar" aria-hidden="true"></i></span>Planlagt – f.eks. en øvelse</div>'
+					+ '<div class="legend-note">Klikk for mer info</div>';
+				box.innerHTML = '<summary>ⓘ Tegnforklaring</summary>'
 					+ (canNeeds
-						? '<div class="map-legend-title">Behov</div>'
-						+ '<div><span class="legend-square need-akutt"></span>Akutt</div>'
-						+ '<div><span class="legend-square need-planlagt"></span>Planlagt</div>'
-						+ '<div><span class="legend-circle"></span>Området behovet gjelder</div>'
-						+ '<div class="map-legend-title">Når du jobber med et behov</div>'
-						+ '<div><span class="ring-dot"></span>Kan velges</div>'
-						+ '<div><span class="ring-dot ring-picked">✓</span>Valgt</div>'
-						+ '<div><span class="legend-line"></span>Valgt til behovet</div>'
-						: '');
+						? resources + actors + needs
+						: crises + actors + (signedIn ? resources : '<div class="map-legend-title legend-note">Ressurser (bare innlogget)</div>'));
+
 				try { box.open = localStorage.getItem('legendOpen') !== '0'; } catch (e) { } // open the first time, closed only if the user closed it
 				box.addEventListener('toggle', function () {
 					try { localStorage.setItem('legendOpen', box.open ? '1' : '0'); } catch (e) { }
