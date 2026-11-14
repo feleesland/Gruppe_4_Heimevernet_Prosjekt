@@ -23,6 +23,7 @@
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 </style>
+
 <section class="home-panel">
     <h1 class="h3">Min side</h1>
 
@@ -32,18 +33,30 @@
             @TempData["SuccessMessage"]
         </div>
     }
-    <p><strong>Navn:</strong> @Model.FirstName @Model.LastName</p>
-    <p><strong>E-post:</strong> @Model.Email</p>
-    <p><strong>Rolle:</strong> @ViewData["Roles"]</p>
 
-    <a asp-controller="Resource" asp-action="List">Mine ressurser</a>
-    <a asp-action="EditProfile" class="btn btn-primary">Rediger profil</a>
+    <dl class="row mb-4">
+        <dt class="col-sm-4">Navn</dt>
+        <dd class="col-sm-8">@Model.FirstName @Model.LastName</dd>
+
+        <dt class="col-sm-4">E-post</dt>
+        <dd class="col-sm-8">@Model.Email</dd>
+
+        <dt class="col-sm-4">Telefon</dt>
+        <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.PhoneNumber) ? "Ikke oppgitt" : Model.PhoneNumber)</dd>
+
+        <dt class="col-sm-4">Rolle</dt>
+        <dd class="col-sm-8">@ViewData["Roles"]</dd>
+    </dl>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="EditProfile" class="btn btn-success">Rediger profil</a>
+        <a asp-controller="Resource" asp-action="List" asp-route-mine="true" class="btn btn-outline-success">Mine ressurser</a>
+    </div>
+
+    <hr class="my-4" />
+
+    <div class="d-flex justify-content-between align-items-center">
+        <small class="text-body-secondary">Sletting av konto kan ikke angres.</small>
+        <a asp-action="DeleteProfile" class="btn btn-sm btn-outline-danger">Slett konto …</a>
+    </div>
 </section>
-
-
-
-<div class="home-panel border border-danger mt-5">
-    <h2 class="h5 text-danger">Faresone</h2>
-    <p class="mb-3">Sletting av konto kan ikke angres.</p>
-    <a asp-action="DeleteProfile" class="btn btn-outline-danger">Slett konto …</a>
-</div>

@@ -251,6 +251,10 @@
                                                                 <a class="dropdown-item" asp-controller="MinSide" asp-action="Index">👤 Min side</a>
                                     <a class="dropdown-item" asp-controller="Resource" asp-action="List" asp-route-mine="true">📦 Mine ressurser</a>
                                     <a class="dropdown-item" asp-controller="ResourceRequest" asp-action="Mine">🔔 Mine forespørsler</a>
+                                     @if (isAdmin)
+                                     {
+                                         <a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">⚑ Alle varsler</a>
+                                     }
                                                                         @* Innstillinger: only for the look for now, the page isn't made yet *@
                                     <button type="button" class="dropdown-item">⚙️ Innstillinger</button>
                                     <partial name="_DisplaySettings" />
