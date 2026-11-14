@@ -311,13 +311,6 @@
 			popupAnchor: [1, -34]
 		});
 
-		var yellowIcon = new L.Icon({
-			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png',
-			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-			iconSize: [25, 41],
-			iconAnchor: [12, 41],
-			popupAnchor: [1, -34]
-		});
 
 		var redIcon = new L.Icon({
 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -328,12 +321,20 @@
 		});
 
 		var greyIcon = new L.Icon({
-			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+			iconUrl: 'https:raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+			shadowUrl: 'https:cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 			iconSize: [25, 41],
 			iconAnchor: [12, 41],
 			popupAnchor: [1, -34]
 		});
+
+		var blueIcon = new L.Icon({
+    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+});
 
 				function getPermanentIcon(iconType)
 		{
@@ -350,8 +351,8 @@
 
 			switch (status) {
 
-				case "Opptatt":
-					return yellowIcon;
+        case "Opptatt":
+            return greyIcon;
 
 				case "Ugyldig":
 					return redIcon;
@@ -426,6 +427,8 @@
 			}
 		}).addTo(map);
 		var permanentMarkerLayer = L.layerGroup().addTo(map);
+		var markerLayer = L.layerGroup().addTo(map);				//vanlige ressurs-markører
+		var permanentMarkerLayer = L.layerGroup().addTo(map);)		//de permanente
 		var markersById = {};
 		var radiusCircle = null;
 		var detailUrl = '@Url.Content("~/Resource/Index/")';
@@ -438,6 +441,54 @@
 			div.textContent = text || '';
 			return div.innerHTML;
 		}
+
+function loadPermanentMarkers() {
+
+		fetch('@Url.Action("PermanentMapMarker", "Home")')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Kunne ikke hente installasjoner");
+            }
+
+            return response.json();
+        })
+        .then(locations => {
+
+            permanentMarkerLayer.clearLayers();
+
+            locations.forEach(function (location) {
+
+                var lat = Number(location.latitude);
+                var lng = Number(location.longitude);
+
+                if (!Number.isFinite(lat) ||
+                    !Number.isFinite(lng) ||
+                    lat < -90 || lat > 90 ||
+                    lng < -180 || lng > 180) {
+                    return;
+                }
+
+                var marker = L.marker([lat, lng], {
+                    icon: blueIcon
+                });
+
+                marker.bindPopup(`
+                    <strong>${escapeHtml(location.name)}</strong><br>
+                    Type: ${escapeHtml(location.type)}<br>
+                    ${escapeHtml(location.description || '')}
+                `);
+
+                permanentMarkerLayer.addLayer(marker);
+            });
+        })
+        .catch(error => {
+            console.error(
+                "Feil ved henting av faste installasjoner:",
+                error
+            );
+        });
+}
+
 
 		//Ressurser hentes fra databasen og legges til på kartet som markører.
 		// params can contain search, type, lat, lng and radius (sent to MapResources in ResourceController)

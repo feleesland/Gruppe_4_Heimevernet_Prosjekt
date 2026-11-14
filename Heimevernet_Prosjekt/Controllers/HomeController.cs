@@ -4,11 +4,23 @@ using Heimevernet_Prosjekt.Models.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using Heimevernet_Prosjekt.DataAccess;
+using Heimevernet_Prosjekt.Models.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Heimevernet_Prosjekt.Controllers;
 
 public class HomeController : Controller
 {
+    private readonly HeimevernetDbContext _context;
+
+    public HomeController(HeimevernetDbContext context)
+    {
+        _context = context;
+    }
+
+
     private readonly HeimevernetDbContext _context;
 
     public HomeController(HeimevernetDbContext context)
@@ -42,6 +54,26 @@ public class HomeController : Controller
         return View();
     }
 
+
+    [HttpGet]
+    public async Task<IActionResult> PermanentMapMarker()
+    {
+        var locations = await _context.PermanentMapMarkers
+            .AsNoTracking()
+            .Select(x => new
+            {
+                id = x.Id,
+                name = x.Name,
+                type = x.Type,
+                latitude = x.Latitude,
+                longitude = x.Longitude,
+                description = x.Description
+            })
+            .ToListAsync();
+
+        return Json(locations);
+    }
+
     [HttpGet]
     public async Task<IActionResult> PermanentMapMarkers()
     {
@@ -60,4 +92,5 @@ public class HomeController : Controller
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
+
 }

@@ -4,33 +4,48 @@
     ViewData["Title"] = "Logg inn";
 }
 
-<h1>@ViewData["Title"]</h1>
-@if (TempData["Message"] != null)
-{
-    <div class="alert alert-info">@TempData["Message"]</div>
-}
-<form asp-action="Login" method="post" class="col-md-6">
-    <input asp-for="ReturnUrl" type="hidden" />
-    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-    <div class="mb-3">
-        <label asp-for="Email" class="form-label"></label>
-        <input asp-for="Email" class="form-control" autocomplete="email" />
-        <span asp-validation-for="Email" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="Password" class="form-label"></label>
-        <input asp-for="Password" class="form-control" autocomplete="current-password" />
-        <span asp-validation-for="Password" class="text-danger"></span>
-    </div>
-    <div class="form-check mb-3">
-        <input asp-for="RememberMe" class="form-check-input" />
-        <label asp-for="RememberMe" class="form-check-label"></label>
-    </div>
-    <button type="submit" class="button">Logg inn</button>
-</form>
+<div class="row justify-content-center mt-5 pt-5">
+    <div class="col-11 col-sm-8 col-md-6 col-lg-4">
+        <div class="card login-card shadow-sm">
+            <div class="card-body px-4 pt-5 pb-4">
 
-<p class="mt-3"><a asp-action="ForgotPassword">Glemt passord?</a></p>
+                <h1 class="h3 text-center fw-bold mb-4">@ViewData["Title"]</h1>
 
+                @if (TempData["Message"] != null)
+                {
+                    <div class="alert alert-info">@TempData["Message"]</div>
+                }
+                <form asp-action="Login" method="post">
+                    <input asp-for="ReturnUrl" type="hidden" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                   
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" autocomplete="email" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control" autocomplete="current-password" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input asp-for="RememberMe" class="form-check-input" />
+                        <label asp-for="RememberMe" class="form-check-label"></label>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="button">Logg inn</button>
+                    </div>
+                </form>
+
+                <p class="text-center mt-3 mb-0">
+                <a asp-action="ForgotPassword">Glemt passord?</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }
