@@ -90,7 +90,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeimevernetDbContext>();
-    //db.Database.Migrate();
+    db.Database.Migrate();
     
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     await IdentitySeeder.SeedRolesAsync(roleManager);
