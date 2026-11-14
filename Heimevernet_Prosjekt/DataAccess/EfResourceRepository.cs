@@ -26,6 +26,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             // Address and position on the map
             Address = model.Address ?? string.Empty,
             City = model.City ?? string.Empty,
+            Municipality = model.Municipality ?? string.Empty,
             ZipCode = model.ZipCode ?? string.Empty,
             Latitude = model.Latitude,
             Longitude = model.Longitude
@@ -37,6 +38,7 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
             resource.ImageContentType = model.Image.ContentType;
         }
 
+        CopyAvailability(model, resource);
         dbContext.Resources.Add(resource);
         dbContext.SaveChanges();
         return resource;
@@ -76,9 +78,11 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         // Address and position on the map
         resource.Address = model.Address ?? string.Empty;
         resource.City = model.City ?? string.Empty;
+        resource.Municipality = model.Municipality ?? string.Empty;
         resource.ZipCode = model.ZipCode ?? string.Empty;
         resource.Latitude = model.Latitude;
         resource.Longitude = model.Longitude;
+        CopyAvailability(model, resource);
 
         // Only replace the picture if a new one was uploaded, otherwise keep the old one
         if (model.Image != null)
@@ -143,6 +147,20 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         return resources.Count;
     }
 
+    // "Når er den tilgjengelig?" from the form (help with AI). Only the fields for the chosen kind are kept, so a resource
+    // changed back to "Hele tiden" doesn't keep old times. The ticked weekdays become one number (Mon = 1 ... Sun = 64)
+    private static void CopyAvailability(ResourceViewModel model, Resource resource)
+    {
+        var weekly = model.AvailabilityKind == AvailabilityKind.Weekly;
+        var period = model.AvailabilityKind == AvailabilityKind.Period;
+        resource.AvailabilityKind = model.AvailabilityKind;
+        resource.AvailableFromTime = weekly ? model.AvailableFromTime : null;
+        resource.AvailableToTime = weekly ? model.AvailableToTime : null;
+        resource.AvailableDays = weekly ? model.AvailableDayBits.Where(bit => bit is 1 or 2 or 4 or 8 or 16 or 32 or 64).Distinct().Sum() : 127;
+        resource.AvailableFromDate = period ? model.AvailableFromDate?.Date : null;
+        resource.AvailableToDate = period ? model.AvailableToDate?.Date : null;
+    }
+
     // Copies the uploaded file into a byte array so it can be saved in the database - Docs: Upload files in ASP.NET Core
     // https://learn.microsoft.com/aspnet/core/mvc/models/file-uploads
     private static byte[] ReadImage(IFormFile image)
@@ -181,6 +199,68 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         resource.UnavailableUntil = untilUtc;
         dbContext.SaveChanges();
         return true;
+    }
+
+    // The resource's answers with their questions, in the question order
+    public IReadOnlyList<ResourceAttributeValue> GetAnswers(int resourceId)
+    {
+        return dbContext.ResourceAttributeValues
+            .Include(value => value.ResourceAttribute)
+            .AsNoTracking()
+            .Where(value => value.ResourceId == resourceId)
+            .OrderBy(value => value.ResourceAttribute.SortOrder)
+            .ToList();
+    }
+
+    // Saves the answers for the resource's type. Empty answers, and answers to another type's questions
+    // (after the type was changed), are removed. "Nei" on a yes/no question is saved as no answer (help with AI)
+    public void SaveAnswers(int resourceId, IDictionary<int, string?> answers)
+    {
+        var resource = dbContext.Resources.Find(resourceId);
+        if (resource is null)
+        {
+            return;
+        }
+
+        // Only the questions of the resource's own type, so a changed form can't save anything else
+        var allowed = dbContext.ResourceAttributes
+            .Where(attribute => attribute.ResourceType.Name == resource.Type)
+            .Select(attribute => attribute.Id)
+            .ToHashSet();
+
+        var existing = dbContext.ResourceAttributeValues.Where(value => value.ResourceId == resourceId).ToList();
+        foreach (var value in existing)
+        {
+            if (!allowed.Contains(value.ResourceAttributeId) || !answers.TryGetValue(value.ResourceAttributeId, out var newAnswer) || string.IsNullOrWhiteSpace(newAnswer))
+            {
+                dbContext.ResourceAttributeValues.Remove(value);
+            }
+        }
+
+        foreach (var (attributeId, answer) in answers)
+        {
+            if (!allowed.Contains(attributeId) || string.IsNullOrWhiteSpace(answer))
+            {
+                continue;
+            }
+            var text = answer.Trim();
+            if (text.Length > 200)
+            {
+                text = text[..200];
+            }
+
+            var value = existing.FirstOrDefault(v => v.ResourceAttributeId == attributeId);
+            if (value == null)
+            {
+                dbContext.ResourceAttributeValues.Add(new ResourceAttributeValue { ResourceId = resourceId, ResourceAttributeId = attributeId, Value = text });
+            }
+            else
+            {
+                value.Value = text;
+            }
+        }
+
+        dbContext.SaveChanges();
     }
 
 }

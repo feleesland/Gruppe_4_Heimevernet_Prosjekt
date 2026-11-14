@@ -167,9 +167,18 @@ public sealed class ResourceControllerTests
         var userStore = new Mock<IUserStore<ApplicationUser>>();
         var userManager = new Mock<UserManager<ApplicationUser>>(
             userStore.Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        var requests = new Mock<IResourceRequestRepository>();
+        requests.Setup(r => r.GetResourceIdsInUse()).Returns(new HashSet<int>()); // no resources are lent out in these tests
+        // No open "feil info" messages in the tests (the ? filter on the map) (help with AI)
+        var reports = new Mock<IResourceReportRepository>();
+        reports.Setup(r => r.CountOpenByResource()).Returns(new Dictionary<int, int>());
+        // No types or categories in the tests, so List can look up icons without crashing (help with AI)
+        var types = new Mock<IResourceTypeRepository>();
+        types.Setup(t => t.GetCategories()).Returns([]);
 
-        return new ResourceController(repository.Object, authorization.Object, userManager.Object, new Mock<IResourceTypeRepository>().Object)
+        return new ResourceController(repository.Object, authorization.Object, userManager.Object, types.Object, requests.Object, reports.Object)
         {
+
             ControllerContext = new ControllerContext
             {
                 HttpContext = new DefaultHttpContext

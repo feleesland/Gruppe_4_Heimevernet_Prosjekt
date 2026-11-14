@@ -16,5 +16,9 @@ namespace Heimevernet_Prosjekt.DataAccess
         bool SetStatus(int id, string status);
         bool SetUnavailable(int id, string? reason, DateTime? untilUtc);
 
+        // The answers to the type's questions (step 2 in "Ny ressurs")
+        IReadOnlyList<ResourceAttributeValue> GetAnswers(int resourceId);
+        void SaveAnswers(int resourceId, IDictionary<int, string?> answers);
+
     }
 }

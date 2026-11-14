@@ -2,6 +2,7 @@
 using Heimevernet_Prosjekt.Models.Entities;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Heimevernet_Prosjekt.Security.Authorization;
+using Heimevernet_Prosjekt.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -19,17 +20,23 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IAuthorizationService _authorizationService;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IResourceTypeRepository _typeRepository;
+        private readonly IResourceRequestRepository _requestRepository;
+        private readonly IResourceReportRepository _reportRepository;
 
         public ResourceController(
             IResourceRepository resourceRepository,
             IAuthorizationService authorizationService,
             UserManager<ApplicationUser> userManager,
-            IResourceTypeRepository typeRepository)
+            IResourceTypeRepository typeRepository,
+            IResourceRequestRepository requestRepository,
+            IResourceReportRepository reportRepository)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
             _userManager = userManager;
             _typeRepository = typeRepository;
+            _requestRepository = requestRepository;
+            _reportRepository = reportRepository;
         }
 
         [HttpGet]
@@ -87,6 +94,14 @@ namespace Heimevernet_Prosjekt.Controllers
                 Status = resource.Status,
                 UnavailableReason = resource.UnavailableReason,
                 UnavailableUntil = resource.UnavailableUntil,
+                // "Når er den tilgjengelig?", and "Ledig fra 16:00" when a free resource is outside its times now
+                AvailabilityKind = resource.AvailabilityKind,
+                AvailableFromTime = resource.AvailableFromTime,
+                AvailableToTime = resource.AvailableToTime,
+                AvailableDayBits = Enumerable.Range(0, 7).Select(i => 1 << i).Where(bit => (resource.AvailableDays & bit) != 0).ToList(),
+                AvailableFromDate = resource.AvailableFromDate,
+                AvailableToDate = resource.AvailableToDate,
+                FreeFrom = ShownStatus(resource, _requestRepository.GetResourceIdsInUse()).FreeFrom,
             };
 
             // Owner's name, email and phone come from the account, so they are always up to date - Docs: Introduction to Identity on ASP.NET Core
@@ -133,6 +148,16 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             var model = new List<ResourceViewModel>();
             var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
+            var inUse = _requestRepository.GetResourceIdsInUse();
+            // For the table (help with AI): the type's icon and category, and (admin/operator) the owner's name and phone for print/export
+            var typeInfo = _typeRepository.GetCategories()
+                .SelectMany(category => category.Types.Select(t => (t.Name, Icon: t.Icon ?? category.Icon, Category: category.Name)))
+                .GroupBy(t => t.Name)
+                .ToDictionary(g => g.Key, g => g.First());
+            var seeOwners = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+            var owners = seeOwners
+                ? _userManager.Users.ToDictionary(u => u.Id, u => (Name: $"{u.FirstName} {u.LastName}".Trim(), Phone: u.PhoneNumber))
+                : new Dictionary<string, (string Name, string? Phone)>();
 
             // Include only resources the user is allowed to view.
             foreach (var resource in _resourceRepository.GetAll())
@@ -140,7 +165,8 @@ namespace Heimevernet_Prosjekt.Controllers
                 var authorizationResult = await _authorizationService
                     .AuthorizeAsync(User, resource, ResourceOperations.Read);
 
-                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, lat, lng, radius, ownerId))
+                // Distance is filtered in resource-filter.js, so the filter can count hits for each distance (help with AI)
+                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, null, null, null, ownerId))
                 {
                     // Same checks as in ResourceHandlerController, so Rediger/Slett only show when they work
                     var canEdit = await _authorizationService
@@ -148,13 +174,26 @@ namespace Heimevernet_Prosjekt.Controllers
                     var canDelete = await _authorizationService
                         .AuthorizeAsync(User, resource, ResourceOperations.Delete);
 
+                    var shown = ShownStatus(resource, inUse);
+                    typeInfo.TryGetValue(resource.Type ?? "", out var info);
+                    owners.TryGetValue(resource.OwnerId ?? "", out var owner);
+
                     model.Add(new ResourceViewModel
                     {
                         Id = resource.Id,
                         Name = resource.Name,
                         Description = resource.Description,
-                        Type = resource.Type,
-                        Status = resource.Status,
+                        Type = resource.Type ?? string.Empty,
+                        Status = shown.Status, // "I bruk" / "Lever tilbake" (see ShownStatus)
+                        FreeFrom = shown.FreeFrom,
+                        UsedByNeedName = shown.NeedName,
+                        Icon = info.Icon,
+                        Category = info.Category,
+                        OwnerName = owner.Name,
+                        OwnerPhone = owner.Phone,
+                        Municipality = resource.Municipality,
+                        Latitude = resource.Latitude,
+                        Longitude = resource.Longitude,
                         CanEdit = canEdit.Succeeded,
                         CanDelete = canDelete.Succeeded
                     });
@@ -170,6 +209,16 @@ namespace Heimevernet_Prosjekt.Controllers
         {
             var resources = new List<object>();
             var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
+            // The type's icon on the map (the same as in "Ny ressurs"), or the category's icon if the type has none
+            var icons = _typeRepository.GetCategories()
+                .SelectMany(category => category.Types.Select(t => (t.Name, Icon: t.Icon ?? category.Icon)))
+                .GroupBy(t => t.Name)
+                .ToDictionary(g => g.Key, g => g.First().Icon);
+            var inUse = _requestRepository.GetResourceIdsInUse();
+            // Admin and operator: open "feil info" messages per resource, for the ⚑ filter on the map (others get 0) (help with AI)
+            var openReports = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)
+                ? _reportRepository.CountOpenByResource()
+                : new Dictionary<int, int>();
 
             foreach (var resource in _resourceRepository.GetAll())
             {
@@ -180,17 +229,25 @@ namespace Heimevernet_Prosjekt.Controllers
                 if (authorizationResult.Succeeded &&
                     resource.Latitude != null &&
                     resource.Longitude != null &&
-                    PassesFilter(resource, search, type, lat, lng, radius, ownerId))
+                    // Distance is filtered in resource-filter.js, so the filter can count hits for each distance (help with AI)
+                    PassesFilter(resource, search, type, null, null, null, ownerId))
                 {
+                    var shown = ShownStatus(resource, inUse);
                     resources.Add(new
                     {
                         id = resource.Id,
                         name = resource.Name,
                         description = resource.Description,
                         type = resource.Type,
-                        status = resource.Status,
+                        status = shown.Status, // "I bruk" / "Lever tilbake" (see ShownStatus)
+                        usedByNeedId = shown.NeedId,
+                        usedByNeedName = shown.NeedName,
+                        freeFrom = shown.FreeFrom,
+                        icon = icons.GetValueOrDefault(resource.Type ?? ""),
                         latitude = resource.Latitude,
-                        longitude = resource.Longitude
+                        longitude = resource.Longitude,
+                        municipality = resource.Municipality,
+                        reports = openReports.GetValueOrDefault(resource.Id)
                     });
                 }
             }
@@ -198,12 +255,41 @@ namespace Heimevernet_Prosjekt.Controllers
             return Json(resources);
         }
 
-        // The types for the Type dropdown in the filter: only the types in the list (ResourceTypes),
-        // so old or deleted types never show up. Same order as in Opprett/Rediger ("Annet" last)
+        // The types for "Type ressurs" in the filter, grouped by category in the same order as in "Ny ressurs".
+        // Only types with a category, so old or removed types (e.g. Lokaler) never show up
         [HttpGet]
         public IActionResult Types()
         {
-            return Json(_typeRepository.GetAll().Select(t => t.Name));
+            return Json(_typeRepository.GetCategories()
+                .Where(category => category.Types.Count > 0)
+                .Select(category => new
+                {
+                    name = category.Name,
+                    icon = category.Icon,
+                    types = category.Types.Select(type => type.Name)
+                }));
+        }
+
+        // The status people see on the map and in the list (help with AI): lent out to a need and not returned = "I bruk",
+        // or "Lever tilbake" if that need is closed. "Opptatt" is shown as "I bruk". Outside its fixed times or period a free
+        // resource is "Ledig senere", with FreeFrom = "Ledig fra 16:00". The database still stores "Opptatt" and "Ledig"
+        private (string Status, int? NeedId, string? NeedName, string? FreeFrom) ShownStatus(Resource resource, IReadOnlySet<int> inUse)
+        {
+            if (inUse.Contains(resource.Id))
+            {
+                var loan = _requestRepository.GetLoansForResource(resource.Id).FirstOrDefault(l => l.ReturnedAt == null);
+                if (loan != null)
+                {
+                    return (loan.NeedClosed ? "Lever tilbake" : "I bruk", loan.NeedId, loan.NeedName, null);
+                }
+            }
+            var status = string.IsNullOrEmpty(resource.Status) ? "Ledig" : resource.Status;
+            if (status == "Ledig" && !ResourceAvailabilityService.IsAvailableAt(resource, DateTime.UtcNow))
+            {
+                var next = ResourceAvailabilityService.NextAvailableText(resource, DateTime.UtcNow);
+                return ("Ledig senere", null, null, next == null ? "Ikke ledig nå" : "Ledig fra " + next);
+            }
+            return (status == "Opptatt" ? "I bruk" : status, null, null, null);
         }
 
         // Search, type, radius and "only mine" shared by the list and the map (help with AI)

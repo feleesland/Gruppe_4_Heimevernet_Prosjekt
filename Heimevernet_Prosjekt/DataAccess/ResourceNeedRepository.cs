@@ -5,6 +5,7 @@ using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed;
 
 namespace Heimevernet_Prosjekt.DataAccess
 {
+
     public class ResourceNeedRepository : IResourceNeedRepository
 
     {
@@ -13,6 +14,9 @@ namespace Heimevernet_Prosjekt.DataAccess
         public bool UpdateWithItems(int id, ReportNeedViewModel model) => throw new NotSupportedException();
         public void AddLog(int needId, string userId, string userName, string text) => throw new NotSupportedException();
         public IReadOnlyList<ResourceNeedLog> GetLog(int needId) => throw new NotSupportedException();
+        public IReadOnlyList<string> GetPopularTypes(int count) => throw new NotSupportedException();
+        public void AddUpdate(int needId, string userId, string userName, string text) => throw new NotSupportedException();
+        public IReadOnlyList<NeedUpdate> GetUpdates(int needId) => throw new NotSupportedException();
         private readonly Dictionary<int, ResourceNeed> _resourceNeeds = new();
         private int _nextId = 1;
 

@@ -9,6 +9,8 @@
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
+        // The municipality from Kartverket ("KRISTIANSAND"), used as the region in the filters. Empty on old needs (then City is used)
+        public string Municipality { get; set; } = string.Empty;
         public string OwnerId { get; set; } = string.Empty;
         public bool OwnerRemoved { get; set; }
 

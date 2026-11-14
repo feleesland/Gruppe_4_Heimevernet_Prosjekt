@@ -1,63 +1,108 @@
 ﻿@* The resource filter, used in the side panel on Kart and on Ressursoversikt (logic in wwwroot/js/resource-filter.js) *@
-@* No "Bruk" button: the result updates as soon as you choose *@
+@* No "Bruk" button: the result updates as soon as you choose. Each part is a card with an icon (.rf-section in site.css) *@
 @{
     var onMap = ViewData["FilterOnMap"] as bool? == true;
     var canNeeds = ViewData["FilterCanNeeds"] as bool? == true;
+    var signedIn = User.Identity?.IsAuthenticated == true; // guests only see the public actors, not resources
+    var canReports = User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Admin) || User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Operator); // admin and operator see the ⚑ messages
 }
 <div id="rfPanel" data-types-url="@Url.Action("Types", "Resource")" data-on-map="@(onMap ? "true" : "false")">
     @if (onMap)
     {
         @* Only on Kart: what is drawn on the map. The rest of the filter is used on Ressursoversikt too *@
-        <fieldset class="rf-map-only mb-3">
-            <legend class="h6 mb-0">🗺️ Vis på kartet</legend>
+        <fieldset class="rf-section rf-map-only">
+            <legend class="rf-section-title"><i class="ti ti-map" aria-hidden="true"></i> Vis på kartet</legend>
             <div class="small text-body-secondary mb-2">Gjelder bare kartet</div>
-            <div class="form-check">
+            <div class="form-check" hidden="@(!signedIn)">
                 <input class="form-check-input" type="checkbox" id="rfShowResources" checked />
-                <label class="form-check-label d-flex w-100" for="rfShowResources">📦 Ressurser<span id="rfResourcesCount" class="ms-auto text-body-secondary"></span></label>
+                <label class="form-check-label d-flex w-100" for="rfShowResources">📦 Ressurser<span id="rfResourcesCount" class="rf-pill ms-auto"></span></label>
             </div>
             @if (canNeeds)
             {
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="rfShowNeeds" checked />
-                    <label class="form-check-label d-flex w-100" for="rfShowNeeds">🟥 Behov<span id="rfNeedsCount" class="ms-auto text-body-secondary"></span></label>
+                    <label class="form-check-label d-flex w-100" for="rfShowNeeds">🟥 Behov<span id="rfNeedsCount" class="rf-pill ms-auto"></span></label>
                 </div>
             }
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="rfShowActors" checked />
+                <label class="form-check-label d-flex w-100" for="rfShowActors">🔵 Offentlige aktører<span id="rfActorsCount" class="rf-pill ms-auto"></span></label>
+            </div>
         </fieldset>
-        <h2 class="h6 mb-0">Filtrer ressurser</h2>
-        <div class="small text-body-secondary mb-3">Gjelder både kartet og Ressursoversikt</div>
+        @if (!signedIn)
+        {
+            <p class="small text-body-secondary">Logg inn for å se og filtrere ressurser.</p>
+        }
+        <h2 class="h6 mb-0" hidden="@(!signedIn)">Filtrer ressurser</h2>
+        <div class="small text-body-secondary mb-3" hidden="@(!signedIn)">Gjelder både kartet og Ressursoversikt</div>
     }
-    <fieldset class="mb-4 rf-resource-only">
-        <legend class="h6">Type ressurs</legend>
+    <fieldset class="rf-section rf-resource-only" hidden="@(!signedIn)">
+        <legend class="rf-section-title"><i class="ti ti-category" aria-hidden="true"></i> Type ressurs</legend>
         <div id="rfTypes" class="small text-body-secondary">Henter typer …</div>
     </fieldset>
 
-    <fieldset class="mb-4 rf-resource-only">
-        <legend class="h6">Status</legend>
+    <fieldset class="rf-section rf-resource-only" hidden="@(!signedIn)">
+        <legend class="rf-section-title"><i class="ti ti-circle-check" aria-hidden="true"></i> Status</legend>
         <div id="rfStatus"></div>
     </fieldset>
 
-    <fieldset class="mb-4">
-        <legend class="h6">Avstand</legend>
-        <label for="rfRadius" class="form-label small">Innen</label>
-        <select id="rfRadius" class="form-select mb-2">
-            <option value="0.5">500 m</option>
-            <option value="1">1 km</option>
-            <option value="2" selected>2 km</option>
-            <option value="5">5 km</option>
-            <option value="10">10 km</option>
-        </select>
-        <div id="rfPlace" class="small mb-2">Velg et sted i søket for å bruke avstand.</div>
-        @if (onMap)
-        {
-            <button type="button" id="rfPick" class="btn btn-sm btn-outline-secondary w-100">📍 Velg punkt på kartet</button>
-        }
+    @* Admin and operator: only resources with open "feil info" messages (⚑). On Kart and Ressursoversikt (help with AI) *@
+    @if (canReports)
+    {
+        <fieldset class="rf-section rf-resource-only">
+            <legend class="rf-section-title"><i class="ti ti-flag" aria-hidden="true"></i> Feilmeldinger</legend>
+            <div id="rfReports"></div>
+        </fieldset>
+    }
+
+    @* "Sted": kommune, and distance from a point (a place from the search, my position or a point on the map). Logic in renderPlace in resource-filter.js *@
+    <fieldset class="rf-section" hidden="@(!signedIn)">
+        <legend class="rf-section-title"><i class="ti ti-map-pin" aria-hidden="true"></i> Sted</legend>
+
+        <div class="rf-sub">Kommune</div>
+        <div id="rfKommune" class="mb-2"></div>
+
+        <div class="rf-divider">Avstand fra et punkt</div>
+        <div id="rfFromSearch" class="rf-from mb-2">
+            <label for="rfFrom" class="form-label small mb-1">Fra</label>
+            <input type="search" id="rfFrom" class="form-control form-control-sm" placeholder="Sted, adresse eller postnr."
+                   autocomplete="off" aria-expanded="false" aria-controls="rfFromList" />
+            <div id="rfFromList" class="rf-from-list" hidden></div>
+        </div>
+        <div id="rfFromChosen" class="mb-2" hidden>
+            <span class="rf-tag">
+                <i class="ti ti-check" aria-hidden="true"></i> <span id="rfFromName"></span>
+                <button type="button" id="rfFromClear" class="rf-tag-clear" aria-label="Fjern punktet">✕</button>
+            </span>
+            <div class="small text-body-secondary mt-1">Måles fra dette punktet.</div>
+            @if (!onMap)
+            {
+                <a id="rfFromMap" class="small" href="#" data-map-url="@Url.Action("Map", "Home")"><i class="ti ti-map" aria-hidden="true"></i> Se på kartet</a>
+            }
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button type="button" id="rfMyPosition" class="btn btn-sm rf-reset"><i class="ti ti-current-location" aria-hidden="true"></i> Bruk min posisjon</button>
+            @if (onMap)
+            {
+                <button type="button" id="rfPick" class="btn btn-sm rf-reset"><i class="ti ti-pointer" aria-hidden="true"></i> Velg på kartet</button>
+            }
+        </div>
+
+        <div id="rfRadiusList"></div>
+        <div id="rfRadiusCustom" class="d-flex align-items-center gap-2 mt-1" hidden>
+            <label for="rfRadiusOwn" class="small">Egen:</label>
+            <input type="number" id="rfRadiusOwn" class="form-control form-control-sm" style="width: 5.5rem;" step="0.1" min="0.1" max="500" />
+            <span class="small">km</span>
+            <button type="button" id="rfRadiusUse" class="btn btn-sm rf-reset">Bruk</button>
+        </div>
+        <div id="rfRadiusHint" class="small text-body-secondary mt-1" role="status">Velg et sted først</div>
     </fieldset>
 
-    <div class="d-flex gap-2 border-top pt-3">
-        <button type="button" id="rfReset" class="btn btn-outline-secondary">Nullstill alt</button>
+    <div class="d-flex gap-2">
+        <button type="button" id="rfReset" class="btn rf-reset"><i class="ti ti-refresh" aria-hidden="true"></i> Nullstill alt</button>
         @if (onMap)
         {
-            <button type="button" id="rfShow" class="btn btn-success ms-auto">Vis <span id="rfResultCount"></span> treff</button>
+            <button type="button" id="rfShow" class="btn btn-success ms-auto">Vis treff</button>
         }
     </div>
 </div>

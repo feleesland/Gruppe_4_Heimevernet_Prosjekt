@@ -12,4 +12,7 @@ public interface IResourceTypeRepository
     bool Update(int id, string name, string? examples);
     int CountResourcesUsing(string name);
     bool Delete(int id);
+
+    // "Ny ressurs": the categories with their types and visible questions, in order
+    IReadOnlyList<ResourceCategory> GetCategories();
 }

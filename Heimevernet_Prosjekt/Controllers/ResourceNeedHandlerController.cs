@@ -443,6 +443,41 @@ namespace Heimevernet_Prosjekt.Controllers
             return BackToNeed(needId);
         }
 
+        // "Publiser" in "Info til innbyggere": a short public update, shown on the front page and the map (help with AI)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PublishUpdate(int needId, string? updateText)
+        {
+            var need = _resourceNeedRepository.GetById(needId);
+            if (need == null)
+            {
+                return NotFound();
+            }
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
+            {
+                return Forbid();
+            }
+
+            updateText = updateText?.Trim();
+            if (need.ClosedAt != null)
+            {
+                TempData["Error"] = "Behovet er avsluttet.";
+            }
+            else if (string.IsNullOrEmpty(updateText))
+            {
+                TempData["Error"] = "Skriv en kort oppdatering først.";
+            }
+            else
+            {
+                if (updateText.Length > 300) updateText = updateText[..300];
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+                _resourceNeedRepository.AddUpdate(needId, userId, User.Identity?.Name ?? "Ukjent", updateText);
+                TempData["Message"] = "Info til innbyggere er publisert.";
+                Log(needId, $"Publiserte info til innbyggere: «{updateText}»");
+            }
+            return BackToNeed(needId);
+        }
         // The request must belong to this need, and the user must be allowed to change the need
         private async Task<IActionResult?> CheckRequestAsync(int needId, int requestId)
         {
@@ -505,6 +540,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Address = need.Address,
                 ZipCode = need.ZipCode,
                 City = need.City,
+                Municipality = need.Municipality,
                 Latitude = need.Latitude,
                 Longitude = need.Longitude,
                 NeededFrom = ToOslo(need.NeededFrom),
@@ -640,6 +676,17 @@ namespace Heimevernet_Prosjekt.Controllers
         private void LoadTypes()
         {
             ViewData["ResourceTypes"] = _typeRepository.GetAll();
+            // The categories with their types and icons, for "Legg til ressurs" (the same as in "Ny ressurs")
+            ViewData["TypeCategories"] = _typeRepository.GetCategories()
+                .Where(category => category.Types.Count > 0)
+                .Select(category => new {
+                    name = category.Name,
+                    icon = category.Icon,
+                    types = category.Types.Select(type => new { name = type.Name, icon = type.Icon ?? category.Icon })
+                })
+                .ToList();
+            // "Ofte brukt": the 6 types used most in needs. need-form.js fills up with a fixed list while there are few needs
+            ViewData["PopularTypes"] = _resourceNeedRepository.GetPopularTypes(6);
         }
 
         private static DateTime? ToUtc(DateTime? norwegianTime)

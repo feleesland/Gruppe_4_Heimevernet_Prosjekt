@@ -10,9 +10,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
+        <meta charset="utf-8" />
+      
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Heimevernet</title>
+
+  @* Tabler icons, used in the filter and in "Ny ressurs" - Docs: https://tabler.io/docs/icons/webfont *@
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@@tabler/icons-webfont@@3/dist/tabler-icons.min.css" />
 
     @* Light or dark mode: set before the page is drawn, so it doesn't flash. The choice is remembered;
        the first time it follows the computer's setting - Docs: Bootstrap Color modes
@@ -43,18 +47,18 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light border-bottom box-shadow">
+        <nav class="navbar navbar-expand-xl navbar-toggleable-xl navbar-light border-bottom box-shadow">
             <div class="container-fluid">
                 <a class="navbar-brand" asp-controller="Home" asp-action="Index">
                     <img width="40.4" height="50" src="/logo.svg"></img>
                 </a>
-                <a class="navbar-brand text-white"
+                <a class="navbar-brand text-white d-none d-md-inline"
                    asp-area=""
                    asp-controller="Home"
-                   asp-action="Index">Heimevernet</a>
+                   asp-action="Index">Ressurs Varden</a>
 
                 <!-- Open or close the menu on small screens. -->
-                <button class="navbar-toggler"
+                <button class="navbar-toggler order-1 ms-2"
                         type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#mainNavigation"
@@ -65,7 +69,7 @@
                 </button>
 
                 <div id="mainNavigation"
-                     class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                     class="navbar-collapse collapse d-xl-inline-flex justify-content-between order-last order-xl-0">
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
                             <a class="nav-link text-white"
@@ -89,6 +93,8 @@
                                asp-controller="Home"
                                asp-action="Map">Kart</a>
                         </li>
+                        @if (User.Identity?.IsAuthenticated == true)
+                         {
                         <li class="nav-item">
                             @* The controller checks which resources the user can see. *@
                             <a class="nav-link text-white"
@@ -96,10 +102,24 @@
                                asp-controller="Resource"
                                asp-action="List">Ressursoversikt</a>
                         </li>
-                        <li class="nav-item">
-                             <a class="nav-link text-white" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
-                        </li>
+                         }
+                @if (User.Identity?.IsAuthenticated != true)
+                {
+                    @* Not logged in: register a resource straight away, and log in at the end (the draft is kept) *@
+                    <li class="nav-item">
+                        <a class="nav-link text-white" asp-controller="ResourceHandler" asp-action="Create">Opprett ressurs</a>
+                    </li>
+                }
+
+                    @* Behov is only for admin and operator (public actors), like in the case *@
+                        @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-white" asp-area="" asp-controller="ResourceNeed" asp-action="List">Behov</a>
+                            </li>
+                        }
                     </ul>
+                                    </div>
 
                     @* Search in the menu on every page, like YouTube: one field with 🔍 and ✕, suggestions while typing (logic in wwwroot/js/site.js). *@
                     @* Logged in: resources + places from Kartverket. Not logged in: the information on the homepage. Icons from Bootstrap Icons (MIT) *@
@@ -107,7 +127,7 @@
                     {
                         <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" role="search" autocomplete="off"
                               data-suggest-url="@Url.Action("Index", "Suggestions")" data-map-url="@Url.Action("Map", "Home")" data-detail-url="@Url.Content("~/Resource/Index/")"
-                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                              class="nav-search d-flex flex-grow-1 justify-content-center align-items-center gap-2 mx-2 mx-xl-3">
                             <div class="search-box">
                                 <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
                                 <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control rounded-pill" placeholder="Søk etter ressurs eller sted ..." aria-label="Søk etter ressurs eller sted" />
@@ -117,48 +137,13 @@
                                 <div id="globalSearchSuggestions" class="search-suggestions d-none"></div>
                             </div>
 
-                            @* Filter: type and radius. "Filter" or "Filter på" (filled icon, blue), so it doesn't rely on color alone - Docs: Bootstrap Dropdowns *@
-                            @* https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
-                            <div class="dropdown">
-                                <button type="button" id="filterButton" class="btn btn-outline-light rounded-pill text-nowrap d-flex align-items-center gap-1"
-                                        data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                                    <svg class="filter-icon-off" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5zm1 .5v1.308l4.372 4.858A.5.5 0 0 1 7 8.5v5.306l2-.666V8.5a.5.5 0 0 1 .128-.334L13.5 3.308V2z" /></svg>
-                                    <svg class="filter-icon-on d-none" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5z" /></svg>
-                                    <span class="filter-text">Filter</span>
-                                </button>
-                                <div class="dropdown-menu dropdown-menu-end filter-panel p-3">
-                                    <label for="filterType" class="form-label">Type ressurs</label>
-                                    <select id="filterType" class="form-select mb-3" data-url="@Url.Action("Types", "Resource")">
-                                        <option value="">Alle typer</option>
-                                    </select>
-
-                                    <label for="filterRadius" class="form-label">Radius</label>
-                                    <select id="filterRadius" class="form-select mb-2">
-                                        <option value="0.5">500 m</option>
-                                        <option value="1">1 km</option>
-                                        <option value="2" selected>2 km</option>
-                                        <option value="5">5 km</option>
-                                        <option value="custom">Egen …</option>
-                                    </select>
-                                    <input id="filterRadiusCustom" type="number" min="0.1" max="100" step="0.1" class="form-control mb-2 d-none" placeholder="Antall km (maks 100)" />
-
-                                    <button type="button" id="filterPickOnMap" class="btn btn-sm btn-outline-secondary w-100 mb-2 d-none">📍 Velg punkt på kartet</button>
-                                    <div id="filterPlace" class="small mb-3">Velg et sted i søket for å bruke radius.</div>
-
-                                    <div class="d-flex justify-content-between">
-                                        <button type="button" id="filterReset" class="btn btn-outline-secondary btn-sm">Nullstill</button>
-                                        <button type="button" id="filterApply" class="btn btn-primary btn-sm">Bruk</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <span id="globalSearchStatus" class="small text-nowrap text-white"></span>
+                            <span id="globalSearchStatus" class="small text-nowrap text-white d-none d-xl-inline"></span>
                         </form>
                     }
                     else
                     {
                         <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" role="search" autocomplete="off"
-                              class="nav-search d-flex justify-content-center align-items-center gap-2 mx-sm-3 my-2 my-sm-0">
+                              class="nav-search d-flex flex-grow-1 justify-content-center align-items-center gap-2 mx-2 mx-xl-3">
                             <div class="search-box">
                                 <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
                                 <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control rounded-pill" placeholder="Søk i informasjon ..." aria-label="Søk i informasjon" />
@@ -166,12 +151,12 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z" /></svg>
                                 </button>
                             </div>
-                            <span id="infoSearchStatus" class="small text-nowrap text-white"></span>
+                            <span id="infoSearchStatus" class="small text-nowrap text-white d-none d-xl-inline"></span>
                         </form>
                     }
 
                     @* Show account controls based on login status. *@
-                    <ul class="navbar-nav align-items-center">
+                    <ul class="navbar-nav account-nav flex-row align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
                             // Show first and last name; fall back to email for users without a name
@@ -237,6 +222,10 @@
                                     }
 
                                     <a class="dropdown-item small py-2" asp-controller="ResourceRequest" asp-action="Mine">Alle mine forespørsler</a>
+                                                                @if (User.IsInRole(RoleNames.Admin))
+                            {
+                                <a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">⚑ Alle varsler</a>
+                            }
                                 </div>
                             </li>
 
@@ -259,8 +248,15 @@
                                         <div class="small text-body-secondary">@currentUser?.Email · @roleName</div>
                                     </div>
                                     <div class="dropdown-divider"></div>
+                                                                <a class="dropdown-item" asp-controller="MinSide" asp-action="Index">👤 Min side</a>
                                     <a class="dropdown-item" asp-controller="Resource" asp-action="List" asp-route-mine="true">📦 Mine ressurser</a>
                                     <a class="dropdown-item" asp-controller="ResourceRequest" asp-action="Mine">🔔 Mine forespørsler</a>
+                                     @if (isAdmin)
+                                     {
+                                         <a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">⚑ Alle varsler</a>
+                                     }
+                                                                        @* Innstillinger: only for the look for now, the page isn't made yet *@
+                                    <button type="button" class="dropdown-item">⚙️ Innstillinger</button>
                                     <partial name="_DisplaySettings" />
                                     <div class="dropdown-divider"></div>
                                     <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
@@ -284,19 +280,18 @@
                                    asp-controller="Account"
                                    asp-action="Login">Logg inn</a>
                             </li>
-                            <li class="nav-item">
+                            <li class="nav-item d-none d-md-block">
                                 <a class="nav-link text-white"
                                    asp-controller="Account"
                                    asp-action="Register">Registrer</a>
                             </li>
                         }
                     </ul>
-                </div>
             </div>
         </nav>
     </header>
 
-    <div class="container">
+        <div class="page-width">
         <main role="main">
             @RenderBody()
         </main>

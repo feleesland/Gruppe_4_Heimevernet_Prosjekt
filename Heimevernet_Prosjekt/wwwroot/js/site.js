@@ -2,8 +2,7 @@
 // for details on configuring this project to bundle and minify static web assets.
 
 // Search in the menu (_Layout) like YouTube/Google Maps: suggestions while typing (our resources + places from Kartverket),
-// Enter goes to Kart, ✕ clears. The filter (type + radius) is kept in the URL, so Kart and Ressursoversikt show the same (help with AI)
-// Docs: Bootstrap Dropdowns - https://getbootstrap.com/docs/5.3/components/dropdowns/
+// Enter goes to Kart, ✕ clears. The filter panel (resource-filter.js) uses the same search and filter, kept in the URL, so Kart and Ressursoversikt show the same (help with AI)
 (function () {
     const form = document.getElementById('globalSearchForm');
     if (!form) {
@@ -13,13 +12,6 @@
     const clearButton = document.getElementById('globalSearchClear');
     const list = document.getElementById('globalSearchSuggestions');
     const status = document.getElementById('globalSearchStatus');
-
-    const filterButton = document.getElementById('filterButton');
-    const typeSelect = document.getElementById('filterType');
-    const radiusSelect = document.getElementById('filterRadius');
-    const radiusCustom = document.getElementById('filterRadiusCustom');
-    const pickButton = document.getElementById('filterPickOnMap');
-    const placeText = document.getElementById('filterPlace');
 
     const defaultRadius = 2; // km
     const path = window.location.pathname.toLowerCase();
@@ -62,99 +54,6 @@
     let active = -1;
     let lastData = null; // the last suggestions, so Enter can use them
 
-    // ---------- Filter ----------
-
-    function getRadius() {
-        if (radiusSelect.value === 'custom') {
-            const km = parseFloat(radiusCustom.value);
-            return isNaN(km) ? defaultRadius : Math.min(Math.max(km, 0.1), 100);
-        }
-        return parseFloat(radiusSelect.value);
-    }
-
-    function setRadius(km) {
-        const option = [...radiusSelect.options].find(o => o.value !== 'custom' && parseFloat(o.value) === km);
-        if (option) {
-            radiusSelect.value = option.value;
-            radiusCustom.classList.add('d-none');
-        } else {
-            radiusSelect.value = 'custom';
-            radiusCustom.value = km;
-            radiusCustom.classList.remove('d-none');
-        }
-    }
-
-    // "Filter" (outline icon, grey) or "Filter på" (filled icon, blue)
-    function showFilterState() {
-        const on = !!current.type || !!current.lat;
-        filterButton.classList.toggle('btn-primary', on);
-        filterButton.classList.toggle('btn-outline-secondary', !on);
-        filterButton.querySelector('.filter-icon-off').classList.toggle('d-none', on);
-        filterButton.querySelector('.filter-icon-on').classList.toggle('d-none', !on);
-        filterButton.querySelector('.filter-text').textContent = on ? 'Filter på' : 'Filter';
-        placeText.textContent = current.lat
-            ? 'Sentrum: ' + (current.where || 'valgt punkt')
-            : 'Velg et sted i søket' + (pickButton.classList.contains('d-none') ? '' : ' eller på kartet') + ' for å bruke radius.';
-    }
-
-    radiusSelect.addEventListener('change', function () {
-        radiusCustom.classList.toggle('d-none', radiusSelect.value !== 'custom');
-        if (radiusSelect.value === 'custom') {
-            radiusCustom.focus();
-        }
-    });
-
-    // The types are loaded from the server the first time the panel opens
-    let typesLoaded = false;
-    filterButton.addEventListener('show.bs.dropdown', async function () {
-        pickButton.classList.toggle('d-none', typeof window.startPickCenter !== 'function');
-        showFilterState();
-        if (typesLoaded) {
-            return;
-        }
-        try {
-            const types = await (await fetch(typeSelect.dataset.url)).json();
-            types.forEach(t => typeSelect.add(new Option(t, t, false, t === current.type))); // Option = plain text, safe
-            typesLoaded = true;
-        } catch {
-            placeText.textContent = 'Kunne ikke hente typene.';
-        }
-    });
-
-    // On Kart: the next click on the map becomes the centre of the circle
-    pickButton.addEventListener('click', function () {
-        bootstrap.Dropdown.getOrCreateInstance(filterButton).hide();
-        status.textContent = 'Klikk på kartet for å velge sentrum';
-        window.startPickCenter(function (lat, lng) {
-            current.where = 'valgt punkt';
-            current.lat = lat.toFixed(5);
-            current.lng = lng.toFixed(5);
-            applyFilter();
-        });
-    });
-
-    function applyFilter() {
-        current.type = typeSelect.value || '';
-        if (current.lat) {
-            current.radius = getRadius();
-        }
-        goTo(current, onListPage ? form.action : form.dataset.mapUrl);
-    }
-
-    document.getElementById('filterApply').addEventListener('click', function () {
-        bootstrap.Dropdown.getOrCreateInstance(filterButton).hide();
-        applyFilter();
-    });
-
-    // Nullstill: removes type and place, keeps what is written in the search field
-    document.getElementById('filterReset').addEventListener('click', function () {
-        typeSelect.value = '';
-        setRadius(defaultRadius);
-        current = current.search ? { search: current.search } : {};
-        bootstrap.Dropdown.getOrCreateInstance(filterButton).hide();
-        goTo(current, onListPage ? form.action : window.location.pathname);
-    });
-
     // ---------- Search ----------
 
     // ✕ only shows when there is text in the field
@@ -175,7 +74,6 @@
         current = params;
         saveFilter(params);
         updateMenuLinks();
-        showFilterState();
         const query = new URLSearchParams(params).toString();
         if (typeof window.onResourceSearch === 'function' && page !== form.action) {
             window.onResourceSearch(params);
@@ -187,7 +85,7 @@
 
     // The filter panel (resource-filter.js) reads and changes the same search and filter as the menu
     window.getResourceParams = function () { return { ...current }; };
-    window.applyResourceParams = function (params) { goTo(params, onListPage ? form.action : window.location.pathname); };
+    window.applyResourceParams = function (params) { goTo(params, window.location.pathname); };
 
     function addSection(title) {
         const div = document.createElement('div');
@@ -233,11 +131,13 @@
         }
     }
 
-    // A place: the centre of the circle, with the radius from the filter (type is kept)
+    // A place: the centre of the circle; the rest of the filter (types, status ...) is kept, the text search is not
     function selectPlace(place) {
         input.value = '';
         showClear();
-        goTo({ type: current.type, where: place.name, lat: place.latitude, lng: place.longitude, radius: getRadius() }, form.dataset.mapUrl);
+        const params = { ...current, where: place.name, lat: place.latitude, lng: place.longitude, radius: current.radius || defaultRadius };
+        delete params.search;
+        goTo(params, form.dataset.mapUrl);
     }
 
     // Asks our server (SuggestionsController) for resources and places, and builds the list
@@ -339,15 +239,10 @@
             closeList();
         }
     });
-
-    // Start: fill the filter from the URL
-    if (current.radius) {
-        setRadius(parseFloat(current.radius));
-    }
-    showClear();
-    showFilterState();
-    updateMenuLinks();
-})();
+ 
+        showClear();
+        updateMenuLinks();
+    })();
 
 // Search in the menu when not logged in: finds and highlights text on the homepage (help with AI)
 (function () {
