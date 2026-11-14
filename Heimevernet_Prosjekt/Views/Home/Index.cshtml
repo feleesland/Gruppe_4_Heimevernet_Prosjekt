@@ -5,9 +5,10 @@
 }
 @*Style som innehodler kode nødvendig for utseened av fremsiden*@
 <style>
+
     body {
 overflow-x: clip;
-}
+} 
 
     .home-banner {
     min-height: 320px;
@@ -73,20 +74,36 @@ overflow-x: clip;
 }
 </style>
 
-<div class="home-banner">
-<div class="text-center home-panel">
-    <h1 class="display-5">Ressurs Varden </h1>
-    <p> Vi hjelper med å gi kriseteam ressursene de trenger.</p>
 
-    @if (User.Identity?.IsAuthenticated != true)
-    {
-        <p>Har du noe du kan bidra med?</p>
-        <a class="button" asp-controller="Account" asp-action="Register">Registrer her!</a>
-        <p class="mt-2">Er du en internperson?</p>
-        <a class="button" asp-controller="Account" asp-action="Login">Gå til innlogging</a>
-    }
+    <div class="home-banner" id="top">
+    <div class="text-center home-panel">
+        <h1 class="display-5">Ressurs-Varden</h1>
+        <p>Vi hjelper med å gi kriseteam ressursene de trenger.</p>
+
+        @if (User.Identity?.IsAuthenticated != true)
+        {
+            <p class="mb-0">Har du noe du kan bidra med?</p>
+            <a class="button button-lg" asp-controller="ResourceHandler" asp-action="Create">Registrer en ressurs</a>
+            <p class="small mb-0">Du logger inn eller oppretter bruker til slutt, rett før ressursen lagres.</p>
+        }
+    </div>
 </div>
-</div>
+
+@if (User.Identity?.IsAuthenticated != true)
+{
+    <div class="home-grid home-grid-narrow">
+        <div class="home-card text-center">
+            <h2 class="h5">Har du bruker?</h2>
+            <p>Logg inn for å se kart, ressurser og behov.</p>
+            <a class="button" asp-controller="Account" asp-action="Login">Logg inn</a>
+        </div>
+        <div class="home-card text-center">
+            <h2 class="h5">Ny her?</h2>
+            <p>Opprett en bruker for å dele ressursene dine.</p>
+            <a class="button" asp-controller="Account" asp-action="Register">Opprett bruker</a>
+        </div>
+    </div>
+}
 
 @if (User.Identity?.IsAuthenticated != true)
 {
