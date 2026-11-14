@@ -564,99 +564,98 @@
 	<script>
 				// The group's PNG icons per type (old type names, so only the default pins showed). Replaced by resourcePin below,
 				// which uses the type icons from the database. Kept as a comment until the group has seen it
-				/*
-		var greenIcon = new L.Icon({
-			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-			iconSize: [25, 41],
-			iconAnchor: [12, 41],
-			popupAnchor: [1, -34]
-		});
+				
+// 		var greenIcon = new L.Icon({
+// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+// 			iconSize: [25, 41],
+// 			iconAnchor: [12, 41],
+// 			popupAnchor: [1, -34]
+// 		});
 
 
-		var redIcon = new L.Icon({
-			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-			iconSize: [25, 41],
-			iconAnchor: [12, 41],
-			popupAnchor: [1, -34]
-		});
+// 		var redIcon = new L.Icon({
+// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+// 			iconSize: [25, 41],
+// 			iconAnchor: [12, 41],
+// 			popupAnchor: [1, -34]
+// 		});
 
-		var greyIcon = new L.Icon({
-			iconUrl: 'https:raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-			shadowUrl: 'https:cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-			iconSize: [25, 41],
-			iconAnchor: [12, 41],
-			popupAnchor: [1, -34]
-		});
+// 		var greyIcon = new L.Icon({
+// 			iconUrl: 'https:raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+// 			shadowUrl: 'https:cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+// 			iconSize: [25, 41],
+// 			iconAnchor: [12, 41],
+// 			popupAnchor: [1, -34]
+// 		});
 
-		var blueIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
-});
+// 		var blueIcon = new L.Icon({
+//     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+//     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+//     iconSize: [25, 41],
+//     iconAnchor: [12, 41],
+//     popupAnchor: [1, -34]
+// });
 
-				function getPermanentIcon(iconType)
-		{
-			return L.icon({
-				iconUrl: `/images/permanent-map-icons/${iconType}.png`,
-				iconSize: [40, 40],
-				iconAnchor: [20, 40],
-				popupAnchor: [0, -40]
-			});
-		}
+ 				function getPermanentIcon(iconType)
+ 		{
+ 			return L.icon({
+ 				iconUrl: `/images/permanent-map-icons/${iconType}.png`,
+ 				iconSize: [40, 40],
+ 				iconAnchor: [20, 40],
+ 				popupAnchor: [0, -40]
+ 			});
+ 		}
 
 
-		function getDefaultMarker(status) {
+// 		function getDefaultMarker(status) {
 
-			switch (status) {
+// 			switch (status) {
 
-        case "Opptatt":
-            return greyIcon;
+//         case "Opptatt":
+//             return greyIcon;
 
-				case "Ugyldig":
-					return redIcon;
+// 				case "Ugyldig":
+// 					return redIcon;
 
-				default:
-					return greenIcon;
-			}
-		}
+// 				default:
+// 					return greenIcon;
+// 			}
+// 		}
 
-		function getResourceIcon(type, status) {
+// 		function getResourceIcon(type, status) {
 
-			//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
-			var typeMap = {
-				"Verktøy og utstyr": "tools",
-				"Motoriserte kjøretøy": "vehicle",
-				"Husly og bygg": "shelter",
-				// "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
-				"Sikkerhet og medisinsk": "medical"
-			};
-			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
-			if (status === "Ikke tilgjengelig") {
-				return greyIcon;
-			}
+// 			//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
+// 			var typeMap = {
+// 				"Verktøy og utstyr": "tools",
+// 				"Motoriserte kjøretøy": "vehicle",
+// 				"Husly og bygg": "shelter",
+// 				// "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
+// 				"Sikkerhet og medisinsk": "medical"
+// 			};
+// 			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
+// 			if (status === "Ikke tilgjengelig") {
+// 				return greyIcon;
+// 			}
 
-			var iconType = typeMap[type];
+// 			var iconType = typeMap[type];
 
-			if (!iconType) {
-				return getDefaultMarker(status);
-			}
+// 			if (!iconType) {
+// 				return getDefaultMarker(status);
+// 			}
 
-			var iconStatus = (status || "Ledig")
-				.toLowerCase()
-				.replace("ø", "o");
+// 			var iconStatus = (status || "Ledig")
+// 				.toLowerCase()
+// 				.replace("ø", "o");
 
-			return L.icon({
-				iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
-				iconSize: [36, 36],
-				iconAnchor: [18, 36],
-				popupAnchor: [0, -36]
-			});
-		}
-			*/
+// 			return L.icon({
+// 				iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
+// 				iconSize: [36, 36],
+// 				iconAnchor: [18, 36],
+// 				popupAnchor: [0, -36]
+// 			});
+// 		}
 
 		// The pins on the map (help with AI): the type's own icon (the same as in "Ny ressurs") in a pin.
 		// Green = ledig now, grey = everything else (I bruk, Ledig senere ...). The status is in the tooltip too, so it isn't colour alone.
@@ -894,6 +893,26 @@ function loadPermanentMarkers() {
 				.catch(error => console.error("Feil ved henting av behov:", error));
 		}
 
+		// Offentlige aktører (police, fire station, hospital) from the group's PermanentMapMarkers - shown to everyone, also guests.
+		// Blue in the case = public actor; the group's own icons are used (getPermanentIcon) (help with AI)
+		var actorLayer = L.layerGroup().addTo(map);
+		function loadActors() {
+			return fetch('@Url.Action("PermanentMapMarkers", "Home")')
+				.then(response => response.ok ? response.json() : [])
+				.then(actors => {
+					actorLayer.clearLayers();
+					document.getElementById('rfActorsCount').textContent = actors.length;
+					actors.forEach(actor => {
+						L.marker([actor.latitude, actor.longitude], { icon: getPermanentIcon(actor.iconType) })
+							.bindTooltip('<strong>' + escapeHtml(actor.name) + '</strong><br>' + escapeHtml(actor.type), { direction: 'top', offset: [0, -38] })
+							.bindPopup('<strong>' + escapeHtml(actor.name) + '</strong><br>' + escapeHtml(actor.description || actor.type))
+							.addTo(actorLayer);
+					});
+				})
+				.catch(error => console.error("Feil ved henting av offentlige aktører:", error));
+		}
+		loadActors();
+
 		if (canNeeds) {
 			loadNeeds();
 		}
@@ -955,32 +974,32 @@ function loadPermanentMarkers() {
 			openResource(resource.id);
 		};
 
-				function loadPermanentMarkers()
-		{
-			fetch('@Url.Action("PermanentMapMarkers", "Home")')
-				.then(response => response.json())
-				.then(markers => {
+		// 		function loadPermanentMarkers()
+		// {
+		// 	fetch('@Url.Action("PermanentMapMarkers", "Home")')
+		// 		.then(response => response.json())
+		// 		.then(markers => {
 
-					permanentMarkerLayer.clearLayers();
+		// 			permanentMarkerLayer.clearLayers();
 
-					markers.forEach(marker => {
+		// 			markers.forEach(marker => {
 
-						L.marker(
-							[marker.latitude, marker.longitude],
-							{
-								icon: getPermanentIcon(
-									marker.iconType)
-							})
-							.bindPopup(
-								`<strong>${marker.name}</strong><br>
-								 ${marker.description ?? ''}`
-							)
-							.addTo(permanentMarkerLayer);
+		// 				L.marker(
+		// 					[marker.latitude, marker.longitude],
+		// 					{
+		// 						icon: getPermanentIcon(
+		// 							marker.iconType)
+		// 					})
+		// 					.bindPopup(
+		// 						`<strong>${marker.name}</strong><br>
+		// 						 ${marker.description ?? ''}`
+		// 					)
+		// 					.addTo(permanentMarkerLayer);
 
-					});
+		// 			});
 
-				});
-		}
+		// 		});
+		// }
 
 		// "Velg punkt på kartet" i filter
 		var pickingCenter = false;
@@ -1610,6 +1629,8 @@ function loadPermanentMarkers() {
 			var hide = (params.hide || '').split(',');
 			if (hide.includes('resources')) map.removeLayer(markerLayer); else map.addLayer(markerLayer);
 			if (hide.includes('resources')) map.removeLayer(returnLayer); else map.addLayer(returnLayer);
+			if (hide.includes('actors')) map.removeLayer(actorLayer); else map.addLayer(actorLayer);
+			document.getElementById('rfShowActors').checked = !hide.includes('actors');
 			if (canNeeds) {
 				if (hide.includes('needs')) map.removeLayer(needLayer); else map.addLayer(needLayer);
 			}
@@ -1625,12 +1646,14 @@ function loadPermanentMarkers() {
 			if (!document.getElementById('rfShowResources').checked) hide.push('resources');
 			var needsBox = document.getElementById('rfShowNeeds');
 			if (needsBox && !needsBox.checked) hide.push('needs');
+			if (!document.getElementById('rfShowActors').checked) hide.push('actors');
 			var params = window.getResourceParams();
 			params.hide = hide.join(',');
 			window.applyResourceParams(params);
 		}
 
 		document.getElementById('rfShowResources').addEventListener('change', changeLayerChoice);
+		document.getElementById('rfShowActors').addEventListener('change', changeLayerChoice);
 		if (document.getElementById('rfShowNeeds')) document.getElementById('rfShowNeeds').addEventListener('change', changeLayerChoice);
 
 		// Tegnforklaring nede til høyre: what the colours and signs on the map mean. Open/closed is remembered (help with AI)

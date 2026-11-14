@@ -310,7 +310,7 @@ window.ResourceFilter = (function () {
             chips.push(['Innen ' + radiusText(radiusKm(params)) + ' fra ' + (params.where || 'valgt punkt'),
             function (p) { delete p.lat; delete p.lng; delete p.where; delete p.radius; }]);
         }
-        list(params.hide).forEach(function (h) { chips.push([h === 'needs' ? 'Behov skjult' : 'Ressurser skjult', without('hide', h)]); });
+        list(params.hide).forEach(function (h) { chips.push([h === 'needs' ? 'Behov skjult' : h === 'actors' ? 'Offentlige aktører skjult' : 'Ressurser skjult', without('hide', h)]); });
 
         var box = document.getElementById('rfChips');
         if (box) {
