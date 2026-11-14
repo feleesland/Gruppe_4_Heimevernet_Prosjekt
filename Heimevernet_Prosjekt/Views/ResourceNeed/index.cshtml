@@ -5,6 +5,7 @@
 @{
     ViewData["Title"] = Model.Name;
     var planned = Model.Urgency == NeedUrgency.Planlagt;
+    var updates = ViewData["Updates"] as IReadOnlyList<NeedUpdate> ?? new List<NeedUpdate>(); // "Info til innbyggere", newest first
     // In the side panel on the map (?embed=1): no menu
     var embed = Context.Request.Query["embed"] == "1";
     if (embed)
@@ -68,6 +69,10 @@
         <span class="badge text-bg-danger fs-6">⏰ Akutt</span>
     }
     <partial name="_NeedStatusBadge" model="Model.Status" />
+    @if (updates.Count > 0 && Model.ClosedAt == null)
+    {
+        <span class="badge text-bg-success fs-6"><i class="ti ti-world" aria-hidden="true"></i> På forsiden</span>
+    }
 </div>
 
 @if (!string.IsNullOrWhiteSpace(Model.Description))
@@ -114,6 +119,56 @@
         </dd>
     }
 </dl>
+
+@* "Info til innbyggere" (help with AI): short public updates, newest first. Shown on the front page and the map for everyone,
+   without the resources. No updates = the need is not public *@
+<section class="card mb-3 border-success-subtle" aria-labelledby="publicInfoTitle">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <h2 id="publicInfoTitle" class="h5 mb-0"><i class="ti ti-world" aria-hidden="true"></i> Info til innbyggere</h2>
+            <span class="small text-body-secondary ms-auto">vises på forsiden</span>
+        </div>
+        @if (Model.ClosedAt == null)
+        {
+            <form asp-controller="ResourceNeedHandler" asp-action="PublishUpdate" method="post">
+                <input type="hidden" name="needId" value="@Model.Id" />
+                @if (embed)
+                {
+                    <input type="hidden" name="embed" value="1" />
+                }
+                @* Quick texts fill the field; the operator writes the rest *@
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                    @foreach (var quick in new[] { ("Unngå området", "Unngå området rundt "), ("Veien er stengt", "Veien er stengt. Bruk omkjøring via "), ("Evakuering", "Evakuerte kan møte på "), ("Strømbrudd", "Strømbrudd i området. "), ("Øvelse", "Heimevernet øver i området. ") })
+                    {
+                        <button type="button" class="btn btn-sm rf-reset rounded-pill" data-quick="@quick.Item2">@quick.Item1</button>
+                    }
+                </div>
+                <div class="d-flex gap-2">
+                    <label for="updateText" class="visually-hidden">Kort oppdatering</label>
+                    <input id="updateText" name="updateText" class="form-control" maxlength="300" required autocomplete="off" placeholder="Skriv en kort oppdatering …" />
+                    <button type="submit" class="btn btn-success">Publiser</button>
+                </div>
+            </form>
+        }
+        @if (updates.Count == 0)
+        {
+            <p class="small text-body-secondary mt-2 mb-0"><i class="ti ti-info-circle" aria-hidden="true"></i> Ingen oppdateringer ennå. Behovet vises ikke på forsiden før noe er publisert.</p>
+        }
+        else
+        {
+            <ul class="list-unstyled mt-2 mb-0">
+                @foreach (var update in updates)
+                {
+                    <li class="d-flex gap-3 border-top py-2 small">
+                        <span class="text-body-secondary text-nowrap">@OsloShort(update.At)</span>
+                        <span class="flex-grow-1">@update.Text</span>
+                        <span class="text-body-secondary text-nowrap">@update.UserName</span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+</section>
 
 @{
     var log = ViewData["Log"] as IReadOnlyList<ResourceNeedLog> ?? new List<ResourceNeedLog>();
@@ -451,6 +506,13 @@
 }
 @section Scripts {
     <script>
+        // "Info til innbyggere": a quick text fills the field, and the cursor goes to the end so the operator can finish it
+        document.querySelectorAll('[data-quick]').forEach(button => button.addEventListener('click', () => {
+            const field = document.getElementById('updateText');
+            field.value = button.dataset.quick;
+            field.focus();
+            field.setSelectionRange(field.value.length, field.value.length);
+        }));
         // The send button counts what is ticked, and is off until something is chosen
         const sendButton = document.getElementById('sendButton');
         if (sendButton) {

@@ -16,6 +16,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
     public DbSet<ResourceNeedLog> ResourceNeedLogs => Set<ResourceNeedLog>();
+    public DbSet<NeedUpdate> NeedUpdates => Set<NeedUpdate>();
     public DbSet<ResourceCategory> ResourceCategories => Set<ResourceCategory>();
     public DbSet<ResourceAttribute> ResourceAttributes => Set<ResourceAttribute>();
     public DbSet<ResourceAttributeValue> ResourceAttributeValues => Set<ResourceAttributeValue>();
@@ -130,6 +131,15 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
         {
             entity.ToTable("ResourceNeedLogs");
             entity.HasIndex(log => log.ResourceNeedId);
+        });
+
+        // "Info til innbyggere": public updates on a need, newest first (help with AI)
+        modelBuilder.Entity<NeedUpdate>(entity =>
+        {
+            entity.ToTable("NeedUpdates");
+            entity.Property(update => update.Text).HasMaxLength(300).IsRequired();
+            entity.Property(update => update.UserName).HasMaxLength(256);
+            entity.HasIndex(update => update.ResourceNeedId);
         });
 
         // "Ny ressurs" step by step: categories -> types -> questions -> answers (help with AI)

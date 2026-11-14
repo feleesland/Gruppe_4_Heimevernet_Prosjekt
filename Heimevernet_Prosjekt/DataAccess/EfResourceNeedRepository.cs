@@ -312,4 +312,33 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         return true;
     }
 
+    // "Ofte brukt": count how many need lines each type has, and take the most used (help with AI)
+    // The database does the counting - Docs: Complex query operators (GroupBy) - https://learn.microsoft.com/ef/core/querying/complex-query-operators
+    public IReadOnlyList<string> GetPopularTypes(int count)
+    {
+        return dbContext.ResourceNeedItems
+            .Where(item => item.Type != null && item.Type != "")
+            .GroupBy(item => item.Type)
+            .OrderByDescending(group => group.Count())
+            .Select(group => group.Key)
+            .Take(count)
+            .ToList();
+    }
+
+    // "Info til innbyggere": one public update (help with AI)
+    public void AddUpdate(int needId, string userId, string userName, string text)
+    {
+        dbContext.NeedUpdates.Add(new NeedUpdate { ResourceNeedId = needId, UserId = userId, UserName = userName, Text = text });
+        dbContext.SaveChanges();
+    }
+
+    public IReadOnlyList<NeedUpdate> GetUpdates(int needId)
+    {
+        return dbContext.NeedUpdates
+            .AsNoTracking()
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
+    }
+
 }

@@ -196,6 +196,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
             ViewData["Log"] = _resourceNeedRepository.GetLog(id.Value);
+            ViewData["Updates"] = _resourceNeedRepository.GetUpdates(id.Value); // "Info til innbyggere"
             viewModel.Lines = await BuildLinesAsync(need, viewModel.Items);
             return View(viewModel);
         }
