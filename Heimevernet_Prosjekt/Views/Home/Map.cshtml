@@ -178,7 +178,9 @@
 	}
 
 	.need-planlagt {
-		background: #378ADD;
+		background: #FFC107; /* yellow = planlagt behov, like in the case */
+		color: #412402;
+		border-color: #7A5200;
 	}
 
 	.need-label {
@@ -195,7 +197,7 @@
 		}
 
 		.need-label.planlagt {
-			color: #378ADD;
+			color: #7A5200;
 		}
 
 	.map-menu a {
@@ -464,13 +466,105 @@
 	.place-pin:focus {
 		outline: none;
 	}
+
+	/* The resource pins (resourcePin below): green = ledig now, grey = not ledig now; the white icon is the type's own icon */
+	.resource-pin svg {
+		position: absolute;
+		inset: 0;
+		fill: #2f8a3a;
+		stroke: #fff;
+		stroke-width: 2;
+		filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
+		z-index: 0; /* Leaflet gives every svg on the map z-index 200; ours must stay under the icon */
+	}
+
+	.resource-pin-busy svg {
+		fill: #888780;
+	}
+
+	.resource-pin i {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 7px;
+		text-align: center;
+		color: #fff;
+		font-size: 18px;
+		z-index: 1; /* on top of the green shape */
+		display: block;
+		line-height: 1;
+	}
+
+	/* "Lever tilbake": a purple ring, a ↩ badge and a name tag, so it is easy to see (icon + text, not colour alone) */
+	.resource-pin-return::before {
+		content: "";
+		position: absolute;
+		left: -10px;
+		top: -11px;
+		width: 56px;
+		height: 56px;
+		border-radius: 50%;
+		border: 2px dashed #7F77DD;
+		background: rgba(127,119,221,.18);
+	}
+
+	.return-badge, .return-tag {
+		position: absolute;
+		z-index: 2;
+	}
+
+	.return-badge {
+		right: -9px;
+		top: -8px;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: #7F77DD;
+		color: #fff;
+		border: 2px solid #fff;
+		font-size: 12px;
+		line-height: 16px;
+		text-align: center;
+	}
+
+	.return-tag {
+		top: 48px;
+		left: 50%;
+		transform: translateX(-50%);
+		white-space: nowrap;
+		background: #fff;
+		color: #3C3489;
+		font-size: 11px;
+		font-weight: 700;
+		padding: 0 5px;
+		border-radius: 4px;
+		box-shadow: 0 1px 3px rgba(0,0,0,.3);
+	}
+
+	/* "↩ 2 skal leveres tilbake" next to Filter */
+	.return-chip {
+		margin-left: 8px;
+		padding: 6px 14px;
+		border: 0;
+		border-radius: 999px;
+		background: #7F77DD;
+		color: #fff;
+		font-weight: 600;
+		box-shadow: 0 1px 6px rgba(0,0,0,.35);
+	}
+
+		.return-chip[hidden] {
+			display: none;
+		}
 </style>
 
 @section Scripts {
 	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 	<script src="~/js/resource-filter.js" asp-append-version="true"></script>
 	<script>
-		// 		@*Ikoner til default*@
+				// The group's PNG icons per type (old type names, so only the default pins showed). Replaced by resourcePin below,
+				// which uses the type icons from the database. Kept as a comment until the group has seen it
+				/*
 		var greenIcon = new L.Icon({
 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
@@ -551,6 +645,24 @@
 				popupAnchor: [0, -36]
 			});
 		}
+			*/
+
+		// The pins on the map (help with AI): the type's own icon (the same as in "Ny ressurs") in a pin.
+		// Green = ledig now, grey = everything else (I bruk, Ledig senere ...). The status is in the tooltip too, so it isn't colour alone.
+		// "Lever tilbake" also gets a purple ring, a ↩ badge and a name tag - Docs: Leaflet DivIcon - https://leafletjs.com/reference.html#divicon
+		function resourcePin(resource) {
+			var free = (resource.status || 'Ledig') === 'Ledig';
+			var returning = resource.status === 'Lever tilbake';
+			var icon = (resource.icon || 'map-pin').replace(/^ti-/, '').replace(/[^a-z0-9-]/g, '');
+			return L.divIcon({
+				className: 'resource-pin' + (free ? '' : ' resource-pin-busy') + (returning ? ' resource-pin-return' : ''),
+				html: '<svg viewBox="0 0 36 46" width="36" height="46" aria-hidden="true"><path d="M18 45 C6 30 2 24 2 17 A16 16 0 0 1 34 17 C34 24 30 30 18 45Z"/></svg><i class="ti ti-' + icon + '" aria-hidden="true"></i>'
+					+ (returning ? '<span class="return-badge" aria-hidden="true">↩</span><span class="return-tag">Lever tilbake</span>' : ''),
+				iconSize: [36, 46],
+				iconAnchor: [18, 45],
+				popupAnchor: [0, -40]
+			});
+		}
 		// Initialize the map and set its view to a specific location and zoom level
 		var map = L.map('map').setView([58.14671, 7.9956], 13); // Coordinates for Kristiansand. 13 stands for zoom level.
 
@@ -584,6 +696,9 @@
 			}
 		}).addTo(map);
 		var markersById = {};
+		// "Lever tilbake": lent out to a need that is closed. Kept out of the boxes, so they are never hidden (help with AI)
+		var returnLayer = L.layerGroup().addTo(map);
+		function layerFor(marker) { return marker.resource && marker.resource.status === 'Lever tilbake' ? returnLayer : markerLayer; }
 		var radiusCircle = null;
 		var detailUrl = '@Url.Content("~/Resource/Index/")';
 
@@ -603,6 +718,7 @@
 
 					console.log("Ressurser hentet:", resources);
 					markerLayer.clearLayers();
+					returnLayer.clearLayers();
 					markersById = {};
 					var markers = [];
 					// The filter: type and status are chosen here; search and distance are done by the server
@@ -620,20 +736,23 @@
 							return;
 						}
 
-						var icon = getResourceIcon(
-							resource.type,
-							resource.status
-						);
+						// var icon = getResourceIcon(
+						// 	resource.type,
+						// 	resource.status
+						// );
+						var icon = resourcePin(resource);
 
-						var marker = L.marker([lat, lng], { icon: icon }).addTo(markerLayer);
+						var marker = L.marker([lat, lng], { icon: icon }).addTo(resource.status === 'Lever tilbake' ? returnLayer : markerLayer);
 
-						// Hover: the name. Click: the resource in the panel on the left (like Google Maps)
-						marker.bindTooltip(escapeHtml(resource.name), { direction: 'top', offset: [0, -34] });
+						// Hover: the name and the status ("Ledig fra 16:00", "I bruk: Flom Vennesla"). Click: the resource in the panel on the left
+						var statusText = resource.freeFrom || (resource.usedByNeedName ? resource.status + ': ' + resource.usedByNeedName : resource.status || 'Ledig');
+						marker.bindTooltip('<strong>' + escapeHtml(resource.name) + '</strong><br>' + escapeHtml(statusText), { direction: 'top', offset: [0, -40] });
 						marker.on('click', function () { openResource(resource.id); });
 						markers.push(marker);
 						markersById[resource.id] = marker;
 						marker.resource = resource;
 					}
+					updateReturnChip();
 					if (needMode) showNeedMode();
 					return markers;
 				})
@@ -667,16 +786,16 @@
 						if (isNaN(lat) || isNaN(lng)) return;
 
 						var planned = need.urgency === 'Planlagt';
-						var colour = planned ? '#378ADD' : '#E24B4A';
+						var colour = planned ? '#E69500' : '#E24B4A';
 						var label = planned ? 'Planlagt ' + shortDate(need.neededFrom) : 'AKUTT';
 
 						// The circle; bubblingMouseEvents: false so a click on it doesn't open the click menu as well
 						L.circle([lat, lng], {
 							radius: need.radiusKm * 1000,
 							color: colour,
-							weight: 3,
-							dashArray: planned ? '2 6' : '8 6',
-							fillOpacity: 0.08,
+							weight: planned ? 3.5 : 3,
+							dashArray: planned ? '4 6' : '8 6',
+							fillOpacity: planned ? 0.12 : 0.08,
 							bubblingMouseEvents: false
 						}).addTo(needLayer);
 
@@ -986,11 +1105,11 @@
 				var marker = markersById[id];
 				var rid = parseInt(id, 10);
 				// Not in need mode: every resource is shown, as normal
-				if (!needMode) { markerLayer.addLayer(marker); return; }
+				if (!needMode) { layerFor(marker).addLayer(marker); return; }
 				var suggested = needMode.suggestions.includes(rid);
 				var picked = needMode.picked.includes(rid);
 				// In need mode: only the resources this need can use are shown, like a filter
-				if (suggested) markerLayer.addLayer(marker); else markerLayer.removeLayer(marker);
+				if (suggested) layerFor(marker).addLayer(marker); else layerFor(marker).removeLayer(marker);
 				if (suggested) {
 					// Green ring = can be chosen, blue filled = chosen (the side panel says it in text too)
 					L.circleMarker(marker.getLatLng(), {
@@ -1052,6 +1171,7 @@
 			var marker = markersById[id];
 			if (!marker) return;
 			map.closePopup();
+			if (returnLayer.hasLayer(marker)) { map.setView(marker.getLatLng(), 16); openResource(id); return; }
 			markerLayer.zoomToShowLayer(marker, function () { openResource(id); });
 		}
 
@@ -1162,7 +1282,7 @@
 			placeStart = lat && lng ? L.latLng(lat, lng) : map.getCenter();
 			map.getContainer().classList.add('place-mode');
 			placeHidden = markersById[openResourceId] || null; // the resource's own green pin is hidden; the blue one takes its place
-			if (placeHidden) markerLayer.removeLayer(placeHidden);
+			if (placeHidden) layerFor(placeHidden).removeLayer(placeHidden);
 			placeLine = L.polyline([placeStart, placeStart], { color: '#378ADD', weight: 2, dashArray: '6 6', interactive: false }).addTo(map);
 			placePin = L.marker(placeStart, { draggable: true, zIndexOffset: 1000, icon: new L.Icon.Default({ className: 'place-pin' }) }).addTo(map);
 			var dragFrom = null;
@@ -1179,7 +1299,7 @@
 			map.getContainer().classList.remove('place-mode');
 			[placePin, placeLine, placeBar].forEach(function (item) { if (item) item.remove(); });
 			placePin = placeLine = placeBar = null;
-			if (placeHidden) markerLayer.addLayer(placeHidden);
+			if (placeHidden) layerFor(placeHidden).addLayer(placeHidden);
 			placeHidden = null;
 		}
 
@@ -1353,6 +1473,32 @@
 		});
 		new ChipsControl().addTo(map);
 
+		// "↩ 2 skal leveres tilbake" at the top, next to Filter: a click zooms to them (help with AI)
+		var ReturnControl = L.Control.extend({
+			options: { position: 'topleft' },
+			onAdd: function () {
+				var button = L.DomUtil.create('button', 'return-chip');
+				button.type = 'button';
+				button.id = 'returnChip';
+				button.hidden = true;
+				L.DomEvent.disableClickPropagation(button);
+				L.DomEvent.on(button, 'click', function () {
+					var markers = returnLayer.getLayers();
+					if (markers.length === 1) zoomToResource(markers[0].resource.id);
+					else if (markers.length > 1) map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [60, 60] });
+				});
+				return button;
+			}
+		});
+		new ReturnControl().addTo(map);
+
+		function updateReturnChip() {
+			var chip = document.getElementById('returnChip');
+			var count = returnLayer.getLayers().length;
+			chip.hidden = count === 0;
+			chip.innerHTML = '<i class="ti ti-arrow-back-up" aria-hidden="true"></i> ' + count + ' skal leveres tilbake';
+		}
+
 		// + − and Filter move to the right of the side panel while it is open, so they are never hidden under it
 		function moveMapControls() {
 			var panel = document.getElementById('sidePanel');
@@ -1367,6 +1513,7 @@
 		function applyLayerChoices(params) {
 			var hide = (params.hide || '').split(',');
 			if (hide.includes('resources')) map.removeLayer(markerLayer); else map.addLayer(markerLayer);
+			if (hide.includes('resources')) map.removeLayer(returnLayer); else map.addLayer(returnLayer);
 			if (canNeeds) {
 				if (hide.includes('needs')) map.removeLayer(needLayer); else map.addLayer(needLayer);
 			}

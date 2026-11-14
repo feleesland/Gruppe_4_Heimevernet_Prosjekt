@@ -171,6 +171,14 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             return NotFound();
         }
 
+        // The link was already used (often the e-mail service opens it once to check it, then the user clicks):
+        // the e-mail is confirmed, so go to login instead of showing an error (help with AI)
+        if (user.EmailConfirmed)
+        {
+            TempData["Message"] = "E-posten din er allerede bekreftet. Du kan logge inn.";
+            return RedirectToAction(nameof(Login), new { returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null });
+        }
+
         IdentityResult result;
         try
         {
@@ -182,12 +190,16 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             result = IdentityResult.Failed();
         }
 
-        // Came from "Ny ressurs": straight to login, and then back to the draft
-        if (result.Succeeded && Url.IsLocalUrl(returnUrl))
+        // Confirmed: always to login with a message. From "Ny ressurs" (returnUrl), back to the draft after login
+        if (result.Succeeded)
         {
-            TempData["Message"] = "E-posten er bekreftet. Logg inn for å fortsette der du slapp.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            var fromDraft = Url.IsLocalUrl(returnUrl);
+            TempData["Message"] = fromDraft
+                ? "E-posten er bekreftet. Logg inn for å fortsette der du slapp."
+                : "E-posten er bekreftet. Du kan logge inn nå.";
+            return RedirectToAction(nameof(Login), new { returnUrl = fromDraft ? returnUrl : null });
         }
+
         return View();
     }
 
