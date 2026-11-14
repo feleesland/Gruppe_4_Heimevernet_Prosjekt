@@ -21,19 +21,22 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IResourceTypeRepository _typeRepository;
         private readonly IResourceRequestRepository _requestRepository;
+        private readonly IResourceReportRepository _reportRepository;
 
         public ResourceController(
             IResourceRepository resourceRepository,
             IAuthorizationService authorizationService,
             UserManager<ApplicationUser> userManager,
             IResourceTypeRepository typeRepository,
-            IResourceRequestRepository requestRepository)
+            IResourceRequestRepository requestRepository,
+            IResourceReportRepository reportRepository)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
             _userManager = userManager;
             _typeRepository = typeRepository;
             _requestRepository = requestRepository;
+            _reportRepository = reportRepository;
         }
 
         [HttpGet]
@@ -146,6 +149,15 @@ namespace Heimevernet_Prosjekt.Controllers
             var model = new List<ResourceViewModel>();
             var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
             var inUse = _requestRepository.GetResourceIdsInUse();
+            // For the table (help with AI): the type's icon and category, and (admin/operator) the owner's name and phone for print/export
+            var typeInfo = _typeRepository.GetCategories()
+                .SelectMany(category => category.Types.Select(t => (t.Name, Icon: t.Icon ?? category.Icon, Category: category.Name)))
+                .GroupBy(t => t.Name)
+                .ToDictionary(g => g.Key, g => g.First());
+            var seeOwners = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+            var owners = seeOwners
+                ? _userManager.Users.ToDictionary(u => u.Id, u => (Name: $"{u.FirstName} {u.LastName}".Trim(), Phone: u.PhoneNumber))
+                : new Dictionary<string, (string Name, string? Phone)>();
 
             // Include only resources the user is allowed to view.
             foreach (var resource in _resourceRepository.GetAll())
@@ -162,13 +174,23 @@ namespace Heimevernet_Prosjekt.Controllers
                     var canDelete = await _authorizationService
                         .AuthorizeAsync(User, resource, ResourceOperations.Delete);
 
+                    var shown = ShownStatus(resource, inUse);
+                    typeInfo.TryGetValue(resource.Type ?? "", out var info);
+                    owners.TryGetValue(resource.OwnerId ?? "", out var owner);
+
                     model.Add(new ResourceViewModel
                     {
                         Id = resource.Id,
                         Name = resource.Name,
                         Description = resource.Description,
-                        Type = resource.Type,
-                        Status = ShownStatus(resource, inUse).Status, // "I bruk" / "Lever tilbake" (see ShownStatus)
+                        Type = resource.Type ?? string.Empty,
+                        Status = shown.Status, // "I bruk" / "Lever tilbake" (see ShownStatus)
+                        FreeFrom = shown.FreeFrom,
+                        UsedByNeedName = shown.NeedName,
+                        Icon = info.Icon,
+                        Category = info.Category,
+                        OwnerName = owner.Name,
+                        OwnerPhone = owner.Phone,
                         Municipality = resource.Municipality,
                         Latitude = resource.Latitude,
                         Longitude = resource.Longitude,
@@ -193,6 +215,10 @@ namespace Heimevernet_Prosjekt.Controllers
                 .GroupBy(t => t.Name)
                 .ToDictionary(g => g.Key, g => g.First().Icon);
             var inUse = _requestRepository.GetResourceIdsInUse();
+            // Admin and operator: open "feil info" messages per resource, for the ⚑ filter on the map (others get 0) (help with AI)
+            var openReports = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)
+                ? _reportRepository.CountOpenByResource()
+                : new Dictionary<int, int>();
 
             foreach (var resource in _resourceRepository.GetAll())
             {
@@ -220,7 +246,8 @@ namespace Heimevernet_Prosjekt.Controllers
                         icon = icons.GetValueOrDefault(resource.Type ?? ""),
                         latitude = resource.Latitude,
                         longitude = resource.Longitude,
-                        municipality = resource.Municipality
+                        municipality = resource.Municipality,
+                        reports = openReports.GetValueOrDefault(resource.Id)
                     });
                 }
             }

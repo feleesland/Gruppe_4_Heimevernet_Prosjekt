@@ -1,0 +1,470 @@
+﻿/* "Meld behov" / "Rediger behov" (help with AI): cards like the filter, the map on the right, the bar at the bottom,
+   and the "Legg til ressurs" window. Bootstrap variables, so light and dark mode both work.
+   Docs: Bootstrap CSS variables - https://getbootstrap.com/docs/5.3/customize/css-variables/
+   Docs: CSS grid layout (MDN) - https://developer.mozilla.org/docs/Web/CSS/CSS_grid_layout */
+
+/* ---- The page: small screens and the side panel = one column, the map first ---- */
+.need-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.need-map-card {
+    order: -1;
+}
+
+.need-left {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+
+.need-map {
+    height: 280px;
+}
+
+/* Big screens: left | map, and the bar under both. need-form.js sets the height, so it fills the screen without scrolling */
+@media (min-width: 992px) {
+    .need-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .need-map-card {
+        order: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .need-map {
+        flex: 1;
+        height: auto;
+        min-height: 240px;
+    }
+
+    .need-bar {
+        grid-column: 1 / -1;
+    }
+
+    /* "Hva trengs?" takes the rest of the height, and the lines scroll inside it */
+    .need-lines-card {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .need-lines {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+        .need-lines[hidden] {
+            display: none;
+        }
+}
+
+/* ---- Cards ---- */
+.need-card {
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.need-card-warning {
+    background: var(--bs-warning-bg-subtle);
+    border-color: var(--bs-warning-border-subtle);
+    color: var(--bs-warning-text-emphasis);
+}
+
+.need-card-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.need-link {
+    color: var(--bs-success-text-emphasis); /* readable green in both light and dark mode */
+    text-decoration: none;
+}
+
+/* Name and Akutt/Planlagt on one line (they wrap on small screens) */
+.need-name-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+    .need-name-row .form-control {
+        flex: 1 1 220px;
+    }
+
+.need-urgency .btn {
+    white-space: nowrap;
+}
+
+.need-grow {
+    resize: none;
+    overflow: hidden;
+}
+
+/* The address, search, my position and radius on one line */
+.need-address-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.need-address {
+    flex: 2 1 180px;
+}
+
+.need-zip {
+    flex: 0 0 5.5rem;
+}
+
+.need-city {
+    flex: 1 1 120px;
+}
+
+/* ---- One line in "Hva trengs?" ---- */
+.need-lines {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 0 8px;
+    margin-bottom: 8px;
+}
+
+.need-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 2px;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+    .need-line:last-child {
+        border-bottom: 0;
+    }
+
+    .need-line.is-new {
+        background: var(--bs-success-bg-subtle);
+        border-radius: 6px;
+    }
+
+.need-line-icon {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--hv-green);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.need-line-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.need-stepper {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+    .need-stepper b {
+        min-width: 1.5em;
+        text-align: center;
+    }
+
+.need-step {
+    min-width: 32px;
+}
+
+/* ---- "Ofte brukt" and the category shortcuts ---- */
+.need-quick-label {
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 6px;
+}
+
+.need-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 6px;
+}
+
+.need-quick-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--bs-tertiary-bg);
+    color: inherit;
+    text-align: left;
+}
+
+.need-quick-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.need-chip {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    padding: 2px 10px;
+    background: none;
+    color: inherit;
+    font-size: .85rem;
+}
+
+    .need-chip.is-on {
+        border-color: var(--bs-success-text-emphasis);
+        color: var(--bs-success-text-emphasis);
+        background: var(--bs-success-bg-subtle);
+    }
+
+.need-quick-cats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.need-quick-card:hover, .need-quick-card:focus-visible,
+.need-chip:hover, .need-chip:focus-visible,
+.need-cat-small:hover, .need-cat-small:focus-visible {
+    border-color: var(--bs-success-text-emphasis);
+    background: var(--bs-success-bg-subtle);
+}
+
+/* "Vis alle ressurser": the clear way to all types (opens the window) */
+.need-all {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--hv-green);
+    color: #fff;
+    font-weight: 600;
+}
+
+    .need-all:hover {
+        filter: brightness(1.12);
+    }
+
+/* ---- The bar under the form ---- */
+.need-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 500;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 10px;
+}
+
+/* ---- The window: category cards like in "Ny ressurs" ---- */
+.need-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+}
+
+.need-cat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 10px;
+    background: var(--bs-body-bg);
+    color: inherit;
+    font-size: .9rem;
+}
+
+    .need-cat .ti {
+        font-size: 1.5rem;
+    }
+
+    .need-cat.is-on {
+        border: 2px solid var(--hv-green);
+        background: var(--bs-success-bg-subtle);
+    }
+
+.need-cat-small {
+    padding: 6px 2px;
+    font-size: .8rem;
+    background: var(--bs-tertiary-bg);
+}
+
+    .need-cat-small .ti {
+        font-size: 1.2rem;
+    }
+
+.need-badge {
+    background: var(--hv-green);
+    color: #fff;
+    border-radius: 999px;
+    padding: 0 8px;
+    font-size: .75rem;
+}
+
+.need-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.need-type {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--bs-body-bg);
+}
+
+    .need-type.is-on {
+        border-color: var(--hv-green);
+    }
+
+/* A type that is not chosen: the whole card is a button, with the icon and a green + */
+.need-type-add {
+    width: 100%;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color .15s, background-color .15s;
+}
+
+    .need-type-add:hover,
+    .need-type-add:focus-visible {
+        border-color: var(--bs-success-text-emphasis);
+        background: var(--bs-success-bg-subtle);
+    }
+
+.need-type-icon {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--bs-secondary-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+}
+
+.need-type.is-on .need-type-icon {
+    background: var(--hv-green);
+    color: #fff;
+}
+
+.need-type-plus {
+    color: var(--bs-success-text-emphasis);
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+/* "Valgt" on the right of the window (big screens) */
+.need-cart {
+    flex-direction: column;
+    padding: 1rem;
+    background: var(--bs-tertiary-bg);
+    border-left: 1px solid var(--bs-border-color);
+}
+
+.need-cart-list {
+    display: grid;
+    gap: 6px;
+}
+
+/* "Valgt" at the bottom of the window (small screens) */
+.need-cart-mobile summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+}
+
+    .need-cart-mobile summary::-webkit-details-marker {
+        display: none;
+    }
+
+.need-cart-mobile[open] summary .ti {
+    transform: rotate(180deg);
+}
+
+.need-cart-mobile .need-cart-list {
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+/* Big screens: a wider window, bigger cards and text, like the big-screen block on Ressursoversikt */
+@media (min-width: 1400px) {
+    .need-layout {
+        font-size: 1.05rem;
+    }
+
+    #addModal .modal-dialog {
+        max-width: 1300px;
+    }
+
+    #addModal .modal-body > .row {
+        min-height: 60vh;
+    }
+
+    .need-cat-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+
+    .need-cat {
+        padding: 16px 6px;
+        font-size: 1rem;
+    }
+
+        .need-cat .ti {
+            font-size: 2rem;
+        }
+
+    .need-cat-small {
+        padding: 8px 4px;
+    }
+
+        .need-cat-small .ti {
+            font-size: 1.4rem;
+        }
+
+    .need-type {
+        padding: 12px 14px;
+        font-size: 1.05rem;
+    }
+}

@@ -3,6 +3,8 @@
 @{
     var onMap = ViewData["FilterOnMap"] as bool? == true;
     var canNeeds = ViewData["FilterCanNeeds"] as bool? == true;
+    var signedIn = User.Identity?.IsAuthenticated == true; // guests only see the public actors, not resources
+    var canReports = User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Admin) || User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Operator); // admin and operator see the ⚑ messages
 }
 <div id="rfPanel" data-types-url="@Url.Action("Types", "Resource")" data-on-map="@(onMap ? "true" : "false")">
     @if (onMap)
@@ -11,7 +13,7 @@
         <fieldset class="rf-section rf-map-only">
             <legend class="rf-section-title"><i class="ti ti-map" aria-hidden="true"></i> Vis på kartet</legend>
             <div class="small text-body-secondary mb-2">Gjelder bare kartet</div>
-            <div class="form-check">
+            <div class="form-check" hidden="@(!signedIn)">
                 <input class="form-check-input" type="checkbox" id="rfShowResources" checked />
                 <label class="form-check-label d-flex w-100" for="rfShowResources">📦 Ressurser<span id="rfResourcesCount" class="rf-pill ms-auto"></span></label>
             </div>
@@ -27,21 +29,34 @@
                 <label class="form-check-label d-flex w-100" for="rfShowActors">🔵 Offentlige aktører<span id="rfActorsCount" class="rf-pill ms-auto"></span></label>
             </div>
         </fieldset>
-        <h2 class="h6 mb-0">Filtrer ressurser</h2>
-        <div class="small text-body-secondary mb-3">Gjelder både kartet og Ressursoversikt</div>
+        @if (!signedIn)
+        {
+            <p class="small text-body-secondary">Logg inn for å se og filtrere ressurser.</p>
+        }
+        <h2 class="h6 mb-0" hidden="@(!signedIn)">Filtrer ressurser</h2>
+        <div class="small text-body-secondary mb-3" hidden="@(!signedIn)">Gjelder både kartet og Ressursoversikt</div>
     }
-    <fieldset class="rf-section rf-resource-only">
+    <fieldset class="rf-section rf-resource-only" hidden="@(!signedIn)">
         <legend class="rf-section-title"><i class="ti ti-category" aria-hidden="true"></i> Type ressurs</legend>
         <div id="rfTypes" class="small text-body-secondary">Henter typer …</div>
     </fieldset>
 
-    <fieldset class="rf-section rf-resource-only">
+    <fieldset class="rf-section rf-resource-only" hidden="@(!signedIn)">
         <legend class="rf-section-title"><i class="ti ti-circle-check" aria-hidden="true"></i> Status</legend>
         <div id="rfStatus"></div>
     </fieldset>
 
+    @* Admin and operator: only resources with open "feil info" messages (⚑). On Kart and Ressursoversikt (help with AI) *@
+    @if (canReports)
+    {
+        <fieldset class="rf-section rf-resource-only">
+            <legend class="rf-section-title"><i class="ti ti-flag" aria-hidden="true"></i> Feilmeldinger</legend>
+            <div id="rfReports"></div>
+        </fieldset>
+    }
+
     @* "Sted": kommune, and distance from a point (a place from the search, my position or a point on the map). Logic in renderPlace in resource-filter.js *@
-    <fieldset class="rf-section">
+    <fieldset class="rf-section" hidden="@(!signedIn)">
         <legend class="rf-section-title"><i class="ti ti-map-pin" aria-hidden="true"></i> Sted</legend>
 
         <div class="rf-sub">Kommune</div>

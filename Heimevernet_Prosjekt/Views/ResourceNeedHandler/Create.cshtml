@@ -7,8 +7,6 @@
     ViewData["Title"] = editing ? "Rediger behov" : "Meld behov";
     var types = ViewData["ResourceTypes"] as IReadOnlyCollection<ResourceType> ?? Array.Empty<ResourceType>();
     var isPlanned = Model.Urgency == NeedUrgency.Planlagt;
-    // Start with one empty line so it is clear what to fill in
-    var lines = Model.Lines.Count > 0 ? Model.Lines : new List<NeedLineInput> { new() };
     // In the side panel on the map (?embed=1): no menu, and the panel closes after saving
     var embed = Context.Request.Query["embed"] == "1"
                 || (Context.Request.HasFormContentType && Context.Request.Form["embed"] == "1");
@@ -18,64 +16,102 @@
     }
 }
 
-<div style="max-width: 760px;">
-    <h1>@ViewData["Title"]</h1>
+<link rel="stylesheet" href="~/css/need-form.css" asp-append-version="true" />
 
-    @* Docs: Tag Helpers in forms (also adds the antiforgery token) - https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms *@
-    <form asp-controller="ResourceNeedHandler" asp-action="@(editing ? "Edit" : "Create")" method="post" id="needForm">
-        <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
-        <input type="hidden" asp-for="ExistingNeedId" />
-        <input type="hidden" asp-for="EditNeedId" />
-        @if (embed)
-        {
-            <input type="hidden" name="embed" value="1" />
-        }
+<h1 class="h3 mb-3">@ViewData["Title"]</h1>
 
-        @* Shown only when the chosen place is inside an active need (filled by JavaScript below). Not when editing *@
-        <div id="activeBox" class="alert alert-warning" hidden>
-            <div id="activeList"></div>
-            <div id="alreadyReported" class="small mt-2"></div>
+@* Docs: Tag Helpers in forms (also adds the antiforgery token) - https://learn.microsoft.com/aspnet/core/mvc/views/working-with-forms
+   data-*: read by wwwroot/js/need-form.js *@
+<form asp-controller="ResourceNeedHandler" asp-action="@(editing ? "Edit" : "Create")" method="post" id="needForm"
+      data-editing="@(editing ? "true" : "false")" data-active-url="@Url.Action("ActiveAt", "ResourceNeedHandler")">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <input type="hidden" asp-for="ExistingNeedId" />
+    <input type="hidden" asp-for="EditNeedId" />
+    @if (embed)
+    {
+        <input type="hidden" name="embed" value="1" />
+    }
+
+    @* Big screens: left (what, and what is needed) | right (where), and the bar under both, all on one screen without scrolling.
+       Small screens and the side panel: the map first, then the rest (.need-layout in need-form.css) *@
+    <div id="needLayout" class="need-layout">
+        <div class="need-left">
+            @* Shown only when the chosen place is inside an active need (filled by need-form.js). Not when editing *@
+            <div id="activeBox" class="need-card need-card-warning" hidden>
+                <div class="need-card-title"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Det er allerede et aktivt behov her</div>
+                <div id="activeList"></div>
+                <div id="alreadyReported" class="small mt-2"></div>
+            </div>
+
+            @* Name and Akutt/Planlagt on one line, the description under. Hidden when adding to an existing need *@
+            <div id="newNeedFields" class="need-card">
+                <div class="need-name-row">
+                    <label asp-for="Name" class="visually-hidden"></label>
+                    <input asp-for="Name" class="form-control" placeholder="Navn, f.eks. Flom Lund" />
+                    @* Akutt or Planlagt. Icon + text, not colour alone *@
+                    <div class="btn-group need-urgency" role="radiogroup" aria-label="Akutt eller planlagt">
+                        <input type="radio" class="btn-check" name="Urgency" id="urgencyAkutt" value="Akutt" checked="@(!isPlanned)" />
+                        <label class="btn btn-outline-danger" for="urgencyAkutt"><i class="ti ti-alarm" aria-hidden="true"></i> Akutt · nå</label>
+                        <input type="radio" class="btn-check" name="Urgency" id="urgencyPlanlagt" value="Planlagt" checked="@isPlanned" />
+                        <label class="btn btn-outline-warning" for="urgencyPlanlagt"><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt</label>
+                    </div>
+                </div>
+                <span asp-validation-for="Name" class="text-danger small"></span>
+
+                @* Planlagt: from (required) and to. Akutt: "Innen" only after "+ Frist" *@
+                <div id="timeFields" class="row g-2 mt-0">
+                    <div class="col-sm-6" id="fromCol" hidden="@(!isPlanned)">
+                        <label asp-for="NeededFrom" class="form-label small mb-1"></label>
+                        <input asp-for="NeededFrom" class="form-control" />
+                        <span asp-validation-for="NeededFrom" class="text-danger small"></span>
+                    </div>
+                    <div class="col-sm-6" id="toCol" hidden="@(!isPlanned && Model.NeededTo == null)">
+                        <label asp-for="NeededTo" id="toLabel" class="form-label small mb-1">@(isPlanned ? "Til (valgfritt)" : "Innen")</label>
+                        <input asp-for="NeededTo" class="form-control" />
+                        <span asp-validation-for="NeededTo" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                @* One line that grows while you write (need-form.js) *@
+                <label asp-for="Description" class="visually-hidden"></label>
+                <textarea asp-for="Description" class="form-control mt-2 need-grow" rows="1" placeholder="Beskrivelse for operatørene, f.eks. «Elva har gått over sine bredder»"></textarea>
+                <span asp-validation-for="Description" class="text-danger small"></span>
+
+                @* The optional things are links, so the form stays short *@
+                <div class="d-flex flex-wrap gap-3 mt-2">
+                    <button type="button" id="addDeadline" class="btn btn-link btn-sm p-0 need-link">+ Frist</button>
+                </div>
+            </div>
+
+            <div id="addingInfo" class="alert alert-secondary py-2 mb-0" hidden></div>
+
+            @* What is needed. The lines scroll inside the card, so the page stays still. Drawn by need-form.js
+               (hidden inputs Lines[i].… for the server). Empty: "Ofte brukt" and the categories fill the card *@
+            <div class="need-card need-lines-card">
+                <div class="need-card-title">
+                    <i class="ti ti-package" aria-hidden="true"></i> <span id="linesLegend">Hva trengs?</span>
+                    <span id="linesCount" class="ms-auto small fw-normal text-body-secondary"></span>
+                </div>
+                <div id="lines" class="need-lines"></div>
+                <div id="quickBox"></div>
+                <button type="button" class="need-all" data-bs-toggle="modal" data-bs-target="#addModal">
+                    <i class="ti ti-layout-grid" aria-hidden="true"></i> Vis alle ressurser <span id="allHint" class="fw-normal opacity-75"></span>
+                </button>
+            </div>
         </div>
 
-        @* Only for a new need: hidden when adding to an existing one *@
-        <div id="newNeedFields">
-            <div class="mb-3">
-                <label asp-for="Name" class="form-label"></label>
-                <input asp-for="Name" class="form-control" placeholder="F.eks. Flom Lund" />
-                <span asp-validation-for="Name" class="text-danger"></span>
-            </div>
-
-            @* Akutt or Planlagt, right under the name. Icon + text, not colour alone *@
-            <div class="btn-group w-100 mb-3" role="radiogroup" aria-label="Akutt eller planlagt">
-                <input type="radio" class="btn-check" name="Urgency" id="urgencyAkutt" value="Akutt" checked="@(!isPlanned)" />
-                <label class="btn btn-outline-danger" for="urgencyAkutt">⏰ Akutt</label>
-                <input type="radio" class="btn-check" name="Urgency" id="urgencyPlanlagt" value="Planlagt" checked="@isPlanned" />
-                <label class="btn btn-outline-primary" for="urgencyPlanlagt">📅 Planlagt</label>
-            </div>
-
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label"></label>
-                <input asp-for="Description" class="form-control" placeholder="Valgfritt, f.eks. «Elva har gått over sine bredder»" />
-                <span asp-validation-for="Description" class="text-danger"></span>
-            </div>
-        </div>
-
-        <div id="addingInfo" class="alert alert-secondary py-2" hidden></div>
-
-        @* The place: same fields, ids and map as on resources (location-picker.js) *@
-        <fieldset class="mb-3">
-            <legend class="form-label fs-6 fw-semibold">Hvor?</legend>
-            <div class="row g-2">
-                <div class="col-md-6"><input asp-for="Address" class="form-control" placeholder="Adresse" aria-label="Adresse" /></div>
-                <div class="col-md-2"><input asp-for="ZipCode" class="form-control" placeholder="Postnr." aria-label="Postnummer" /></div>
-                <div class="col-md-4"><input asp-for="City" class="form-control" placeholder="Poststed" aria-label="Poststed" /></div>
-            </div>
-            <div class="d-flex flex-wrap gap-2 align-items-center my-2">
-                <button type="button" id="findOnMap" class="btn btn-outline-secondary btn-sm">Finn på kartet</button>
-                <button type="button" id="useMyLocation" class="btn btn-outline-secondary btn-sm">Bruk min posisjon</button>
-                <span id="radiusWrap" class="d-flex align-items-center gap-2">
-                    <label asp-for="RadiusKm" class="small mb-0"></label>
-                    <select asp-for="RadiusKm" class="form-select form-select-sm" style="width: auto;">
+        @* The place: same ids and map as on resources (location-picker.js), the address on one line *@
+        <fieldset class="need-card need-map-card">
+            <legend class="need-card-title"><i class="ti ti-map-pin" aria-hidden="true"></i> Hvor?</legend>
+            <div class="need-address-row">
+                <input asp-for="Address" class="form-control form-control-sm need-address" placeholder="Adresse" aria-label="Adresse" />
+                <input asp-for="ZipCode" class="form-control form-control-sm need-zip" placeholder="Postnr." aria-label="Postnummer" />
+                <input asp-for="City" class="form-control form-control-sm need-city" placeholder="Poststed" aria-label="Poststed" />
+                <button type="button" id="findOnMap" class="btn btn-sm rf-reset" title="Finn adressen på kartet" aria-label="Finn adressen på kartet"><i class="ti ti-search" aria-hidden="true"></i></button>
+                <button type="button" id="useMyLocation" class="btn btn-sm rf-reset" title="Bruk min posisjon" aria-label="Bruk min posisjon"><i class="ti ti-current-location" aria-hidden="true"></i></button>
+                <span id="radiusWrap">
+                    <label asp-for="RadiusKm" class="visually-hidden"></label>
+                    <select asp-for="RadiusKm" class="form-select form-select-sm" title="Radius" style="width: auto;">
                         <option value="0.5">500 m</option>
                         <option value="1">1 km</option>
                         <option value="2">2 km</option>
@@ -83,329 +119,80 @@
                         <option value="10">10 km</option>
                     </select>
                 </span>
-                <span id="geoStatus" class="small text-muted"></span>
             </div>
-            <div id="pickMap" style="height: 280px;" class="rounded"></div>
+            <span id="geoStatus" class="small text-muted d-block"></span>
+            <div id="pickMap" class="need-map rounded"></div>
             <small class="text-muted">Klikk på kartet eller dra markøren.</small>
             <input type="hidden" asp-for="Latitude" />
             <input type="hidden" asp-for="Longitude" />
             <input type="hidden" asp-for="Municipality" />
         </fieldset>
 
-        @* The lines. Chips fill an empty line or add a new one *@
-        <fieldset class="mb-3">
-            <legend id="linesLegend" class="form-label fs-6 fw-semibold">Hva trengs?</legend>
-            <div class="d-flex flex-wrap gap-2 mb-2">
-                @foreach (var type in types)
-                {
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" data-add-type="@type.Name">+ @type.Name</button>
-                }
-            </div>
-            <div id="lines">
-                @for (var i = 0; i < lines.Count; i++)
-                {
-                    var locked = lines[i].HasRequests;
-                    <div class="row g-2 mb-2 need-line">
-                        @* Rediger: which saved line this is, so the server knows what changed *@
-                        @if (lines[i].ItemId != null)
-                        {
-                            <input type="hidden" name="Lines[@i].ItemId" value="@lines[i].ItemId" />
-                            <input type="hidden" name="Lines[@i].Accepted" value="@lines[i].Accepted" />
-                            <input type="hidden" name="Lines[@i].HasRequests" value="@(locked ? "true" : "false")" />
-                        }
-                        <div class="col">
-                            @if (locked)
-                            {
-                                @* Requests are sent for this line: the type can't change (a disabled field isn't sent, so a hidden one is) *@
-                                <input type="hidden" name="Lines[@i].Type" value="@lines[i].Type" />
-                                <select class="form-select" aria-label="Ressurs" disabled>
-                                    <option selected>@lines[i].Type</option>
-                                </select>
-                                <div class="small text-body-secondary">
-                                    🔒 Forespørsler er sendt@(lines[i].Accepted > 0 ? $", {lines[i].Accepted} har sagt ja" : "")
-                                </div>
-                            }
-                            else
-                            {
-                                <select name="Lines[@i].Type" class="form-select" aria-label="Ressurs">
-                                    <option value="">Velg type …</option>
-                                    @foreach (var type in types)
-                                    {
-                                        <option value="@type.Name" selected="@(type.Name == lines[i].Type)">@type.Name</option>
-                                    }
-                                </select>
-                            }
-                            @Html.ValidationMessage($"Lines[{i}].Type", new { @class = "text-danger" })
-                        </div>
-                        <div class="col-3 col-md-2">
-                            @* The quantity can't be lower than how many already said yes *@
-                            <input name="Lines[@i].Quantity" type="number" min="@Math.Max(1, lines[i].Accepted)" max="1000"
-                                   value="@lines[i].Quantity" class="form-control" aria-label="Antall" />
-                        </div>
-                        <div class="col-auto">
-                            @if (locked)
-                            {
-                                <span class="btn btn-outline-secondary disabled" title="Kan ikke fjernes: forespørsler er sendt" aria-label="Låst">🔒</span>
-                            }
-                            else
-                            {
-                                <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-        </fieldset>
-
-        @* Time at the bottom: Akutt = now (optional "innen"), Planlagt = from (required) and to *@
-        <fieldset id="timeFields" class="mb-3 border-top pt-3">
-            <legend class="form-label fs-6 fw-semibold">Når trengs det?</legend>
-            <p id="nowText" class="mb-2" hidden="@isPlanned">⏰ <strong>Nå</strong>. Fyll inn «Innen» bare hvis det er en frist.</p>
-            <div class="row g-2">
-                <div class="col-md-6" id="fromCol" hidden="@(!isPlanned)">
-                    <label asp-for="NeededFrom" class="form-label small"></label>
-                    <input asp-for="NeededFrom" class="form-control" />
-                    <span asp-validation-for="NeededFrom" class="text-danger"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="NeededTo" id="toLabel" class="form-label small">@(isPlanned ? "Til (valgfritt)" : "Innen (valgfritt)")</label>
-                    <input asp-for="NeededTo" class="form-control" />
-                    <span asp-validation-for="NeededTo" class="text-danger"></span>
-                </div>
-            </div>
-        </fieldset>
-
-        <button type="submit" id="submitButton" class="btn btn-primary" style="min-height: 44px;">@(editing ? "Lagre endringer" : "Meld behov")</button>
-        @if (embed)
-        {
-            @* In the side panel: tell the map to close the panel *@
-            <button type="button" class="btn btn-outline-secondary" style="min-height: 44px;"
-                    onclick="parent.postMessage({ type: 'need-close' }, location.origin);">
-                Avbryt
-            </button>
-        }
-        else if (editing)
-        {
-            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@Model.EditNeedId" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
-        }
-        else
-        {
-            <a asp-controller="ResourceNeed" asp-action="List" class="btn btn-outline-secondary" style="min-height: 44px;">Avbryt</a>
-        }
-    </form>
-</div>
-
-@* A new line, copied by JavaScript (the numbers in the names are fixed by renumber()) *@
-<template id="lineTemplate">
-    <div class="row g-2 mb-2 need-line">
-        <div class="col">
-            <select name="Lines[0].Type" class="form-select" aria-label="Ressurs">
-                <option value="">Velg type …</option>
-                @foreach (var type in types)
-                {
-                    <option value="@type.Name">@type.Name</option>
-                }
-            </select>
-        </div>
-        <div class="col-3 col-md-2">
-            <input name="Lines[0].Quantity" type="number" min="1" max="1000" value="1" class="form-control" aria-label="Antall" />
-        </div>
-        <div class="col-auto">
-            <button type="button" class="btn btn-outline-secondary remove-line" aria-label="Fjern linjen">✕</button>
+        @* Under both columns: a short summary and the button, always in view *@
+        <div class="need-bar">
+            <span id="needSummary" class="small text-body-secondary"></span>
+            <button type="submit" id="submitButton" class="btn btn-primary ms-auto">@(editing ? "Lagre endringer" : "Meld behov")</button>
+            @if (embed)
+            {
+                @* In the side panel: tell the map to close the panel *@
+                <button type="button" class="btn rf-reset" onclick="parent.postMessage({ type: 'need-close' }, location.origin);">Avbryt</button>
+            }
+            else if (editing)
+            {
+                <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@Model.EditNeedId" class="btn rf-reset">Avbryt</a>
+            }
+            else
+            {
+                <a asp-controller="ResourceNeed" asp-action="List" class="btn rf-reset">Avbryt</a>
+            }
         </div>
     </div>
-</template>
+</form>
+
+@* "Legg til ressurs" (help with AI): categories like in "Ny ressurs", the types in the chosen one, and "Valgt" on the right.
+   On small screens the window fills the screen and "Valgt" is a bar at the bottom that opens - Docs: Bootstrap Modal
+   https://getbootstrap.com/docs/5.3/components/modal/ *@
+<div class="modal fade" id="addModal" tabindex="-1" aria-labelledby="addModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-fullscreen-md-down modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="addModalTitle">Legg til ressurs</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Lukk"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="row g-0 h-100">
+                    <div class="col-md-8 p-3">
+                        <input type="search" id="typeSearch" class="form-control mb-3" placeholder="Søk type, f.eks. «bil» og trykk Enter" autocomplete="off" aria-label="Søk type" />
+                        <div id="catGrid" class="need-cat-grid mb-3" role="group" aria-label="Kategorier"></div>
+                        <div id="typeTitle" class="small text-body-secondary mb-2"></div>
+                        <div id="typeList" class="need-type-grid"></div>
+                    </div>
+                    <div class="col-md-4 need-cart d-none d-md-flex">
+                        <div class="need-card-title"><i class="ti ti-check" aria-hidden="true"></i> Valgt <span id="cartCount" class="ms-auto small fw-normal"></span></div>
+                        <div id="cartSide" class="need-cart-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer flex-column align-items-stretch">
+                @* Small screens: "Valgt" folds out from the bottom *@
+                <details class="d-md-none need-cart-mobile">
+                    <summary><i class="ti ti-chevron-up" aria-hidden="true"></i> <span id="cartCountMobile">Valgt</span></summary>
+                    <div id="cartMobile" class="need-cart-list mt-2"></div>
+                </details>
+                <button type="button" id="addDone" class="btn btn-success" data-bs-dismiss="modal">Ferdig</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Data for need-form.js: the categories with their types, all types (old ones without a category go under "Annet"),
+   the most used types ("Ofte brukt") and the lines *@
+<script type="application/json" id="needCategories">@Json.Serialize(ViewData["TypeCategories"])</script>
+<script type="application/json" id="needTypes">@Json.Serialize(types.Select(t => t.Name))</script>
+<script type="application/json" id="needPopular">@Json.Serialize(ViewData["PopularTypes"])</script>
+<script type="application/json" id="needLines">@Json.Serialize(Model.Lines)</script>
 
 @section Scripts {
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
-    <script>
-        // "Meld behov" / "Rediger behov": lines, akutt/planlagt and "Legg til i ..." (help with AI)
-        // Docs: Leaflet API reference (Circle, LayerGroup) - https://leafletjs.com/reference.html
-        (function () {
-            const editing = @(editing ? "true" : "false");
-            const activeUrl = '@Url.Action("ActiveAt", "ResourceNeedHandler")';
-            const latField = document.getElementById('Latitude');
-            const lngField = document.getElementById('Longitude');
-            const existingField = document.getElementById('ExistingNeedId');
-            const radiusSelect = document.getElementById('RadiusKm');
-            const linesBox = document.getElementById('lines');
-            const lineTemplate = document.getElementById('lineTemplate');
-            const submitButton = document.getElementById('submitButton');
-
-            let activeNeeds = [];
-            let chosen = null;            // the active need we add to, or null = new need
-            let userChoseNew = false;     // the user clicked "Nytt behov": don't pick for them again
-            let radiusCircle = null;
-
-            // ---- Lines ----
-            // Every field in a line is named Lines[i]..., so the numbers are fixed after adding or removing a line
-            function renumber() {
-                linesBox.querySelectorAll('.need-line').forEach((row, i) => {
-                    row.querySelectorAll('[name^="Lines["]').forEach(el => {
-                        el.name = el.name.replace(/^Lines\[\d+\]/, `Lines[${i}]`);
-                    });
-                });
-                updateSubmit();
-            }
-
-            function addLine(type) {
-                // A chip fills the first empty line before it adds a new one
-                const empty = [...linesBox.querySelectorAll('.need-line select:not([disabled])')].find(s => s.value === '');
-                if (empty) {
-                    empty.value = type;
-                    empty.closest('.need-line').querySelector('input[type=number]').focus();
-                } else {
-                    const row = lineTemplate.content.firstElementChild.cloneNode(true);
-                    row.querySelector('select').value = type;
-                    linesBox.appendChild(row);
-                    row.querySelector('input[type=number]').focus();
-                }
-                renumber();
-            }
-
-            document.querySelectorAll('[data-add-type]').forEach(chip =>
-                chip.addEventListener('click', () => addLine(chip.dataset.addType)));
-
-            linesBox.addEventListener('click', e => {
-                const remove = e.target.closest('.remove-line');
-                if (remove) {
-                    remove.closest('.need-line').remove();
-                    renumber();
-                }
-            });
-            linesBox.addEventListener('change', updateSubmit);
-
-            function lineCount() {
-                return [...linesBox.querySelectorAll('.need-line select')].filter(s => s.value !== '').length;
-            }
-
-            function updateSubmit() {
-                if (editing) {
-                    submitButton.textContent = 'Lagre endringer';
-                    return;
-                }
-                const n = lineCount();
-                submitButton.textContent = chosen ? `Legg til ${n} behov i ${chosen.name}` : `Meld ${n} behov`;
-            }
-
-            // ---- Akutt / Planlagt ----
-            function isPlanned() {
-                return document.getElementById('urgencyPlanlagt').checked;
-            }
-
-            function applyUrgency() {
-                const planned = isPlanned();
-                document.getElementById('fromCol').hidden = !planned;
-                document.getElementById('nowText').hidden = planned;
-                document.getElementById('toLabel').textContent = planned ? 'Til (valgfritt)' : 'Innen (valgfritt)';
-                drawRadius();
-            }
-            document.querySelectorAll('input[name="Urgency"]').forEach(r => r.addEventListener('change', applyUrgency));
-
-            // ---- The circle for the need ----
-            function drawRadius() {
-                if (radiusCircle) {
-                    pickMap.removeLayer(radiusCircle);
-                    radiusCircle = null;
-                }
-                const lat = parseFloat(latField.value);
-                const lng = parseFloat(lngField.value);
-                if (chosen || isNaN(lat) || isNaN(lng)) return;
-                radiusCircle = L.circle([lat, lng], {
-                    radius: parseFloat(radiusSelect.value) * 1000,
-                    color: isPlanned() ? '#378ADD' : '#E24B4A',
-                    dashArray: isPlanned() ? '2 6' : '8 6',
-                    fillOpacity: 0.08
-                }).addTo(pickMap);
-            }
-            radiusSelect.addEventListener('change', drawRadius);
-
-            // ---- "Legg til i ..." or "Nytt behov" ----
-            function applyMode() {
-                existingField.value = chosen ? chosen.id : '';
-                document.getElementById('newNeedFields').hidden = !!chosen;
-                document.getElementById('timeFields').hidden = !!chosen;
-                document.getElementById('radiusWrap').hidden = !!chosen;
-                const info = document.getElementById('addingInfo');
-                info.hidden = !chosen;
-                info.textContent = chosen
-                    ? `Behovene legges til i «${chosen.name}» (${chosen.urgency.toLowerCase()}). Navn og tid hentes derfra.`
-                    : '';
-                document.getElementById('linesLegend').textContent = chosen ? 'Hva trengs i tillegg?' : 'Hva trengs?';
-                drawRadius();
-                updateSubmit();
-            }
-
-            function renderBox() {
-                const box = document.getElementById('activeBox');
-                const list = document.getElementById('activeList');
-                list.replaceChildren();
-                box.hidden = activeNeeds.length === 0;
-
-                activeNeeds.forEach(need => {
-                    const line = document.createElement('p');
-                    line.className = 'mb-2';
-                    // textContent, so names from users can't run as code (XSS)
-                    line.textContent = `⚠ ${need.name} er aktivt her (${String(need.distanceKm).replace('.', ',')} km unna).`;
-                    list.appendChild(line);
-                });
-
-                const buttons = document.createElement('div');
-                buttons.className = 'd-flex flex-wrap gap-2';
-                activeNeeds.forEach(need => {
-                    const button = document.createElement('button');
-                    button.type = 'button';
-                    button.className = 'btn ' + (chosen && chosen.id === need.id ? 'btn-primary' : 'btn-outline-warning');
-                    button.textContent = `Legg til i ${need.name}`;
-                    button.addEventListener('click', () => { chosen = need; userChoseNew = false; renderBox(); applyMode(); });
-                    buttons.appendChild(button);
-                });
-                const newButton = document.createElement('button');
-                newButton.type = 'button';
-                newButton.className = 'btn ' + (chosen ? 'btn-outline-warning' : 'btn-warning');
-                newButton.textContent = 'Nytt behov';
-                newButton.addEventListener('click', () => { chosen = null; userChoseNew = true; renderBox(); applyMode(); });
-                buttons.appendChild(newButton);
-                list.appendChild(buttons);
-
-                const already = document.getElementById('alreadyReported');
-                already.textContent = chosen && chosen.items.length
-                    ? 'Allerede meldt: ' + chosen.items.map(i => `${i.quantity} × ${i.type}`).join(' · ')
-                    : '';
-            }
-
-            // Ask the server: is the chosen place inside an active need? (not when editing: the need would find itself)
-            async function checkPlace() {
-                if (editing) {
-                    drawRadius();
-                    return;
-                }
-                const lat = parseFloat(latField.value);
-                const lng = parseFloat(lngField.value);
-                if (isNaN(lat) || isNaN(lng)) return;
-
-                try {
-                    const response = await fetch(`${activeUrl}?lat=${lat}&lng=${lng}`);
-                    activeNeeds = response.ok ? await response.json() : [];
-                } catch {
-                    activeNeeds = [];
-                }
-
-                // Keep the choice if it is still here; after a failed submit, keep the need from the server
-                const fromServer = parseInt(existingField.value);
-                if (chosen && !activeNeeds.some(n => n.id === chosen.id)) chosen = null;
-                if (!chosen && !isNaN(fromServer)) chosen = activeNeeds.find(n => n.id === fromServer) || null;
-                if (!chosen && !userChoseNew && activeNeeds.length > 0) chosen = activeNeeds[0];
-
-                renderBox();
-                applyMode();
-            }
-
-            latField.addEventListener('change', checkPlace);
-
-            applyUrgency();
-            renumber();
-            checkPlace();   // e.g. when the form opens with a place from the main map
-        })();
-    </script>
+    <script src="~/js/need-form.js" asp-append-version="true"></script>
 }

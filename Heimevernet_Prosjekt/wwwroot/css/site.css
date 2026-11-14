@@ -1336,3 +1336,389 @@ footer.footer {
 #rfRadiusCustom[hidden] {
     display: none !important; /* d-flex would otherwise win over hidden */
 }
+
+/* Ressursoversikt (help with AI): the filter bar, the boxes per status (coloured edge and head, like Behov),
+   and one row per resource - one line on wide screens, the type under the name on medium screens, a small card on phones.
+   Colours: Bootstrap variables, plus a few fixed ones for the boxes in light and dark mode - Docs: CSS grid-template-areas (MDN) */
+.list-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: 1rem;
+    padding: .5rem .75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .6rem;
+    background: var(--bs-tertiary-bg);
+}
+
+    .list-bar.is-filtered {
+        border-color: #2f8a3a;
+        background: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+    }
+
+.list-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: #2f8a3a;
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+.list-icon-busy {
+    background: #888780;
+}
+
+.list-icon-return {
+    background: #7F77DD;
+}
+
+.list-name {
+    font-weight: 600;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .15rem .6rem;
+    border-radius: 999px;
+    font-size: .85rem;
+    white-space: nowrap;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+}
+
+.status-ok {
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+}
+
+.status-return {
+    background: #EEEDFE;
+    color: #3C3489;
+}
+
+.status-bad {
+    background: var(--bs-danger-bg-subtle);
+    color: var(--bs-danger-text-emphasis);
+}
+
+.list-edit {
+    color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+    .list-edit:hover {
+        color: var(--bs-body-color);
+    }
+
+/* The boxes: light = white rows on a pale green-grey box, dark = lighter rows on a darker box */
+.res-group {
+    --res-box: #f1f5f2;
+    --res-row: #ffffff;
+    --res-row-border: #dfe5e1;
+    margin-bottom: 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-left: 5px solid #888780;
+    border-radius: .6rem;
+    background: var(--res-box);
+    overflow: hidden;
+}
+
+[data-bs-theme=dark] .res-group {
+    --res-box: #1b1f22;
+    --res-row: #2b3035;
+    --res-row-border: #3a4046;
+}
+
+.res-group-head {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .6rem .9rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    background: var(--bs-tertiary-bg);
+    border-bottom: 2px solid #888780;
+}
+
+    .res-group-head::-webkit-details-marker {
+        display: none;
+    }
+
+    .res-group-head::before {
+        content: "▸";
+        opacity: .7;
+    }
+
+.res-group[open] > .res-group-head::before {
+    content: "▾";
+}
+
+.res-group:not([open]) > .res-group-head {
+    border-bottom: 0;
+}
+
+.res-group-count {
+    padding: 0 .5rem;
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: .8rem;
+}
+
+.res-group-ok {
+    border-left-color: #2f8a3a;
+}
+
+    .res-group-ok > .res-group-head {
+        background: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+        border-bottom-color: #2f8a3a;
+    }
+
+.res-group-return {
+    border-left-color: #7F77DD;
+}
+
+    .res-group-return > .res-group-head {
+        background: #EEEDFE;
+        color: #3C3489;
+        border-bottom-color: #7F77DD;
+    }
+
+[data-bs-theme=dark] .res-group-return > .res-group-head,
+[data-bs-theme=dark] .status-return {
+    background: #2e2a5c;
+    color: #cecbf6;
+}
+
+.res-group-off {
+    border-left-color: var(--bs-border-color);
+}
+
+/* One resource per row */
+.res-list {
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+    padding: .5rem;
+}
+
+.res-row {
+    display: grid;
+    grid-template-columns: 2rem minmax(7rem, 14rem) minmax(0, 1fr) 9rem 12rem auto;
+    grid-template-areas: "icon name sub place status edit";
+    align-items: center;
+    column-gap: .75rem;
+    row-gap: .1rem;
+    padding: .45rem .75rem;
+    border: 1px solid var(--res-row-border);
+    border-radius: .5rem;
+    background: var(--res-row);
+    cursor: pointer;
+}
+
+    .res-row:hover {
+        border-color: #2f8a3a;
+    }
+
+    .res-row[hidden] {
+        display: none; /* display: grid would otherwise win over hidden (the filter hides rows) */
+    }
+
+.res-icon {
+    grid-area: icon;
+}
+
+.res-name {
+    grid-area: name;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.res-sub {
+    grid-area: sub;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .85rem;
+    color: color-mix(in srgb, var(--bs-body-color) 78%, transparent); /* darker than secondary-color, easier to read */
+}
+
+.res-sub-place {
+    display: none;
+}
+
+.res-place {
+    grid-area: place;
+    white-space: nowrap;
+    font-weight: 500; /* the kommune a bit stronger than the grey type text */
+}
+
+.res-distance {
+    font-size: .85rem;
+    color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
+}
+
+.res-status {
+    grid-area: status;
+}
+
+.res-edit {
+    grid-area: edit;
+    text-align: right;
+}
+
+.res-flag {
+    margin-left: .35rem;
+    padding: 0 .4rem;
+    border-radius: .3rem;
+    background: #ffc107;
+    color: #212529;
+    font-size: .75rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+/* Big screens: a bit bigger rows, and the type column is not wider than it needs to be */
+@media (min-width: 1400px) {
+    .res-row {
+        grid-template-columns: 2.4rem minmax(9rem, 16rem) minmax(0, 24rem) 1fr 13rem 7rem;
+        grid-template-areas: "icon name sub place status edit";
+        padding: .65rem 1rem;
+        font-size: 1.05rem;
+    }
+
+    .res-list {
+        gap: .5rem;
+        padding: .6rem;
+    }
+
+    .res-icon.list-icon {
+        width: 2.4rem;
+        height: 2.4rem;
+        font-size: 1.3rem;
+    }
+
+    .res-sub {
+        font-size: .95rem;
+    }
+
+    .res-group-head {
+        padding: .75rem 1rem;
+        font-size: 1.1rem;
+    }
+}
+/* Medium screens (laptop with zoom): the type goes under the name */
+@media (max-width: 1199.98px) {
+    .res-row {
+        grid-template-columns: 2rem minmax(0, 1fr) 8rem 10rem auto;
+        grid-template-areas: "icon name place status edit" "icon sub place status edit";
+    }
+
+    .res-icon, .res-place, .res-status, .res-edit {
+        grid-row: span 2;
+    }
+
+    .res-edit-text {
+        display: none;
+    }
+}
+
+/* Phones: a small card on two lines - name and status, then type and kommune */
+@media (max-width: 767.98px) {
+    .res-row {
+        grid-template-columns: 2rem minmax(0, 1fr) auto;
+        grid-template-areas: "icon name status" "icon sub edit";
+    }
+
+    .res-place {
+        display: none;
+    }
+
+    .res-sub-place {
+        display: inline;
+    }
+
+    .res-status, .res-edit {
+        grid-row: auto;
+    }
+}
+
+/* Print / PDF: the same groups as headings, and a clean black and white list (no icons, colours or buttons) */
+.print-only {
+    display: none;
+}
+
+@media print {
+    .print-only {
+        display: block;
+    }
+
+    .res-group, .res-group-head, .res-row, .status-badge {
+        background: none !important;
+        color: #000 !important;
+        border-color: transparent !important;
+    }
+
+    .res-group {
+        border: 0;
+    }
+
+    .res-group-head {
+        padding: .2rem 0;
+        border-bottom: 1.5px solid #000 !important;
+    }
+
+        .res-group-head::before, .res-group-head .ti {
+            display: none;
+        }
+
+    .res-list {
+        gap: 0;
+        padding: 0;
+    }
+
+    .res-row {
+        grid-template-columns: 1.2fr 1.5fr 1fr 1.3fr 1.5fr;
+        grid-template-areas: none;
+        padding: .2rem 0;
+        border-radius: 0;
+        border-bottom: 1px solid #bbb !important;
+    }
+
+        .res-row > * {
+            grid-area: auto;
+            grid-row: auto;
+        }
+
+    .res-icon, .res-flag, .status-badge .ti {
+        display: none !important;
+    }
+
+    .res-place {
+        display: block !important;
+    }
+
+    .res-sub-place {
+        display: none !important;
+    }
+
+    .list-name {
+        color: #000;
+        text-decoration: none;
+    }
+}

@@ -641,6 +641,15 @@ namespace Heimevernet_Prosjekt.Controllers
         private void LoadTypes()
         {
             ViewData["ResourceTypes"] = _typeRepository.GetAll();
+            // The categories with their types and icons, for "Legg til ressurs" (the same as in "Ny ressurs")
+            ViewData["TypeCategories"] = _typeRepository.GetCategories()
+                .Where(category => category.Types.Count > 0)
+                .Select(category => new {
+                    name = category.Name,
+                    icon = category.Icon,
+                    types = category.Types.Select(type => new { name = type.Name, icon = type.Icon ?? category.Icon })
+                })
+                .ToList();
         }
 
         private static DateTime? ToUtc(DateTime? norwegianTime)

@@ -17,6 +17,11 @@
 	<div class="side-panel-head">
 		<button type="button" id="sidePanelBack" class="btn btn-sm btn-link p-0" hidden onclick="sidePanelBack()"></button>
 		<span id="sidePanelTitle" class="small fw-semibold"></span>
+		@* Liste | Filter (help with AI): the resources that match the filter, and the filter itself *@
+		<div id="panelTabs" class="panel-tabs" role="tablist" hidden>
+			<button type="button" id="tabHits" class="panel-tab" role="tab" onclick="showView('hits')"><i class="ti ti-list" aria-hidden="true"></i> Liste <span id="tabHitsCount" class="badge rounded-pill"></span></button>
+			<button type="button" id="tabFilter" class="panel-tab" role="tab" onclick="showView('filter')"><i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="tabFilterCount" class="badge rounded-pill" hidden></span></button>
+		</div>
 		<a id="sidePanelFull" href="#" class="small" hidden>Åpne på egen side ↗</a>
 		<button type="button" class="btn-close ms-auto" onclick="closeSidePanel()" aria-label="Lukk panelet"></button>
 	</div>
@@ -30,6 +35,21 @@
 	</div>
 	<div id="filterPanelBody" class="side-panel-list" hidden>
 		<partial name="_ResourceFilter" />
+	</div>
+	@* "Liste": the resources on the map that match the filter, with Eksporter (renderHits below) *@
+	<div id="hitsPanelBody" class="side-panel-list" hidden>
+		<div class="d-flex align-items-center gap-2">
+			<strong id="hitsSummary"></strong>
+			<div class="dropdown ms-auto">
+				<button type="button" class="btn btn-sm rf-reset dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ti ti-download" aria-hidden="true"></i> Eksporter</button>
+				<ul class="dropdown-menu dropdown-menu-end">
+					<li><button type="button" class="dropdown-item" data-map-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+					<li><button type="button" class="dropdown-item" data-map-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+				</ul>
+			</div>
+		</div>
+		<div id="hitsList"></div>
+		<a id="hitsOpenList" class="d-block text-center small mt-3" href="#" data-url="@Url.Action("List", "Resource")">Åpne i Ressursoversikt ↗</a>
 	</div>
 	<div id="resourcePanelPick" class="px-3 pt-2" hidden></div>
 	<div id="resourcePanelList" class="side-panel-list" hidden></div>
@@ -55,6 +75,7 @@
 	<div class="d-flex flex-wrap align-items-center gap-2">
 		<span id="radiusChips" class="d-flex flex-wrap gap-2"></span>
 		<button type="button" id="radiusRemove" class="btn btn-sm rf-reset ms-auto"><i class="ti ti-x" aria-hidden="true"></i> Fjern</button>
+		<button type="button" id="radiusList" class="btn btn-sm rf-reset" onclick="showView('hits')"><i class="ti ti-list" aria-hidden="true"></i> Vis liste</button>
 		<button type="button" id="radiusDone" class="btn btn-sm btn-success"><i class="ti ti-check" aria-hidden="true"></i> Ferdig</button>
 	</div>
 </div>
@@ -236,6 +257,108 @@
 			color: #fff;
 			border-color: var(--hv-green);
 		}
+	/* Liste | Filter in the panel head (help with AI): the two tabs share the width, and ✕ has its own box on the right */
+	.side-panel-head.tabbed {
+		padding: 0;
+		gap: 0;
+	}
+
+	.panel-tabs {
+		display: flex;
+		flex: 1;
+		align-self: stretch;
+	}
+
+	.panel-tab {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 10px 0;
+		border: 0;
+		border-bottom: 2px solid transparent;
+		background: none;
+		color: var(--bs-secondary-color);
+		font-weight: 500;
+	}
+
+		.panel-tab + .panel-tab {
+			border-left: 1px solid var(--bs-border-color);
+		}
+
+		.panel-tab.active {
+			color: var(--bs-body-color);
+			border-bottom-color: var(--hv-green);
+		}
+
+		.panel-tab:focus:not(:focus-visible) {
+			outline: none; /* no frame after a mouse click, still there with the keyboard (Tab) */
+		}
+
+		.panel-tab .badge {
+			background: var(--bs-secondary-bg);
+			color: var(--bs-body-color);
+		}
+
+		.panel-tab.active .badge {
+			background: var(--hv-green);
+			color: #fff;
+		}
+
+	.side-panel-head.tabbed .btn-close {
+		align-self: stretch;
+		width: 44px;
+		height: auto;
+		border-left: 1px solid var(--bs-border-color);
+		border-radius: 0;
+	}
+
+	.hit-group {
+		font-size: .8rem;
+		font-weight: 600;
+		color: var(--bs-secondary-color);
+		margin: 12px 0 6px;
+	}
+
+	.hit-row {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		margin-bottom: 6px;
+		padding: 8px 10px;
+		border: 1px solid var(--bs-border-color);
+		border-radius: 8px;
+		background: var(--bs-body-bg);
+		color: inherit;
+	}
+
+		.hit-row:hover {
+			background: var(--bs-secondary-bg);
+		}
+
+	.hit-text {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.hit-name, .hit-sub {
+		display: block;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.hit-name {
+		font-weight: 600;
+	}
+
+	.hit-sub {
+		font-size: .85rem;
+		color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
+	}
 	/* Need mode: the top of the panel is yellow, and an info box says what to do and what the rings mean (text + icon, not only colour) */
 	.need-mode-info {
 		background: #ffc107;
@@ -434,6 +557,30 @@
 		font-weight: 700;
 	}
 
+	.legend-pin, .legend-img {
+		display: inline-block;
+		vertical-align: middle;
+		margin-right: 8px;
+	}
+
+	.legend-pin {
+		margin-left: 1px;
+	}
+
+	.legend-return {
+		display: inline-block;
+		vertical-align: middle;
+		width: 16px;
+		height: 16px;
+		margin-right: 6px;
+		border-radius: 50%;
+		background: #7F77DD;
+		color: #fff;
+		font-size: 11px;
+		line-height: 16px;
+		text-align: center;
+	}
+
 	.legend-line {
 		display: inline-block;
 		vertical-align: middle;
@@ -561,101 +708,101 @@
 @section Scripts {
 	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 	<script src="~/js/resource-filter.js" asp-append-version="true"></script>
+	<script src="~/js/resource-export.js" asp-append-version="true"></script>
 	<script>
-				// The group's PNG icons per type (old type names, so only the default pins showed). Replaced by resourcePin below,
-				// which uses the type icons from the database. Kept as a comment until the group has seen it
-				
-// 		var greenIcon = new L.Icon({
-// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
-// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-// 			iconSize: [25, 41],
-// 			iconAnchor: [12, 41],
-// 			popupAnchor: [1, -34]
-// 		});
+		// The group's PNG icons per type (old type names, so only the default pins showed). Replaced by resourcePin below,
+		// which uses the type icons from the database. Kept as a comment until the group has seen it
+
+		// 		var greenIcon = new L.Icon({
+		// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png',
+		// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+		// 			iconSize: [25, 41],
+		// 			iconAnchor: [12, 41],
+		// 			popupAnchor: [1, -34]
+		// 		});
 
 
-// 		var redIcon = new L.Icon({
-// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-// 			iconSize: [25, 41],
-// 			iconAnchor: [12, 41],
-// 			popupAnchor: [1, -34]
-// 		});
+		// 		var redIcon = new L.Icon({
+		// 			iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+		// 			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+		// 			iconSize: [25, 41],
+		// 			iconAnchor: [12, 41],
+		// 			popupAnchor: [1, -34]
+		// 		});
 
-// 		var greyIcon = new L.Icon({
-// 			iconUrl: 'https:raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
-// 			shadowUrl: 'https:cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-// 			iconSize: [25, 41],
-// 			iconAnchor: [12, 41],
-// 			popupAnchor: [1, -34]
-// 		});
+		// 		var greyIcon = new L.Icon({
+		// 			iconUrl: 'https:raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png',
+		// 			shadowUrl: 'https:cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+		// 			iconSize: [25, 41],
+		// 			iconAnchor: [12, 41],
+		// 			popupAnchor: [1, -34]
+		// 		});
 
-// 		var blueIcon = new L.Icon({
-//     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
-//     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-//     iconSize: [25, 41],
-//     iconAnchor: [12, 41],
-//     popupAnchor: [1, -34]
-// });
+		// 		var blueIcon = new L.Icon({
+		//     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+		//     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+		//     iconSize: [25, 41],
+		//     iconAnchor: [12, 41],
+		//     popupAnchor: [1, -34]
+		// });
 
- 				function getPermanentIcon(iconType)
- 		{
- 			return L.icon({
- 				iconUrl: `/images/permanent-map-icons/${iconType}.png`,
- 				iconSize: [40, 40],
- 				iconAnchor: [20, 40],
- 				popupAnchor: [0, -40]
- 			});
- 		}
+		function getPermanentIcon(iconType) {
+			return L.icon({
+				iconUrl: `/images/permanent-map-icons/${iconType}.png`,
+				iconSize: [40, 40],
+				iconAnchor: [20, 40],
+				popupAnchor: [0, -40]
+			});
+		}
 
 
-// 		function getDefaultMarker(status) {
+		// 		function getDefaultMarker(status) {
 
-// 			switch (status) {
+		// 			switch (status) {
 
-//         case "Opptatt":
-//             return greyIcon;
+		//         case "Opptatt":
+		//             return greyIcon;
 
-// 				case "Ugyldig":
-// 					return redIcon;
+		// 				case "Ugyldig":
+		// 					return redIcon;
 
-// 				default:
-// 					return greenIcon;
-// 			}
-// 		}
+		// 				default:
+		// 					return greenIcon;
+		// 			}
+		// 		}
 
-// 		function getResourceIcon(type, status) {
+		// 		function getResourceIcon(type, status) {
 
-// 			//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
-// 			var typeMap = {
-// 				"Verktøy og utstyr": "tools",
-// 				"Motoriserte kjøretøy": "vehicle",
-// 				"Husly og bygg": "shelter",
-// 				// "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
-// 				"Sikkerhet og medisinsk": "medical"
-// 			};
-// 			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
-// 			if (status === "Ikke tilgjengelig") {
-// 				return greyIcon;
-// 			}
+		// 			//bilder legges inn i wwwroot/images/resource-icons/ med navn som "tools-ledig.png", "vehicle-opptatt.png" osv. altså (type-status.png)
+		// 			var typeMap = {
+		// 				"Verktøy og utstyr": "tools",
+		// 				"Motoriserte kjøretøy": "vehicle",
+		// 				"Husly og bygg": "shelter",
+		// 				// "Materialer og forsyninger": "supplies",		//Har ikke ikon enda så bruker default for nå
+		// 				"Sikkerhet og medisinsk": "medical"
+		// 			};
+		// 			// "Ikke tilgjengelig" (e.g. at the workshop): always a grey marker, whatever the type
+		// 			if (status === "Ikke tilgjengelig") {
+		// 				return greyIcon;
+		// 			}
 
-// 			var iconType = typeMap[type];
+		// 			var iconType = typeMap[type];
 
-// 			if (!iconType) {
-// 				return getDefaultMarker(status);
-// 			}
+		// 			if (!iconType) {
+		// 				return getDefaultMarker(status);
+		// 			}
 
-// 			var iconStatus = (status || "Ledig")
-// 				.toLowerCase()
-// 				.replace("ø", "o");
+		// 			var iconStatus = (status || "Ledig")
+		// 				.toLowerCase()
+		// 				.replace("ø", "o");
 
-// 			return L.icon({
-// 				iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
-// 				iconSize: [36, 36],
-// 				iconAnchor: [18, 36],
-// 				popupAnchor: [0, -36]
-// 			});
-// 		}
+		// 			return L.icon({
+		// 				iconUrl: `/images/resource-icons/${iconType}-${iconStatus}.png`,
+		// 				iconSize: [36, 36],
+		// 				iconAnchor: [18, 36],
+		// 				popupAnchor: [0, -36]
+		// 			});
+		// 		}
 
 		// The pins on the map (help with AI): the type's own icon (the same as in "Ny ressurs") in a pin.
 		// Green = ledig now, grey = everything else (I bruk, Ledig senere ...). The status is in the tooltip too, so it isn't colour alone.
@@ -706,8 +853,8 @@
 			}
 		}).addTo(map);
 		var permanentMarkerLayer = L.layerGroup().addTo(map);
-	
-	
+
+
 		var markersById = {};
 		// "Lever tilbake": lent out to a need that is closed. Kept out of the boxes, so they are never hidden (help with AI)
 		var returnLayer = L.layerGroup().addTo(map);
@@ -724,52 +871,52 @@
 			return div.innerHTML;
 		}
 
-function loadPermanentMarkers() {
+		function loadPermanentMarkers() {
 
-		fetch('@Url.Action("PermanentMapMarker", "Home")')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error("Kunne ikke hente installasjoner");
-            }
+			fetch('@Url.Action("PermanentMapMarker", "Home")')
+				.then(response => {
+					if (!response.ok) {
+						throw new Error("Kunne ikke hente installasjoner");
+					}
 
-            return response.json();
-        })
-        .then(locations => {
+					return response.json();
+				})
+				.then(locations => {
 
-            permanentMarkerLayer.clearLayers();
+					permanentMarkerLayer.clearLayers();
 
-            locations.forEach(function (location) {
+					locations.forEach(function (location) {
 
-                var lat = Number(location.latitude);
-                var lng = Number(location.longitude);
+						var lat = Number(location.latitude);
+						var lng = Number(location.longitude);
 
-                if (!Number.isFinite(lat) ||
-                    !Number.isFinite(lng) ||
-                    lat < -90 || lat > 90 ||
-                    lng < -180 || lng > 180) {
-                    return;
-                }
+						if (!Number.isFinite(lat) ||
+							!Number.isFinite(lng) ||
+							lat < -90 || lat > 90 ||
+							lng < -180 || lng > 180) {
+							return;
+						}
 
-                var marker = L.marker([lat, lng], {
-                    icon: blueIcon
-                });
+						var marker = L.marker([lat, lng], {
+							icon: blueIcon
+						});
 
-                marker.bindPopup(`
-                    <strong>${escapeHtml(location.name)}</strong><br>
-                    Type: ${escapeHtml(location.type)}<br>
-                    ${escapeHtml(location.description || '')}
-                `);
+						marker.bindPopup(`
+							<strong>${escapeHtml(location.name)}</strong><br>
+							Type: ${escapeHtml(location.type)}<br>
+							${escapeHtml(location.description || '')}
+						`);
 
-                permanentMarkerLayer.addLayer(marker);
-            });
-        })
-        .catch(error => {
-            console.error(
-                "Feil ved henting av faste installasjoner:",
-                error
-            );
-        });
-}
+						permanentMarkerLayer.addLayer(marker);
+					});
+				})
+				.catch(error => {
+					console.error(
+						"Feil ved henting av faste installasjoner:",
+						error
+					);
+				});
+		}
 
 
 		//Ressurser hentes fra databasen og legges til på kartet som markører.
@@ -787,6 +934,8 @@ function loadPermanentMarkers() {
 					// The filter: type and status are chosen here; search and distance are done by the server
 					if (window.ResourceFilter) ResourceFilter.render(resources, params);
 					resources = resources.filter(function (r) { return !window.ResourceFilter || ResourceFilter.matches(r, params); });
+					lastHits = resources; // for "Liste" in the side panel
+					renderHits(params);
 
 					for (const resource of resources) {
 
@@ -1013,126 +1162,126 @@ function loadPermanentMarkers() {
 			});
 		};
 
-			// "Ressurser i området" (help with AI): change the distance right on the map - the slider, the number,
-			// the quick buttons or the white dot on the edge of the circle. It uses the same radius in the URL as the filter
-			// Docs: Leaflet Marker (draggable) - https://leafletjs.com/reference.html#marker
-			var radiusQuick = [1, 2, 5, 10, 50];
-			var radiusHandle = null;
-			var radiusBarSmall = false; // true after "Ferdig", until a new point is chosen
-			var radiusPointKey = '';
+		// "Ressurser i området" (help with AI): change the distance right on the map - the slider, the number,
+		// the quick buttons or the white dot on the edge of the circle. It uses the same radius in the URL as the filter
+		// Docs: Leaflet Marker (draggable) - https://leafletjs.com/reference.html#marker
+		var radiusQuick = [1, 2, 5, 10]; // 50 km was removed to make room for "Vis liste"; other distances can be typed in
+		var radiusHandle = null;
+		var radiusBarSmall = false; // true after "Ferdig", until a new point is chosen
+		var radiusPointKey = '';
 
-			// The slider goes from 0.1 to 500 km, with most of it for short distances (middle = about 7 km)
-			function sliderToKm(value) { return roundKm(0.1 * Math.pow(5000, value / 1000)); }
-			function kmToSlider(km) { return Math.round(1000 * Math.log(km / 0.1) / Math.log(5000)); }
-			function roundKm(km) { return km < 10 ? Math.round(km * 10) / 10 : Math.round(km); }
-			function kmText(km) { return km < 1 ? Math.round(km * 1000) + ' m' : String(km).replace('.', ',') + ' km'; }
+		// The slider goes from 0.1 to 500 km, with most of it for short distances (middle = about 7 km)
+		function sliderToKm(value) { return roundKm(0.1 * Math.pow(5000, value / 1000)); }
+		function kmToSlider(km) { return Math.round(1000 * Math.log(km / 0.1) / Math.log(5000)); }
+		function roundKm(km) { return km < 10 ? Math.round(km * 10) / 10 : Math.round(km); }
+		function kmText(km) { return km < 1 ? Math.round(km * 1000) + ' m' : String(km).replace('.', ',') + ' km'; }
 
-			// Use a new radius: the filter, the chips and the circle are updated, and the resources counted again
-			function applyRadius(km) {
-				var params = window.getResourceParams();
-				if (!params.lat) return;
-				params.radius = String(Math.min(Math.max(roundKm(km), 0.1), 500));
-				window.applyResourceParams(params);
+		// Use a new radius: the filter, the chips and the circle are updated, and the resources counted again
+		function applyRadius(km) {
+			var params = window.getResourceParams();
+			if (!params.lat) return;
+			params.radius = String(Math.min(Math.max(roundKm(km), 0.1), 500));
+			window.applyResourceParams(params);
+		}
+
+		// While dragging: only the circle and the numbers change; the resources are counted when you let go
+		function previewRadius(km, dragging) {
+			if (!radiusCircle) return;
+			radiusCircle.setRadius(km * 1000);
+			showRadiusNumbers(km, dragging);
+		}
+
+		function showRadiusNumbers(km, dragging) {
+			var slider = document.getElementById('radiusSlider');
+			slider.value = kmToSlider(km);
+			slider.setAttribute('aria-valuetext', kmText(km));
+			document.getElementById('radiusNumber').value = km;
+			if (radiusHandle) {
+				if (!dragging) radiusHandle.setLatLng(edgePoint(km));
+				radiusHandle.setTooltipContent(kmText(km));
 			}
+			document.querySelectorAll('.radius-chip').forEach(function (chip) {
+				var on = parseFloat(chip.dataset.km) === km;
+				chip.classList.toggle('active', on);
+				chip.setAttribute('aria-pressed', on);
+				chip.textContent = (on ? '✓ ' : '') + chip.dataset.km + ' km';
+			});
+		}
 
-			// While dragging: only the circle and the numbers change; the resources are counted when you let go
-			function previewRadius(km, dragging) {
-				if (!radiusCircle) return;
-				radiusCircle.setRadius(km * 1000);
-				showRadiusNumbers(km, dragging);
+		// The point on the right edge of the circle (1 degree of latitude is about 111.32 km)
+		function edgePoint(km) {
+			var center = radiusCircle.getLatLng();
+			return L.latLng(center.lat, center.lng + km / (111.32 * Math.cos(center.lat * Math.PI / 180)));
+		}
+
+		// Called after every search or filter change: show, update or hide the bar, the small button and the dot
+		function updateRadiusBar(params, count) {
+			var bar = document.getElementById('radiusBar');
+			var small = document.getElementById('radiusBarSmall');
+			if (radiusHandle) { map.removeLayer(radiusHandle); radiusHandle = null; }
+			if (!radiusCircle) {
+				bar.hidden = true;
+				small.hidden = true;
+				radiusPointKey = '';
+				return;
 			}
+			var key = params.lat + ',' + params.lng;
+			if (key !== radiusPointKey) radiusBarSmall = false; // a new point: show the whole bar again
+			radiusPointKey = key;
+			var km = roundKm(parseFloat(params.radius));
+			var hits = count === 1 ? '1 treff' : count + ' treff';
 
-			function showRadiusNumbers(km, dragging) {
-				var slider = document.getElementById('radiusSlider');
-				slider.value = kmToSlider(km);
-				slider.setAttribute('aria-valuetext', kmText(km));
-				document.getElementById('radiusNumber').value = km;
-				if (radiusHandle) {
-					if (!dragging) radiusHandle.setLatLng(edgePoint(km));
-					radiusHandle.setTooltipContent(kmText(km));
-				}
-				document.querySelectorAll('.radius-chip').forEach(function (chip) {
-					var on = parseFloat(chip.dataset.km) === km;
-					chip.classList.toggle('active', on);
-					chip.setAttribute('aria-pressed', on);
-					chip.textContent = (on ? '✓ ' : '') + chip.dataset.km + ' km';
-				});
-			}
-
-			// The point on the right edge of the circle (1 degree of latitude is about 111.32 km)
-			function edgePoint(km) {
-				var center = radiusCircle.getLatLng();
-				return L.latLng(center.lat, center.lng + km / (111.32 * Math.cos(center.lat * Math.PI / 180)));
-			}
-
-			// Called after every search or filter change: show, update or hide the bar, the small button and the dot
-			function updateRadiusBar(params, count) {
-				var bar = document.getElementById('radiusBar');
-				var small = document.getElementById('radiusBarSmall');
-				if (radiusHandle) { map.removeLayer(radiusHandle); radiusHandle = null; }
-				if (!radiusCircle) {
-					bar.hidden = true;
-					small.hidden = true;
-					radiusPointKey = '';
-					return;
-				}
-				var key = params.lat + ',' + params.lng;
-				if (key !== radiusPointKey) radiusBarSmall = false; // a new point: show the whole bar again
-				radiusPointKey = key;
-				var km = roundKm(parseFloat(params.radius));
-				var hits = count === 1 ? '1 treff' : count + ' treff';
-
-				radiusHandle = L.marker(edgePoint(km), {
-					draggable: true,
-					keyboard: false, // the slider and the number field are the keyboard way
-					icon: L.divIcon({ className: '', html: '<div class="radius-handle"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
-				}).bindTooltip(kmText(km), { permanent: true, direction: 'top', offset: [0, -12] }).addTo(map);
-				radiusHandle.on('drag', function (e) {
-					previewRadius(roundKm(Math.max(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000, 0.1)), true);
-				});
-				radiusHandle.on('dragend', function (e) {
-					applyRadius(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000);
-				});
-
-				document.getElementById('radiusBarCount').textContent = hits;
-				small.textContent = '⟷ Innen ' + kmText(km) + ' · ' + hits + ' · Endre';
-				bar.hidden = radiusBarSmall;
-				small.hidden = !radiusBarSmall;
-				showRadiusNumbers(km);
-			}
-
-			// The quick buttons and the other controls in the bar (set up once)
-			radiusQuick.forEach(function (km) {
-				var chip = document.createElement('button');
-				chip.type = 'button';
-				chip.className = 'radius-chip';
-				chip.dataset.km = km;
-				chip.textContent = km + ' km';
-				chip.addEventListener('click', function () { applyRadius(km); });
-				document.getElementById('radiusChips').appendChild(chip);
+			radiusHandle = L.marker(edgePoint(km), {
+				draggable: true,
+				keyboard: false, // the slider and the number field are the keyboard way
+				icon: L.divIcon({ className: '', html: '<div class="radius-handle"></div>', iconSize: [22, 22], iconAnchor: [11, 11] })
+			}).bindTooltip(kmText(km), { permanent: true, direction: 'top', offset: [0, -12] }).addTo(map);
+			radiusHandle.on('drag', function (e) {
+				previewRadius(roundKm(Math.max(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000, 0.1)), true);
 			});
-			document.getElementById('radiusSlider').addEventListener('input', function () { previewRadius(sliderToKm(this.value)); });
-			document.getElementById('radiusSlider').addEventListener('change', function () { applyRadius(sliderToKm(this.value)); });
-			document.getElementById('radiusNumber').addEventListener('change', function () {
-				var km = parseFloat(this.value);
-				if (!isNaN(km)) applyRadius(km);
+			radiusHandle.on('dragend', function (e) {
+				applyRadius(map.distance(radiusCircle.getLatLng(), e.target.getLatLng()) / 1000);
 			});
-			document.getElementById('radiusRemove').addEventListener('click', function () {
-				var params = window.getResourceParams();
-				delete params.lat; delete params.lng; delete params.where; delete params.radius;
-				window.applyResourceParams(params);
-			});
-			document.getElementById('radiusDone').addEventListener('click', function () {
-				radiusBarSmall = true;
-				document.getElementById('radiusBar').hidden = true;
-				document.getElementById('radiusBarSmall').hidden = false;
-			});
-			document.getElementById('radiusBarSmall').addEventListener('click', function () {
-				radiusBarSmall = false;
-				document.getElementById('radiusBarSmall').hidden = true;
-				document.getElementById('radiusBar').hidden = false;
-				document.getElementById('radiusSlider').focus();
-			});
+
+			document.getElementById('radiusBarCount').textContent = hits;
+			small.textContent = '⟷ Innen ' + kmText(km) + ' · ' + hits + ' · Endre';
+			bar.hidden = radiusBarSmall;
+			small.hidden = !radiusBarSmall;
+			showRadiusNumbers(km);
+		}
+
+		// The quick buttons and the other controls in the bar (set up once)
+		radiusQuick.forEach(function (km) {
+			var chip = document.createElement('button');
+			chip.type = 'button';
+			chip.className = 'radius-chip';
+			chip.dataset.km = km;
+			chip.textContent = km + ' km';
+			chip.addEventListener('click', function () { applyRadius(km); });
+			document.getElementById('radiusChips').appendChild(chip);
+		});
+		document.getElementById('radiusSlider').addEventListener('input', function () { previewRadius(sliderToKm(this.value)); });
+		document.getElementById('radiusSlider').addEventListener('change', function () { applyRadius(sliderToKm(this.value)); });
+		document.getElementById('radiusNumber').addEventListener('change', function () {
+			var km = parseFloat(this.value);
+			if (!isNaN(km)) applyRadius(km);
+		});
+		document.getElementById('radiusRemove').addEventListener('click', function () {
+			var params = window.getResourceParams();
+			delete params.lat; delete params.lng; delete params.where; delete params.radius;
+			window.applyResourceParams(params);
+		});
+		document.getElementById('radiusDone').addEventListener('click', function () {
+			radiusBarSmall = true;
+			document.getElementById('radiusBar').hidden = true;
+			document.getElementById('radiusBarSmall').hidden = false;
+		});
+		document.getElementById('radiusBarSmall').addEventListener('click', function () {
+			radiusBarSmall = false;
+			document.getElementById('radiusBarSmall').hidden = true;
+			document.getElementById('radiusBar').hidden = false;
+			document.getElementById('radiusSlider').focus();
+		});
 
 		var resourceCreateUrl = '@Url.Action("Create", "ResourceHandler")';
 		var mapUrl = '@Url.Action("Map", "Home")';
@@ -1311,12 +1460,21 @@ function loadPermanentMarkers() {
 			document.getElementById('needPanelFrame').hidden = view !== 'need';
 			document.getElementById('sidePanelFull').hidden = view !== 'need' && view !== 'resource';
 			document.getElementById('filterPanelBody').hidden = view !== 'filter';
-			if (view === 'filter') document.getElementById('sidePanelTitle').textContent = 'Filter';
+			document.getElementById('hitsPanelBody').hidden = view !== 'hits';
+			// Liste | Filter: the tabs instead of a title
+			document.getElementById('panelTabs').hidden = view !== 'filter' && view !== 'hits';
+			document.querySelector('.side-panel-head').classList.toggle('tabbed', view === 'filter' || view === 'hits');
+			document.getElementById('tabHits').classList.toggle('active', view === 'hits');
+			document.getElementById('tabFilter').classList.toggle('active', view === 'filter');
+			document.getElementById('tabHits').setAttribute('aria-selected', view === 'hits');
+			document.getElementById('tabFilter').setAttribute('aria-selected', view === 'filter');
+			if (view === 'filter' || view === 'hits') document.getElementById('sidePanelTitle').textContent = '';
+			if (view === 'hits') renderHits(window.getResourceParams());
 			if (view === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
 
 			// ‹ back: from a resource to the list, or to the need you are working on
 			var backTo = null;
-			if (view === 'resource' && resourceList.length > 0) backTo = 'lista';
+			if (view === 'resource' && (resourceList.length > 0 || fromHits)) backTo = 'lista';
 			else if (view !== 'need' && needUrl) backTo = 'behovet';
 			var back = document.getElementById('sidePanelBack');
 			back.hidden = !backTo;
@@ -1326,12 +1484,14 @@ function loadPermanentMarkers() {
 		}
 
 		function sidePanelBack() {
-			if (panelView === 'resource' && resourceList.length > 0) showResourceList();
+			if (panelView === 'resource' && fromHits) showView('hits');
+			else if (panelView === 'resource' && resourceList.length > 0) showResourceList();
 			else showView('need');
 		}
 
-		function openResource(id) {
+		function openResource(id, fromList) {
 			openResourceId = id;
+			fromHits = !!fromList; // ‹ goes back to "Liste"
 			document.getElementById('resourcePanelFrame').src = detailUrl + id + '?embed=1';
 			document.getElementById('sidePanelTitle').textContent = '';
 			showView('resource');
@@ -1347,7 +1507,7 @@ function loadPermanentMarkers() {
 				if (placeMoved && url.pathname.toLowerCase().startsWith('/resource/index')) { placeMoved = false; loadResources(window.getResourceParams()); }
 			} catch (e) { }
 		});
-		
+
 		// Moving from the panel to the big form: what is typed and the step you are on come along (sessionStorage, help with AI)
 		document.getElementById('sidePanelFull').addEventListener('click', function () {
 			try {
@@ -1474,6 +1634,70 @@ function loadPermanentMarkers() {
 			});
 		}
 
+		// "Liste" in the side panel (help with AI): the resources that match the filter, in boxes by status like Ressursoversikt,
+		// the nearest first when a point is chosen. A click shows it on the map and opens it in the panel (‹ goes back to the list)
+		var lastHits = [];     // the resources on the map now (after the filter)
+		var fromHits = false;  // the open resource was chosen in "Liste"
+		var hitGroups = [['Ledig', 'Ledig nå', 'ti-circle-check', 'status-ok'], ['Ledig senere', 'Ledig senere', 'ti-clock', 'status-grey'],
+		['I bruk', 'I bruk', 'ti-hourglass', 'status-grey'], ['Lever tilbake', 'Lever tilbake', 'ti-arrow-back-up', 'status-return'],
+		['Ikke tilgjengelig', 'Ikke tilgjengelig', 'ti-ban', 'status-grey'], ['Ugyldig', 'Ugyldig', 'ti-alert-triangle', 'status-bad']];
+
+		function hitDistance(r, params) {
+			return params.lat && params.lng ? ResourceFilter.distanceKm(+params.lat, +params.lng, +r.latitude, +r.longitude) : null;
+		}
+
+		function renderHits(params) {
+			document.getElementById('tabHitsCount').textContent = lastHits.length;
+			document.getElementById('hitsOpenList').href = document.getElementById('hitsOpenList').dataset.url + '?' + new URLSearchParams(params);
+			if (panelView !== 'hits') return;
+			var hits = lastHits.slice().sort(function (a, b) {
+				return params.lat ? hitDistance(a, params) - hitDistance(b, params) : (a.name || '').localeCompare(b.name || '', 'nb');
+			});
+			document.getElementById('hitsSummary').innerHTML = '<i class="ti ti-filter" aria-hidden="true"></i> ' + hits.length + (hits.length === 1 ? ' ressurs' : ' ressurser')
+				+ (params.lat ? ' <span class="fw-normal text-body-secondary">· nærmest først</span>' : '');
+			var html = '';
+			hitGroups.forEach(function (g) {
+				var inGroup = hits.filter(function (r) { return (r.status || 'Ledig') === g[0]; });
+				if (inGroup.length === 0) return;
+				html += `<div class="hit-group"><i class="ti ${g[2]}" aria-hidden="true"></i> ${g[1]} · ${inGroup.length}</div>`;
+				inGroup.forEach(function (r) {
+					var km = hitDistance(r, params);
+					var icon = (r.icon || 'map-pin').replace(/^ti-/, '').replace(/[^a-z0-9-]/gi, ''); // only letters, numbers and - in the class
+					var iconCss = g[0] === 'Ledig' ? '' : g[0] === 'Lever tilbake' ? 'list-icon-return' : 'list-icon-busy';
+					html += `<button type="button" class="hit-row" data-id="${r.id}">`
+						+ `<span class="list-icon ${iconCss}"><i class="ti ti-${icon}" aria-hidden="true"></i></span>`
+						+ `<span class="hit-text"><span class="hit-name">${escapeHtml(r.name)}${r.reports > 0 ? ' <span class="res-flag">⚑ ' + r.reports + '</span>' : ''}</span>`
+						+ `<span class="hit-sub">${escapeHtml(r.type)}${km == null ? '' : ' · ' + km.toFixed(1).replace('.', ',') + ' km'}</span></span>`
+						+ `<span class="status-badge ${g[3]}"><i class="ti ${g[2]}" aria-hidden="true"></i> ${escapeHtml(r.freeFrom || g[0])}</span></button>`;
+				});
+			});
+			var box = document.getElementById('hitsList');
+			box.innerHTML = html || '<p class="small text-body-secondary mt-3">Ingen ressurser passer filteret.</p>';
+			box.querySelectorAll('.hit-row').forEach(function (row) {
+				row.addEventListener('click', function () {
+					var id = parseInt(row.dataset.id, 10);
+					if (markersById[id]) map.setView(markersById[id].getLatLng(), Math.max(map.getZoom(), 15));
+					openResource(id, true);
+				});
+			});
+		}
+
+		// Eksporter in "Liste": the same resources as CSV or JSON (resource-export.js)
+		document.querySelectorAll('[data-map-export]').forEach(function (button) {
+			button.addEventListener('click', function () {
+				var params = window.getResourceParams();
+				var rows = lastHits.map(function (r) {
+					var km = hitDistance(r, params);
+					return {
+						Navn: r.name, Type: r.type, Status: r.freeFrom || r.status || 'Ledig',
+						Kommune: (r.municipality || '').toLowerCase().replace(/(^|[\s-])\p{L}/gu, function (c) { return c.toUpperCase(); }),
+						Breddegrad: r.latitude, Lengdegrad: r.longitude, 'Avstand (km)': km == null ? '' : Math.round(km * 10) / 10
+					};
+				});
+				ResourceExport.download(rows, 'ressurser-kart', button.dataset.mapExport);
+			});
+		});
+
 		// ✕ or Esc: close the panel, and the need if one is open
 		function closeSidePanel() {
 			exitNeedMode();
@@ -1481,6 +1705,7 @@ function loadPermanentMarkers() {
 			needUrl = null;
 			needLatLng = null;
 			resourceList = [];
+			fromHits = false;
 			openResourceId = null;
 			document.getElementById('sidePanel').hidden = true;
 			moveMapControls();
@@ -1501,7 +1726,7 @@ function loadPermanentMarkers() {
 			button.textContent = (picked ? '✕ Fjern fra ' : '✓ Velg til ') + needMode.name;
 			button.addEventListener('click', function () {
 				document.getElementById('needPanelFrame').contentWindow.postMessage(
-				{ type: 'need-pick', resourceId: openResourceId }, window.location.origin);
+					{ type: 'need-pick', resourceId: openResourceId }, window.location.origin);
 				var name = markersById[openResourceId] ? markersById[openResourceId].resource.name : 'Ressursen';
 				showToast((picked ? '✕ ' + name + ' er fjernet fra ' : '✓ ' + name + ' er valgt til ') + needMode.name);
 				showView('need'); // back to the need, so you see it ticked
@@ -1568,7 +1793,7 @@ function loadPermanentMarkers() {
 					+ '<span>Filter</span><span id="rfCount" class="badge text-bg-light" hidden></span>';
 				L.DomEvent.disableClickPropagation(button);
 				L.DomEvent.on(button, 'click', function () {
-					if (panelView === 'filter') closeSidePanel(); else showView('filter');
+					if (panelView === 'filter' || panelView === 'hits') closeSidePanel(); else showView('filter');
 				});
 				return button;
 			}
@@ -1662,13 +1887,16 @@ function loadPermanentMarkers() {
 			options: { position: 'bottomright' },
 			onAdd: function () {
 				var box = L.DomUtil.create('details', 'map-legend');
+				// The pins and colours on the map (help with AI): icon + text in every row, so nothing relies on colour alone
+				var pin = function (colour) { return '<svg class="legend-pin" viewBox="0 0 36 46" width="14" height="18" aria-hidden="true"><path fill="' + colour + '" d="M18 45 C6 30 2 24 2 17 A16 16 0 0 1 34 17 C34 24 30 30 18 45Z"/></svg>'; };
 				box.innerHTML = '<summary>ⓘ Tegnforklaring</summary>'
 					+ '<div class="map-legend-title">Ressurser</div>'
-					+ '<div><span class="legend-dot" style="background:#2AAD27"></span>Ledig</div>'
-					+ '<div><span class="legend-dot" style="background:#CAC428"></span>Opptatt</div>'
-					+ '<div><span class="legend-dot" style="background:#7B7B7B"></span>Ikke tilgjengelig</div>'
-					+ '<div><span class="legend-dot" style="background:#CB2B3E"></span>Ugyldig</div>'
+					+ '<div>' + pin('#2f8a3a') + 'Ledig nå (ikonet viser typen)</div>'
+					+ '<div>' + pin('#888780') + 'I bruk, ledig senere eller ikke tilgjengelig</div>'
+					+ '<div><span class="legend-return">↩</span>Skal leveres tilbake</div>'
 					+ '<div><span class="legend-cluster">2</span>Flere ressurser på samme sted</div>'
+					+ '<div class="map-legend-title">Offentlige aktører</div>'
+					+ '<div><img src="/images/permanent-map-icons/police.png" width="16" height="16" alt="" class="legend-img" />Politi, brann og sykehus</div>'
 					+ (canNeeds
 						? '<div class="map-legend-title">Behov</div>'
 						+ '<div><span class="legend-square need-akutt"></span>Akutt</div>'
