@@ -72,6 +72,20 @@ overflow-x: clip;
 .home-links a:hover {
     text-decoration: underline;
 }
+.guide-legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+.legend-icon {
+    font-size: 2rem;
+    color: var(--hv-link);
+}
 </style>
 
 
@@ -253,28 +267,50 @@ else
     <p>
         Kartet viser ressurser og behov som er registrert i systemet. Du kan zoome inn og ut, samt klikke på markører for å se mer informasjon.
         Kartet kan også brukes til å filtrere ressurser og behov basert på type, status og andre kriterier.
+
         Ressurser er grønne og har dedikerte ikoner basert på type.
     </p>
     <p>    
         Behov er fargekodet røde for akutte behov og gule for planlagte behov. Klikk på markørene for å se mer informasjon om ressursen eller behovet.
     </p>
-    <h3 class="h6 mt-4">Ressurser</h3>
+    
+<h3 class="h6 mt-4">Ressurser</h3>
 <div class="guide-legend">
     <div class="legend-item">
-        <img src="/images/resource-icons/tools-ledig.png" alt="" width="36">
-        <span><strong>Verktøy og utstyr</strong><br>Maskiner, verktøy og annet utstyr.</span>
+        <i class="ti ti-car legend-icon" aria-hidden="true"></i>
+        <span><strong>Kjøretøy</strong><br>Bil, lastebil</span>
     </div>
     <div class="legend-item">
-        <img src="/images/resource-icons/vehicle-ledig.png" alt="" width="36">
-        <span><strong>Kjøretøy</strong><br>Motoriserte kjøretøy.</span>
+        <i class="ti ti-snowflake legend-icon" aria-hidden="true"></i>
+        <span><strong>Snø og terreng</strong><br>Snøskuter, ATV, beltevogn, snøfreser</span>
     </div>
     <div class="legend-item">
-        <img src="/images/resource-icons/shelter-ledig.png" alt="" width="36">
-        <span><strong>Husly og bygg</strong><br>Lokaler og overnatting.</span>
+        <i class="ti ti-trees legend-icon" aria-hidden="true"></i>
+        <span><strong>Skog og landbruk</strong><br>Traktor, skogsmaskin</span>
     </div>
     <div class="legend-item">
-        <img src="/images/resource-icons/medical-ledig.png" alt="" width="36">
-        <span><strong>Sikkerhet og medisinsk</strong><br>Medisinsk utstyr og sikkerhet.</span>
+        <i class="ti ti-bulldozer legend-icon" aria-hidden="true"></i>
+        <span><strong>Anleggsmaskiner</strong><br>Gravemaskin, hjullaster</span>
+    </div>
+    <div class="legend-item">
+        <i class="ti ti-sailboat legend-icon" aria-hidden="true"></i>
+        <span><strong>Sjø</strong><br>Båt</span>
+    </div>
+    <div class="legend-item">
+        <i class="ti ti-bolt legend-icon" aria-hidden="true"></i>
+        <span><strong>Teknisk utstyr</strong><br>Aggregat, sambandsutstyr, drone</span>
+    </div>
+    <div class="legend-item">
+        <i class="ti ti-tool legend-icon" aria-hidden="true"></i>
+        <span><strong>Verktøy og førstehjelp</strong><br>Verktøy, førstehjelp</span>
+    </div>
+    <div class="legend-item">
+        <i class="ti ti-box legend-icon" aria-hidden="true"></i>
+        <span><strong>Materialer og forsyninger</strong><br>Sand og grus, drivstoff</span>
+    </div>
+    <div class="legend-item">
+        <i class="ti ti-dots legend-icon" aria-hidden="true"></i>
+        <span><strong>Annet</strong><br>Alt som ikke passer i de andre</span>
     </div>
 </div>
     <a href="#top">Tilbake til toppen</a>
