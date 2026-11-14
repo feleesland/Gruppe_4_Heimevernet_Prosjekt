@@ -1,0 +1,44 @@
+﻿@{
+    ViewData["Title"] = "Slett konto";
+}
+
+<style>
+    .home-panel {
+        max-width: 720px; margin: 3rem auto; padding: 2rem; border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88); color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+</style>
+
+<section class="home-panel border border-danger border-3">
+    <h1 class="h3 text-danger">Slett kontoen din permanent</h1>
+    <p>Dette kan <strong>ikke angres</strong>. Brukeren din og personopplysningene dine blir slettet.</p>
+
+    <form asp-action="DeleteProfile" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label for="password" class="form-label">Skriv inn passordet ditt for å bekrefte</label>
+            <input type="password" id="password" name="password" class="form-control"
+                   autocomplete="current-password" required />
+        </div>
+
+        <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" id="confirmDelete" />
+            <label class="form-check-label" for="confirmDelete">Jeg forstår at sletting ikke kan angres</label>
+        </div>
+
+        <button type="submit" id="deleteButton" class="btn btn-danger btn-lg w-100 mb-3" disabled>
+            Slett kontoen min permanent
+        </button>
+        <a asp-action="Index" class="btn btn-secondary w-100">Avbryt, behold kontoen</a>
+    </form>
+</section>
+
+@section Scripts {
+    <script>
+        document.getElementById('confirmDelete').addEventListener('change', function () {
+            document.getElementById('deleteButton').disabled = !this.checked;
+        });
+    </script>
+}

@@ -1,0 +1,49 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@model ApplicationUser
+@{
+    ViewData["Title"] = "Min side";
+}
+
+<style>
+    .home-panel {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 2rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .home-card {
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+</style>
+<section class="home-panel">
+    <h1 class="h3">Min side</h1>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success" role="alert">
+            @TempData["SuccessMessage"]
+        </div>
+    }
+    <p><strong>Navn:</strong> @Model.FirstName @Model.LastName</p>
+    <p><strong>E-post:</strong> @Model.Email</p>
+    <p><strong>Rolle:</strong> @ViewData["Roles"]</p>
+
+    <a asp-controller="Resource" asp-action="List">Mine ressurser</a>
+    <a asp-action="EditProfile" class="btn btn-primary">Rediger profil</a>
+</section>
+
+
+
+<div class="home-panel border border-danger mt-5">
+    <h2 class="h5 text-danger">Faresone</h2>
+    <p class="mb-3">Sletting av konto kan ikke angres.</p>
+    <a asp-action="DeleteProfile" class="btn btn-outline-danger">Slett konto …</a>
+</div>
