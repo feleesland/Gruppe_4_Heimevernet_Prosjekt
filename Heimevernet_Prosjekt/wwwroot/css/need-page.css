@@ -1,0 +1,549 @@
+﻿/* The need page (help with AI): the top, the four facts, the lines, one line at a time, and the map on the right.
+   Bootstrap variables, so light and dark mode both work - Docs: Bootstrap CSS variables https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+
+/* «← Alle behov» (help with AI): a clear button with arrow + text, like Apple and the web shops do */
+.np-back {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-bottom: .5rem;
+    padding: .3rem .85rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    color: var(--bs-body-color);
+    font-size: .9rem;
+    text-decoration: none;
+}
+
+    .np-back:hover,
+    .np-back:focus-visible {
+        background: var(--bs-tertiary-bg);
+        border-color: var(--bs-secondary-color);
+        color: var(--bs-body-color);
+    }
+
+.np-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1rem;
+    margin-bottom: .75rem;
+}
+
+.np-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+}
+
+.np-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-left: auto;
+}
+
+/* Big screens: the page on the left, the map on the right (sticky, so it stays in view) */
+.np-layout {
+    display: grid;
+    gap: 1rem;
+}
+
+@media (min-width: 992px) {
+    .np-layout.has-map {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .np-map-col {
+        position: sticky;
+        top: 1rem;
+    }
+
+    .np-map {
+        height: calc(100vh - 16rem);
+        min-height: 380px;
+    }
+}
+
+/* Small screens: the map first and lower, like in "Meld behov" */
+@media (max-width: 991.98px) {
+    .np-map-col {
+        order: -1;
+    }
+
+    .np-map {
+        height: 220px;
+    }
+}
+
+/* ---- The four facts: 2×2, and 4 in a row on very wide pages without the map ---- */
+.np-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .5rem;
+    margin-bottom: .75rem;
+}
+
+@media (min-width: 1400px) {
+    .np-layout:not(.has-map) .np-facts {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.np-fact {
+    display: flex;
+    flex-direction: column;
+    gap: .1rem;
+    min-width: 0;
+    padding: .55rem .7rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .6rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: left;
+}
+
+.np-fact-button {
+    cursor: pointer;
+}
+
+    .np-fact-button:hover,
+    .np-fact-button:focus-visible {
+        border-color: var(--bs-success);
+        background: var(--bs-success-bg-subtle);
+    }
+
+    .np-fact-button.is-public {
+        border-color: var(--bs-success-border-subtle);
+    }
+
+.np-fact-label {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--bs-secondary-color);
+}
+
+.np-fact-value {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.np-fact-small {
+    font-size: .8rem;
+    color: var(--bs-secondary-color);
+}
+
+/* The latest text: at most two lines */
+.np-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 500;
+}
+
+.meeting-flag.np-flag-sm {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    border-width: 1px;
+    display: inline-flex;
+    flex: 0 0 auto;
+}
+
+.np-link {
+    color: var(--bs-success-text-emphasis);
+}
+
+.np-description {
+    padding: .5rem .7rem;
+    border-left: 3px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
+    border-radius: 0 .5rem .5rem 0;
+    white-space: pre-line;
+}
+
+.np-section-title {
+    font-size: 1.1rem;
+    margin: .5rem 0;
+}
+
+/* ---- The overview: one row per line ---- */
+.np-rows,
+.np-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .6rem;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+}
+
+.np-row,
+.np-req,
+.np-sug {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    width: 100%;
+    min-height: 48px;
+    padding: .55rem .75rem;
+    border: 0;
+    border-top: 1px solid var(--bs-border-color);
+    background: transparent;
+    color: var(--bs-body-color);
+    text-align: left;
+}
+
+    .np-row:first-child,
+    .np-req:first-child,
+    .np-sug:first-child {
+        border-top: 0;
+    }
+
+    .np-row:hover,
+    .np-row:focus-visible,
+    .np-sug:hover {
+        background: var(--bs-tertiary-bg);
+    }
+
+.np-row-main,
+.np-req-main,
+.np-sug-main {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.np-row-note {
+    display: block;
+    font-size: .8rem;
+    color: var(--bs-secondary-color);
+}
+
+.np-row-go {
+    flex: 0 0 auto;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+    .np-row-go.is-find {
+        color: var(--bs-success-text-emphasis);
+    }
+
+/* ---- One line ---- */
+.np-line-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .5rem;
+}
+
+    .np-line-head .np-link {
+        flex-basis: 100%;
+        text-align: left;
+    }
+
+.np-sub {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--bs-secondary-color);
+    margin: 1rem 0 .4rem;
+}
+
+.np-sub-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin: 1rem 0 .4rem;
+}
+
+.np-chip {
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    padding: .15rem .65rem;
+    font-size: .8rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+    .np-chip[aria-pressed="true"] {
+        border-color: var(--bs-success);
+        background: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+    }
+
+        .np-chip[aria-pressed="true"]::before {
+            content: "✓ ";
+        }
+
+.inside-only .np-sug.is-outside {
+    display: none;
+}
+
+/* «+ Spør» / «✓ Valgt»: the whole row is the toggle (a hidden checkbox), the keyboard ring is on the row */
+.np-sug {
+    cursor: pointer;
+    margin: 0;
+}
+
+    .np-sug:focus-within {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: -2px;
+    }
+
+    .np-sug.is-outside .np-sug-main {
+        opacity: .75;
+    }
+
+.np-ask {
+    flex: 0 0 auto;
+    min-width: 5.5rem;
+    padding: .3rem .6rem;
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: .5rem;
+    text-align: center;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--bs-success-text-emphasis);
+}
+
+.np-ask-on {
+    display: none;
+}
+
+.np-sug .pick:checked ~ .np-ask {
+    background: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: #fff;
+}
+
+    .np-sug .pick:checked ~ .np-ask .np-ask-on {
+        display: inline;
+    }
+
+    .np-sug .pick:checked ~ .np-ask .np-ask-off {
+        display: none;
+    }
+
+.np-sug .pick:checked ~ .np-sug-main {
+    font-weight: 500;
+}
+
+/* The send bar stays at the bottom of the screen while a line is open */
+.np-send {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin-top: .75rem;
+    padding: .6rem 0;
+    background: var(--bs-body-bg);
+    border-top: 1px solid var(--bs-border-color);
+}
+
+    .np-send .btn-primary {
+        min-height: 44px;
+    }
+
+/* ---- The log, collapsed with the latest entry ---- */
+.np-log {
+    margin: 1.25rem 0 1rem;
+    border-top: 1px solid var(--bs-border-color);
+    padding-top: .5rem;
+}
+
+    .np-log summary {
+        cursor: pointer;
+    }
+
+.np-log-latest {
+    font-size: .85rem;
+    color: var(--bs-secondary-color);
+}
+
+.np-log[open] .np-log-latest {
+    display: none;
+}
+
+/* ---- The map's dots and legend ---- */
+.np-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+    color: #fff;
+    font-size: 9px;
+    vertical-align: middle;
+}
+
+.np-dot-map {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+}
+
+.np-dot.is-free {
+    background: #639922;
+}
+
+.np-dot.is-picked {
+    background: #378ADD;
+}
+
+.np-dot.is-outside {
+    background: #8A8F98;
+}
+
+.np-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem 1rem;
+    margin-top: .4rem;
+    color: var(--bs-secondary-color);
+}
+
+    .np-legend > span {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+    }
+
+/* ---- "Info til innbyggere": the history as a time line ---- */
+.np-timeline {
+    list-style: none;
+    padding-left: 1rem;
+    margin-bottom: 0;
+    border-left: 2px solid var(--bs-success-border-subtle);
+}
+
+    .np-timeline li {
+        position: relative;
+        padding: 0 0 .75rem .5rem;
+    }
+
+        .np-timeline li::before {
+            content: "";
+            position: absolute;
+            left: calc(-1rem - 6px);
+            top: .35rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--bs-success);
+        }
+
+/* ---- The closed need (help with AI): four numbers, and «↩︎ Lever tilbake» in purple (like the kontaktpunkt) ---- */
+.np-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .5rem;
+}
+
+@media (max-width: 575.98px) {
+    .np-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+.np-stat {
+    padding: .5rem .7rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .6rem;
+    background: var(--bs-body-bg);
+}
+
+    .np-stat b {
+        display: block;
+        font-size: 1.15rem;
+    }
+
+    .np-stat span {
+        font-size: .8rem;
+        color: var(--bs-secondary-color);
+    }
+
+    .np-stat.is-out {
+        border-color: #7A5AF8;
+    }
+
+.np-return {
+    margin-bottom: .75rem;
+    padding: .75rem;
+    border: 1px solid #7A5AF8;
+    border-radius: .6rem;
+    background: rgba(122, 90, 248, .08);
+}
+
+.np-req.is-late {
+    background: var(--bs-danger-bg-subtle);
+}
+
+.np-return-btn {
+    border: 1px solid #7A5AF8;
+    color: var(--bs-body-color);
+    white-space: nowrap;
+}
+
+    .np-return-btn:hover,
+    .np-return-btn:focus-visible {
+        background: #7A5AF8;
+        color: #fff;
+    }
+
+/* ---- Print / PDF: everything on paper, without buttons and the map ---- */
+@media print {
+    .np-noprint,
+    .np-map-col,
+    .np-row-go,
+    .np-ask,
+    .np-send,
+    nav,
+    footer {
+        display: none !important;
+    }
+
+    .np-line[hidden],
+    #npOverview[hidden] {
+        display: block !important;
+    }
+
+    .np-layout.has-map {
+        grid-template-columns: 1fr;
+    }
+
+    /* On paper (help with AI): what is needed and who was asked, not the free suggestions or the buttons */
+    .np-line .np-sub-row,
+    .np-line .np-sub-row ~ p,
+    .np-line .np-sub-row ~ .np-list,
+    .np-req .btn,
+    .np-fact-button .np-fact-small {
+        display: none !important;
+    }
+
+    /* Some room between the lines, and a line is not split over two pages */
+    .np-line {
+        margin-top: 1rem;
+        break-inside: avoid;
+    }
+}

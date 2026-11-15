@@ -6,140 +6,274 @@
 
 @{
     ViewData["Title"] = "Ressurser";
+    var seeOwners = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+
+    // The status as a badge: icon + text, so it never relies on colour alone (help with AI)
+    (string Icon, string Css) StatusLook(string? status) => status switch
+    {
+        "Ledig" => ("ti-circle-check", "status-ok"),
+        "Ledig senere" => ("ti-clock", "status-grey"),
+        "I bruk" => ("ti-hourglass", "status-grey"),
+        "Lever tilbake" => ("ti-arrow-back-up", "status-return"),
+        "Ikke tilgjengelig" => ("ti-ban", "status-grey"),
+        "Ugyldig" => ("ti-alert-triangle", "status-bad"),
+        _ => ("ti-circle", "status-grey")
+    };
+
+    // The boxes, like Akutt / Planlagt / Løst on Behov: the ones you can use now first, the ones that can't be used last (closed)
+    (string Key, string Title, string Icon, string? Note, bool Open, string[] Statuses)[] groups =
+    [
+        ("ok", "Ledig nå", "ti-circle-check", null, true, ["Ledig"]),
+        ("return", "Skal leveres tilbake", "ti-arrow-back-up", "behovet er lukket", true, ["Lever tilbake"]),
+        ("busy", "I bruk eller ledig senere", "ti-hourglass", null, true, ["I bruk", "Ledig senere"]),
+        ("off", "Ikke tilgjengelig eller ugyldig", "ti-ban", null, false, ["Ikke tilgjengelig", "Ugyldig"])
+    ];
+    string GroupOf(string? status) => groups.FirstOrDefault(g => g.Statuses.Contains(status ?? "Ledig")).Key ?? "off";
+    var nb = System.Globalization.CultureInfo.GetCultureInfo("nb-NO"); // "KRISTIANSAND" from Kartverket -> "Kristiansand"
 }
 
 <h1>@ViewData["Title"]</h1>
 
-<a class="button"
-   asp-controller="ResourceHandler"
-   asp-action="Create">
-    + Opprett ny ressurs
-</a>
+<div class="no-print">
+    <a class="button"
+       asp-controller="ResourceHandler"
+       asp-action="Create">
+        + Opprett ny ressurs
+    </a>
 
-@* Admin and operator see everyone's resources: "Alle | Mine" lets them see only their own. The search/filter in the URL is kept *@
-@if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
-{
-    var onlyMine = Context.Request.Query["mine"] == "true";
-    var allQuery = Context.Request.Query
-        .Where(q => q.Key != "mine")
-        .ToDictionary(q => q.Key, q => (string?)q.Value.ToString());
-    var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
-    var listUrl = Url.Action("List", "Resource")!;
+    @* Admin and operator see everyone's resources: "Alle | Mine" lets them see only their own. The search/filter in the URL is kept *@
+    @if (seeOwners)
+    {
+        var onlyMine = Context.Request.Query["mine"] == "true";
+        var allQuery = Context.Request.Query
+            .Where(q => q.Key != "mine")
+            .ToDictionary(q => q.Key, q => (string?)q.Value.ToString());
+        var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
+        var listUrl = Url.Action("List", "Resource")!;
 
-    <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
-        <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
-           class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
-           aria-current="@(onlyMine ? null : "page")">Alle</a>
-        <a href="@QueryHelpers.AddQueryString(listUrl, mineQuery)"
-           class="btn @(onlyMine ? "btn-secondary" : "btn-outline-secondary")"
-           aria-current="@(onlyMine ? "page" : null)">Mine</a>
-    </div>
-}
-
-@* Shows the active search/filter from the menu, with links to the map and to clear it (text, not only color) *@
-@{
-    var query = Context.Request.Query;
-    var activeSearch = query["search"].ToString();
-    var activeType = query["type"].ToString();
-    var activeWhere = query["where"].ToString();
-    var hasPlace = query["lat"].ToString() != "";
-}
-@if (activeSearch != "" || activeType != "" || hasPlace)
-{
-    <div class="alert alert-info d-flex flex-wrap align-items-center gap-2">
-        <span>
-            <strong>Filter aktivt:</strong>
-            @if (activeSearch != "")
-            {
-                <span>«@activeSearch»</span>
-            }
-            @if (activeType != "")
-            {
-                <span>· type @activeType</span>
-            }
-            @if (hasPlace)
-            {
-                <span>· innen @query["radius"] km fra @(activeWhere == "" ? "valgt punkt" : activeWhere)</span>
-            }
-        </span>
-        <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" class="button">Vis på kart</a>
-        <a asp-action="List" class="btn btn-sm btn-outline-secondary">Nullstill</a>
-    </div>
-}
+        <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
+            <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
+               class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
+               aria-current="@(onlyMine ? null : "page")">Alle</a>
+            <a href="@QueryHelpers.AddQueryString(listUrl, mineQuery)"
+               class="btn @(onlyMine ? "btn-secondary" : "btn-outline-secondary")"
+               aria-current="@(onlyMine ? "page" : null)">Mine</a>
+        </div>
+    }
+</div>
 
 @* Admin and operator: number of open "feil info" messages per resource (fetched once, not per row). Only admin can resolve them *@
 @{
-    var openReports = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)
+    var openReports = seeOwners
         ? ReportRepository.CountOpenByResource()
         : new Dictionary<int, int>();
 }
 
-@if (!Model.Any())
-{
-    <p>Ingen ressurser funnet.</p>
-}
-else
-{
-    @* Allow horizontal scrolling when the table does not fit. *@
-    <div class="table-responsive"
-         role="region"
-         aria-label="Registrerte ressurser"
-         tabindex="0">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th scope="col">Navn</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Beskrivelse</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Handlinger</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in Model)
-                {
-                    <tr>
-                        <td>
-                            <a asp-controller="Resource"
-                               asp-action="Index"
-                               asp-route-id="@r.Id">@r.Name</a>
-                        </td>
-                        <td>@r.Type</td>
-                        <td>@r.Description</td>
-                        <td>@r.Status</td>
-                        <td>
-                            @* Keep space between buttons and allow wrapping. *@
-                            <div class="d-flex flex-wrap gap-2">
-                                @* Rediger only shows if the user is allowed (CanEdit set in ResourceController). Slett is on the resource page (Resource/Index) *@
-                                @if (r.CanEdit)
-                                {
-                                    @* A minimum height of 44px makes tapping easier. *@
-                                    <a class="btn btn-secondary d-inline-flex align-items-center justify-content-center"
-                                       style="min-height: 44px; min-width: 44px;"
-                                       asp-controller="ResourceHandler"
-                                       asp-action="Edit"
-                                       asp-route-id="@r.Id">
-                                        Rediger
-                                    </a>
-                                }
+<div class="row g-4">
+    @* The same filter as on Kart (Views/Shared/_ResourceFilter.cshtml), as a column on the left.
+       On small screens it is folded in behind the "Filter" button, so the list comes first - Docs: Bootstrap Collapse *@
+    <aside class="col-md-4 col-lg-3 col-xxl-2 no-print" aria-label="Filter">
+        <button type="button" class="btn btn-success w-100 d-md-none mb-2 d-flex align-items-center justify-content-center gap-2"
+                data-bs-toggle="collapse" data-bs-target="#listFilter" aria-expanded="false" aria-controls="listFilter">
+            <i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="rfCount" class="badge text-bg-light" hidden></span> <i class="ti ti-chevron-down" aria-hidden="true"></i>
+        </button>
+        <div id="listFilter" class="collapse d-md-block">
+            <h2 class="h5 d-none d-md-block">Filter</h2>
+            <partial name="_ResourceFilter" />
+        </div>
+    </aside>
 
-                                @* Admin: open messages from operators - icon + text, so it doesn't rely on color alone *@
-                                @if (r.Id != null && openReports.TryGetValue(r.Id.Value, out var reportCount))
+    <div class="col-md-8 col-lg-9 col-xxl-10">
+        @* Only on paper: title, what is filtered and when it was printed (.print-only in site.css) *@
+        <div class="print-only mb-3">
+            <h2 class="h4 mb-1">Ressurser – Heimevernet</h2>
+            <div id="printInfo" class="small"></div>
+        </div>
+
+        @* The filter bar: green "Viser 6 av 34" with the chips while something is filtered away, grey "34 ressurser" otherwise.
+           Vis på kart and Eksporter are in the same bar (help with AI) *@
+        <div id="listBar" class="list-bar no-print">
+            <i class="ti ti-filter" aria-hidden="true"></i>
+            <strong id="listCount" aria-live="polite"></strong>
+            <div id="rfChips" class="rf-chips" hidden></div>
+            <span class="ms-auto d-flex gap-2">
+                <a href="@Url.Action("Map", "Home")@Context.Request.QueryString" id="listMapLink" class="btn btn-sm btn-light"><i class="ti ti-map" aria-hidden="true"></i> Vis på kart</a>
+                <div class="dropdown">
+                    <button type="button" class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="ti ti-download" aria-hidden="true"></i> Eksporter
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button type="button" class="dropdown-item" data-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
+                        <li><button type="button" class="dropdown-item" data-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+                        <li><button type="button" class="dropdown-item" data-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+                    </ul>
+                </div>
+            </span>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <p>Ingen ressurser funnet.</p>
+        }
+        else
+        {
+            <p id="listEmpty" hidden>Ingen ressurser passer filteret.</p>
+            @* One box per status group (<details> folds it in and out). Each resource is a row of its own:
+               one line on wide screens, the type under the name on medium screens, a small card on phones (.res-row in site.css) *@
+            @foreach (var g in groups.Where(g => Model.Any(r => GroupOf(r.Status) == g.Key)))
+            {
+                <details class="res-group res-group-@g.Key" data-group open="@g.Open">
+                    <summary class="res-group-head">
+                        <i class="ti @g.Icon" aria-hidden="true"></i> @g.Title
+                        <span class="res-group-count" data-group-count></span>
+                        @if (g.Note != null)
+                        {
+                            <span class="small fw-normal opacity-75">@g.Note</span>
+                        }
+                    </summary>
+                    <div class="res-list" role="list">
+                        @foreach (var r in Model.Where(r => GroupOf(r.Status) == g.Key))
+                        {
+                            var look = StatusLook(r.Status);
+                            var statusText = r.FreeFrom ?? (r.UsedByNeedName != null ? $"{r.Status}: {r.UsedByNeedName}" : r.Status ?? "Ledig");
+                            var icon = string.IsNullOrEmpty(r.Icon) ? "ti-map-pin" : r.Icon.StartsWith("ti-") ? r.Icon : "ti-" + r.Icon;
+                            var place = string.IsNullOrEmpty(r.Municipality) ? "–" : nb.TextInfo.ToTitleCase(r.Municipality.ToLower());
+                            @* data-*: used by the filter (hide rows without reloading) and by Eksporter. InvariantCulture gives 58.14, so JS can read the position *@
+                            <div class="res-row" role="listitem"
+                                 data-type="@r.Type" data-status="@r.Status" data-municipality="@r.Municipality"
+                                 data-lat="@r.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lng="@r.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                 data-name="@r.Name" data-category="@r.Category" data-status-text="@statusText" data-place="@place"
+                                 data-owner="@(seeOwners ? r.OwnerName : null)" data-phone="@(seeOwners ? r.OwnerPhone : null)"
+                                 data-reports="@openReports.GetValueOrDefault(r.Id ?? 0)"
+                                 data-href="@Url.Action("Index", "Resource", new { id = r.Id })">
+                                <span class="res-icon list-icon @(r.Status == "Ledig" ? "" : r.Status == "Lever tilbake" ? "list-icon-return" : "list-icon-busy")"><i class="ti @icon" aria-hidden="true"></i></span>
+                                <span class="res-name">
+                                    <a class="list-name" asp-controller="Resource" asp-action="Index" asp-route-id="@r.Id">@r.Name</a>
+                                    @* Admin and operator: open "feil info" messages - icon + number, the text is for screen readers *@
+                                    @if (r.Id != null && openReports.TryGetValue(r.Id.Value, out var reportCount))
+                                    {
+                                        <a class="res-flag" asp-controller="Resource" asp-action="Index" asp-route-id="@r.Id"
+                                           title="@reportCount meldt som feil" aria-label="@reportCount @(reportCount == 1 ? "melding" : "meldinger") om feil i ressursen">⚑ @reportCount</a>
+                                    }
+                                </span>
+                                <span class="res-sub">@r.Type@(string.IsNullOrEmpty(r.Category) ? "" : " · " + r.Category)<span class="res-sub-place"> · @place</span></span>
+                                <span class="res-place">@place<span class="res-distance" data-distance></span></span>
+                                <span class="res-status"><span class="status-badge @look.Css"><i class="ti @look.Icon" aria-hidden="true"></i> @statusText</span></span>
+                                @if (seeOwners)
                                 {
-                                    <a class="btn btn-warning d-inline-flex align-items-center justify-content-center"
-                                       style="min-height: 44px;"
-                                       asp-controller="Resource"
-                                       asp-action="Index"
-                                       asp-route-id="@r.Id"
-                                       aria-label="@reportCount @(reportCount == 1 ? "melding" : "meldinger") om feil i ressursen">
-                                        ⚑ @reportCount meldt som feil
-                                    </a>
+                                    <span class="res-owner print-only">@r.OwnerName@(string.IsNullOrEmpty(r.OwnerPhone) ? "" : " · " + r.OwnerPhone)</span>
                                 }
+                                <span class="res-edit no-print">
+                                    @* Rediger only shows if the user is allowed (CanEdit set in ResourceController). Slett is on the resource page *@
+                                    @if (r.CanEdit)
+                                    {
+                                        <a class="list-edit" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@r.Id" aria-label="Rediger @r.Name">
+                                            <i class="ti ti-pencil" aria-hidden="true"></i><span class="res-edit-text"> Rediger</span>
+                                        </a>
+                                    }
+                                </span>
                             </div>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                        }
+                    </div>
+                </details>
+            }
+        }
     </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/resource-filter.js" asp-append-version="true"></script>
+    <script src="~/js/resource-export.js" asp-append-version="true"></script>
+    <script>
+        // Ressursoversikt: the filter hides rows right away, without reloading.
+        // Search and "Mine" are done by the server, so the page reloads when they change (help with AI)
+        (function () {
+            var resources = Array.from(document.querySelectorAll('.res-row')).map(function (row) {
+                return { type: row.dataset.type, status: row.dataset.status, municipality: row.dataset.municipality, latitude: row.dataset.lat, longitude: row.dataset.lng, reports: +(row.dataset.reports || 0), row: row };
+            });
+            var start = Object.fromEntries(new URLSearchParams(window.location.search));
+            var serverKeys = ['search', 'type'];
+            var current = start;
+
+            function show(params) {
+                current = params;
+                var shown = 0;
+                resources.forEach(function (r) {
+                    var ok = ResourceFilter.matches(r, params);
+                    r.row.hidden = !ok;
+                    if (ok) shown++;
+                    // The distance under the kommune, when a point is chosen
+                    var km = params.lat && r.latitude ? ResourceFilter.distanceKm(+params.lat, +params.lng, +r.latitude, +r.longitude) : null;
+                    r.distance = km;
+                    r.row.querySelector('[data-distance]').textContent = km == null ? '' : ' · ' + km.toFixed(1).replace('.', ',') + ' km';
+                });
+                // Each box: the number shown, and the box is hidden when nothing in it matches the filter
+                document.querySelectorAll('[data-group]').forEach(function (box) {
+                    var count = Array.from(box.querySelectorAll('.res-row')).filter(function (row) { return !row.hidden; }).length;
+                    box.querySelector('[data-group-count]').textContent = count;
+                    box.hidden = count === 0;
+                });
+                var filtered = shown < resources.length;
+                document.getElementById('listCount').textContent = filtered
+                    ? 'Viser ' + shown + ' av ' + resources.length
+                    : (shown === 1 ? '1 ressurs' : shown + ' ressurser');
+                document.getElementById('listBar').classList.toggle('is-filtered', filtered);
+                document.getElementById('listMapLink').href = '@Url.Action("Map", "Home")?' + new URLSearchParams(params);
+                var empty = document.getElementById('listEmpty');
+                if (empty) empty.hidden = shown > 0;
+                ResourceFilter.render(resources, params);
+            }
+
+            // Called by site.js when something in the filter changes
+            window.onResourceSearch = function (params) {
+                if (serverKeys.some(function (k) { return (params[k] || '') !== (start[k] || ''); })) {
+                    if (start.mine) params.mine = start.mine;
+                    window.location.href = window.location.pathname + '?' + new URLSearchParams(params);
+                    return;
+                }
+                show(params);
+            };
+
+            // A click anywhere on a row opens the resource (not when the click is on a link or a button)
+            resources.forEach(function (r) {
+                r.row.addEventListener('click', function (e) {
+                    if (!e.target.closest('a, button')) window.location.href = r.row.dataset.href;
+                });
+            });
+
+            // Eksporter: only the rows that are shown now, with the same filter as on the screen
+            function visibleRows() {
+                return resources.filter(function (r) { return !r.row.hidden; }).map(function (r) {
+                    var d = r.row.dataset;
+                    var row = {
+                        Navn: d.name, Type: d.type, Kategori: d.category || '', Status: d.statusText, Kommune: d.place || '',
+                        Breddegrad: d.lat || '', Lengdegrad: d.lng || '', 'Avstand (km)': r.distance == null ? '' : +r.distance.toFixed(1)
+                    };
+                    if (d.owner !== undefined) { row.Eier = d.owner || ''; row.Telefon = d.phone || ''; }
+                    return row;
+                });
+            }
+            function filterText() {
+                return Array.from(document.querySelectorAll('#rfChips .rf-chip:not(.rf-chip-reset)'))
+                    .map(function (c) { return c.textContent.replace(' ✕', ''); }).join(' · ');
+            }
+            document.querySelectorAll('[data-export]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var kind = button.dataset.export;
+                    if (kind === 'print') {
+                        var count = visibleRows().length;
+                        document.getElementById('printInfo').textContent = count + ' av ' + resources.length
+                            + (filterText() ? ' · ' + filterText() : '')
+                            + ' · Skrevet ut ' + new Date().toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+                        document.querySelectorAll('[data-group]').forEach(function (box) { box.open = true; }); // closed boxes are printed too
+                        window.print();
+                    } else {
+                        ResourceExport.download(visibleRows(), 'ressurser', kind);
+                    }
+                });
+            });
+
+            show(start);
+        })();
+    </script>
 }

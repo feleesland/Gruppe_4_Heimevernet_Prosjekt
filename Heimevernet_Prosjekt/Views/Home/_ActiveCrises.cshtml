@@ -1,0 +1,101 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.Models.ViewModels.Home
+@using Heimevernet_Prosjekt.Security.Authorization
+@* "Aktive kriser" on the front page (help with AI). Everyone sees the name, place and the latest "Info til innbyggere".
+   Admin and operator also see what is needed and how much is in place. Data from HomeController.Index *@
+@{
+    var active = ViewData["ActiveCrises"] as List<CrisisCardViewModel> ?? new List<CrisisCardViewModel>();
+    var solved = ViewData["SolvedCrises"] as List<CrisisCardViewModel> ?? new List<CrisisCardViewModel>();
+    var seeInternal = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+    var nb = System.Globalization.CultureInfo.GetCultureInfo("nb-NO");
+    // Times are saved as UTC and shown in Norwegian time - Docs: Converting times between time zones
+    // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
+    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    DateTime Local(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, oslo);
+    var today = Local(DateTime.UtcNow).Date;
+    // "14:10" today, "i går 22:15", otherwise "12.11 22:15"
+    string When(DateTime utc) => Local(utc).Date == today ? Local(utc).ToString("HH:mm")
+        : Local(utc).Date == today.AddDays(-1) ? "i går " + Local(utc).ToString("HH:mm")
+        : Local(utc).ToString("dd.MM HH:mm");
+    // "KRISTIANSAND" -> "Kristiansand"
+    string Place(string place) => string.IsNullOrEmpty(place) ? "" : nb.TextInfo.ToTitleCase(place.ToLower());
+}
+
+<link rel="stylesheet" href="~/css/crisis.css" asp-append-version="true" />
+
+<section class="crisis-section" aria-labelledby="crisisTitle">
+    <div class="crisis-head">
+        <h2 id="crisisTitle" class="h4 mb-0">Aktive kriser</h2>
+        @if (active.Count > 0)
+        {
+            var acute = active.Count(c => c.Urgency == NeedUrgency.Akutt);
+            <span class="small text-body-secondary">@acute akutte · @(active.Count - acute) planlagte</span>
+        }
+        @if (seeInternal)
+        {
+            <a class="crisis-more" asp-controller="ResourceNeed" asp-action="List">Vis alle behov <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+        }
+    </div>
+
+    @if (active.Count == 0)
+    {
+        <p class="crisis-row"><i class="ti ti-circle-check text-success" aria-hidden="true"></i> Ingen aktive kriser akkurat nå.</p>
+    }
+
+    @foreach (var c in active)
+    {
+        var planned = c.Urgency == NeedUrgency.Planlagt;
+        <article class="crisis-card">
+            @* The coloured block: icon + text, not colour alone *@
+            <div class="crisis-date @(planned ? "is-planned" : "is-acute")">
+                <i class="ti @(planned ? "ti-calendar" : "ti-alarm")" aria-hidden="true"></i>
+                @if (planned && c.NeededFrom != null)
+                {
+                    <b>@Local(c.NeededFrom.Value).ToString("dd.")</b>
+                    <small>@Local(c.NeededFrom.Value).ToString("MMM", nb)</small>
+                }
+                else
+                {
+                    <b>NÅ</b>
+                    <small>siden @When(c.CreatedAt)</small>
+                }
+                <span class="crisis-label">@(planned ? "Planlagt" : "Akutt")</span>
+            </div>
+            <div class="crisis-body">
+                <div class="crisis-tags">
+                    @if (!string.IsNullOrEmpty(c.Place))
+                    {
+                        <span class="crisis-tag"><i class="ti ti-map-pin" aria-hidden="true"></i> @Place(c.Place)</span>
+                    }
+                    @if (planned && c.NeededFrom != null && c.NeededTo != null)
+                    {
+                        <span class="crisis-tag"><i class="ti ti-calendar" aria-hidden="true"></i> @Local(c.NeededFrom.Value).ToString("dd.MM") – @Local(c.NeededTo.Value).ToString("dd.MM")</span>
+                    }
+                    <span class="crisis-tag"><i class="ti ti-clock" aria-hidden="true"></i> Oppdatert @When(c.LatestAt)</span>
+                </div>
+                <h3 class="crisis-name">@c.Name</h3>
+                <p class="crisis-info"><i class="ti ti-info-circle" aria-hidden="true"></i> @c.LatestText</p>
+                @if (seeInternal)
+                {
+                    <div class="crisis-internal">
+                        <span><i class="ti ti-lock" aria-hidden="true"></i> Internt: @c.ItemsText · @c.Covered av @c.Quantity på plass</span>
+                        <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@c.Id">Åpne behov <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
+                    </div>
+                }
+            </div>
+        </article>
+    }
+
+    @if (solved.Count > 0)
+    {
+        <h3 class="h6 mt-4 mb-2"><i class="ti ti-circle-check text-success" aria-hidden="true"></i> Nylig løst</h3>
+        @foreach (var s in solved)
+        {
+            <p class="crisis-row">
+                <span class="text-success"><i class="ti ti-circle-check" aria-hidden="true"></i> Løst</span>
+                <b>@s.Name</b>
+                <span class="text-body-secondary">@(string.IsNullOrEmpty(s.Place) ? "" : Place(s.Place) + " · ")løst @When(s.ClosedAt!.Value)</span>
+            </p>
+        }
+    }
+</section>

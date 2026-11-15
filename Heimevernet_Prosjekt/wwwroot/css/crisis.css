@@ -1,0 +1,209 @@
+﻿/* "Aktive kriser" on the front page (help with AI). The same width and shadow as Hans' home cards.
+   Akutt = red block, Planlagt = yellow block, always with icon + text. Bootstrap variables for light and dark mode
+   Docs: Bootstrap CSS variables - https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+.crisis-section {
+    max-width: 1100px;
+    margin: 2rem auto;
+}
+
+.crisis-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: .75rem;
+    padding-bottom: .5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.crisis-more, .crisis-internal a {
+    margin-left: auto;
+    color: var(--bs-success-text-emphasis);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.crisis-card {
+    display: flex;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--bs-tertiary-bg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.crisis-date {
+    width: 96px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 12px 4px;
+    text-align: center;
+}
+
+    .crisis-date .ti {
+        font-size: 1.4rem;
+    }
+
+    .crisis-date b {
+        font-size: 1.6rem;
+        font-weight: 600;
+        line-height: 1;
+    }
+
+    .crisis-date small {
+        font-size: .8rem;
+    }
+
+.crisis-label {
+    margin-top: 6px;
+    padding: 0 8px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: .75rem;
+}
+
+.is-acute {
+    background: #C62828;
+    color: #fff;
+}
+
+.is-planned {
+    background: #FFC107;
+    color: #3A2A00;
+}
+
+.crisis-body {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 16px;
+}
+
+.crisis-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.crisis-tag {
+    padding: 1px 8px;
+    border-radius: 6px;
+    background: var(--bs-secondary-bg);
+    color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
+    font-size: .8rem;
+}
+
+.crisis-name {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--bs-success-text-emphasis);
+}
+
+.crisis-info {
+    margin: 0;
+}
+
+.crisis-internal {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--bs-border-color);
+    font-size: .85rem;
+    color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
+}
+
+/* "Ingen aktive kriser" and the rows under "Nylig løst" */
+.crisis-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bs-tertiary-bg);
+}
+
+@media (max-width: 575px) {
+    .crisis-date {
+        width: 72px;
+    }
+}
+
+
+/* The small card on the map when a guest clicks a crisis (Kart). Leaflet's popup is white, so the colours are fixed */
+.crisis-pop {
+    min-width: 220px;
+}
+
+.crisis-pop-head {
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: .85rem;
+    font-weight: 600;
+}
+
+.crisis-pop-name {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 1rem;
+}
+
+.crisis-pop-meta {
+    margin-bottom: 6px;
+    font-size: .8rem;
+    color: #555;
+}
+
+/* The crisis marker on the map for guests: bigger, white edge and shadow, icon + the name under it */
+.crisis-marker {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    font-size: 1.3rem;
+    cursor: pointer;
+}
+
+.leaflet-tooltip.crisis-name-tag {
+    padding: 1px 6px;
+    border: 0;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.92);
+    color: #212529;
+}
+
+    .leaflet-tooltip.crisis-name-tag::before {
+        display: none;
+    }
+
+/* The same marker, small, in the legend */
+.legend-crisis {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    margin-right: 6px;
+    border: 2px solid #fff;
+    border-radius: 4px;
+    font-size: .7rem;
+}
+
+.legend-note {
+    opacity: .65;
+    font-size: .85em;
+}

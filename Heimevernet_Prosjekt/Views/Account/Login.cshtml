@@ -4,21 +4,25 @@
     ViewData["Title"] = "Logg inn";
 }
 
+@* A card in the middle of the screen (.login-card in site.css). returnUrl follows along, so the user comes back to "Ny ressurs" *@
 <div class="row justify-content-center mt-5 pt-5">
     <div class="col-11 col-sm-8 col-md-6 col-lg-4">
         <div class="card login-card shadow-sm">
             <div class="card-body px-4 pt-5 pb-4">
-
                 <h1 class="h3 text-center fw-bold mb-4">@ViewData["Title"]</h1>
 
                 @if (TempData["Message"] != null)
                 {
                     <div class="alert alert-info">@TempData["Message"]</div>
                 }
+                else if (Model.ReturnUrl?.Contains("ResourceHandler/Create", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    <div class="alert alert-info">Logg inn for å opprette ressursen. Det du har fylt inn er tatt vare på.</div>
+                }
                 <form asp-action="Login" method="post">
                     <input asp-for="ReturnUrl" type="hidden" />
                     <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-                   
+
                     <div class="mb-3">
                         <label asp-for="Email" class="form-label"></label>
                         <input asp-for="Email" class="form-control" autocomplete="email" />
@@ -39,13 +43,16 @@
                     </div>
                 </form>
 
-                <p class="text-center mt-3 mb-0">
-                <a asp-action="ForgotPassword">Glemt passord?</a>
+                <p class="text-center mt-3">
+                    <a asp-action="ForgotPassword">Glemt passord?</a>
                 </p>
+                <p class="text-center mb-2">Ny bruker?</p>
+                <a class="btn btn-outline-secondary w-100" asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">Registrer deg</a>
             </div>
         </div>
     </div>
 </div>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 }

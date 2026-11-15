@@ -5,298 +5,359 @@
 @model OverviewViewModel
 @{
     ViewData["Title"] = "Oversikt";
+    var now = DateTime.UtcNow;
+    const int shownFirst = 5;
 }
 @functions {
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
     private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+    private static string OsloTime(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("HH:mm");
+
+    // "12 min", "5 t", "9 d"
+    private static string Span(TimeSpan t) =>
+        t.TotalMinutes < 1 ? "nå"
+        : t.TotalHours < 1 ? $"{(int)t.TotalMinutes} min"
+        : t.TotalDays < 1 ? $"{(int)t.TotalHours} t"
+        : $"{(int)t.TotalDays} d";
+
+    // "Lastebil", "Lastebil og Båt", "Lastebil + 3 til"
+    private static string Names(List<string> names) =>
+        names.Count == 1 ? names[0]
+        : names.Count == 2 ? $"{names[0]} og {names[1]}"
+        : $"{names[0]} + {names.Count - 1} til";
 }
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+<link rel="stylesheet" href="~/css/overview.css" asp-append-version="true" />
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
     <h1 class="mb-0">Oversikt</h1>
     <div class="d-flex gap-2 align-items-center">
-        <a class="btn btn-outline-secondary" asp-controller="Home" asp-action="Map">🗺 Vis på kartet</a>
+        <a class="btn btn-outline-secondary" asp-controller="Home" asp-action="Map"><i class="ti ti-map" aria-hidden="true"></i> Kart</a>
         <a class="button m-0" asp-controller="ResourceNeedHandler" asp-action="Create">+ Meld behov</a>
     </div>
 </div>
 
-@* Admin extras: no own page, just a box here - only admin sees it *@
+@* Admin: one line. "Meldt som feil" opens a list - Docs: Bootstrap Dropdowns
+   https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
 @if (User.IsInRole(RoleNames.Admin))
 {
     var reports = ReportRepository.GetOpenNotifications().ToList();
-    <div class="card mb-4">
-        <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                <h2 class="h5 mb-0 me-auto">Admin</h2>
-                <a class="btn btn-sm btn-outline-secondary" asp-controller="Admin" asp-action="Index">👥 Brukere</a>
-                <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceType" asp-action="Index">🏷 Ressurstyper</a>
-            </div>
-
-            <h3 class="h6 mt-3">⚑ Feil info (@reports.Count)</h3>
-            @if (reports.Count == 0)
-            {
-                <p class="small text-body-secondary mb-0">Ingen åpne meldinger om feil.</p>
-            }
-            else
-            {
-                <div class="list-group">
+    <div class="ov-admin mb-3">
+        <span class="text-body-secondary"><i class="ti ti-shield" aria-hidden="true"></i> Admin:</span>
+        @if (reports.Count > 0)
+        {
+            <div class="dropdown">
+                <button class="btn btn-link btn-sm p-0 text-warning-emphasis text-decoration-none dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    ⚑ @reports.Count meldt som feil
+                </button>
+                <div class="dropdown-menu ov-reports">
                     @foreach (var n in reports)
                     {
-                        <a class="list-group-item list-group-item-action small"
-                           asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
+                        <a class="dropdown-item small" asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
                             <strong>@n.ResourceName</strong> · «@n.Message»
-                            <span class="text-body-secondary">– @n.ReporterEmail, @OsloShort(n.CreatedAt)</span>
+                            <div class="text-body-secondary">@n.ReporterEmail · @OsloShort(n.CreatedAt)</div>
                         </a>
                     }
                 </div>
-            }
-        </div>
+            </div>
+        }
+        else
+        {
+            <span class="text-body-secondary">⚑ Ingen meldt som feil</span>
+        }
+        <a asp-controller="Admin" asp-action="Index"><i class="ti ti-users" aria-hidden="true"></i> Brukere</a>
+        <a asp-controller="ResourceType" asp-action="Index"><i class="ti ti-tags" aria-hidden="true"></i> Ressurstyper</a>
     </div>
 }
 
-@* The number strip: each box opens its list below (only one at a time) - Docs: Bootstrap Collapse
-   https://getbootstrap.com/docs/5.3/components/collapse/ *@
+@* The number strip: each box jumps to its list *@
 <div class="row g-2 mb-3">
     <div class="col-6 col-md-3">
-        <a class="card h-100 text-reset text-decoration-none" href="#activeNeeds">
-            <div class="card-body">
-                <div class="small text-body-secondary">Aktive behov</div>
-                <div class="fs-3 fw-semibold">@Model.ActiveNeeds</div>
-                @if (Model.ActiveAkutt > 0)
-                {
-                    <div class="small text-danger">⏰ @Model.ActiveAkutt akutt</div>
-                }
-                <div class="small text-body-secondary">Gå til lista ↓</div>
-            </div>
+        <a class="ov-stat @(Model.ActiveAkutt > 0 ? "is-bad" : "")" href="#activeNeeds">
+            <b>@Model.ActiveAkutt</b><i class="ti ti-alarm" aria-hidden="true"></i> Akutt
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a class="card h-100 text-reset text-decoration-none" data-bs-toggle="collapse" href="#waitingList"
-           role="button" aria-expanded="false" aria-controls="waitingList">
-            <div class="card-body">
-                <div class="small text-body-secondary">Venter på svar</div>
-                <div class="fs-3 fw-semibold">@Model.Waiting</div>
-                <div class="small text-body-secondary">Vis ▾</div>
-            </div>
+        <a class="ov-stat" href="#activeNeeds">
+            <b>@Model.ActivePlanned</b><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a class="card h-100 text-reset text-decoration-none @(Model.Overdue > 0 ? "border-warning" : "")" data-bs-toggle="collapse" href="#overdueList"
-           role="button" aria-expanded="false" aria-controls="overdueList">
-            <div class="card-body">
-                <div class="small text-body-secondary">Frist gått</div>
-                <div class="fs-3 fw-semibold">@(Model.Overdue > 0 ? "⏱ " : "")@Model.Overdue</div>
-                <div class="small text-body-secondary">Vis ▾</div>
-            </div>
+        <a class="ov-stat" href="#requestsBox">
+            <b>@Model.Waiting</b><i class="ti ti-hourglass" aria-hidden="true"></i> Venter på svar
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a class="card h-100 text-reset text-decoration-none" data-bs-toggle="collapse" href="#loanList"
-           role="button" aria-expanded="false" aria-controls="loanList">
-            <div class="card-body">
-                <div class="small text-body-secondary">Ute nå</div>
-                <div class="fs-3 fw-semibold">@Model.OutNow</div>
-                <div class="small text-body-secondary">Vis utlån ▾</div>
-            </div>
+        <a class="ov-stat" href="#outBox">
+            <b>@Model.OutNow</b><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Ute / lever tilbake
         </a>
     </div>
 </div>
 
-@* The lists behind the boxes. data-bs-parent: opening one closes the others *@
-<div id="stripPanels" class="mb-4">
-    <div class="collapse" id="waitingList" data-bs-parent="#stripPanels">
-        <div class="card card-body">
-            <h2 class="h5">⏳ Venter på svar (@Model.WaitingList.Count)</h2>
-            @if (Model.WaitingList.Count == 0)
-            {
-                <p class="text-body-secondary mb-0">Ingen forespørsler venter på svar.</p>
-            }
-            else
-            {
-                <div class="list-group">
-                    @foreach (var a in Model.WaitingList)
-                    {
-                        <a class="list-group-item list-group-item-action" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@a.NeedId">@a.Text</a>
-                    }
-                </div>
-            }
-        </div>
-    </div>
-
-    <div class="collapse" id="overdueList" data-bs-parent="#stripPanels">
-        <div class="card card-body">
-            <h2 class="h5">⏱ Frist gått (@Model.OverdueList.Count)</h2>
-            @if (Model.OverdueList.Count == 0)
-            {
-                <p class="text-body-secondary mb-0">Ingen frister har gått ut.</p>
-            }
-            else
-            {
-                <p class="small text-body-secondary">Ring eieren, gi mer tid eller trekk tilbake forespørselen på behovssiden.</p>
-                <div class="list-group">
-                    @foreach (var a in Model.OverdueList)
-                    {
-                        <a class="list-group-item list-group-item-action" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@a.NeedId">@a.Text</a>
-                    }
-                </div>
-            }
-        </div>
-    </div>
-
-    <div class="collapse" id="loanList" data-bs-parent="#stripPanels">
-        <div class="card card-body">
-            <h2 class="h5">📦 Ute nå (@Model.OutLoans.Count)</h2>
-            @if (Model.OutLoans.Count == 0)
-            {
-                <p class="text-body-secondary">Ingen ressurser er ute nå.</p>
-            }
-            else
-            {
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm align-middle">
-                        <thead>
-                            <tr>
-                                <th scope="col">Ressurs</th>
-                                <th scope="col">Eier</th>
-                                <th scope="col">Behov</th>
-                                <th scope="col">Levert</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var l in Model.OutLoans)
-                            {
-                                <tr>
-                                    <td><a asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a></td>
-                                    <td>
-                                        @l.OwnerName
-                                        @if (!string.IsNullOrEmpty(l.OwnerPhone))
-                                        {
-                                            <br /><a href="tel:@l.OwnerPhone" class="small">☎ @l.OwnerPhone</a>
-                                        }
-                                    </td>
-                                    <td>
-                                        <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a>
-                                        @if (l.NeedClosed)
-                                        {
-                                            <span class="badge text-bg-secondary">Avsluttet</span>
-                                        }
-                                    </td>
-                                    <td class="small">@(l.DeliveredAt == null ? "–" : OsloShort(l.DeliveredAt.Value))</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-
-            <h2 class="h5">↩ Levert tilbake <span class="small text-body-secondary">(siste 20)</span></h2>
-            @if (Model.ReturnedLoans.Count == 0)
-            {
-                <p class="text-body-secondary mb-0">Ingenting er levert tilbake ennå.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th scope="col">Ressurs</th>
-                                <th scope="col">Eier</th>
-                                <th scope="col">Behov</th>
-                                <th scope="col">Levert</th>
-                                <th scope="col">Tilbake</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var l in Model.ReturnedLoans)
-                            {
-                                <tr>
-                                    <td><a asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a></td>
-                                    <td>@l.OwnerName</td>
-                                    <td><a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a></td>
-                                    <td class="small">@(l.DeliveredAt == null ? "–" : OsloShort(l.DeliveredAt.Value))</td>
-                                    <td class="small">@(l.ReturnedAt == null ? "–" : OsloShort(l.ReturnedAt.Value))</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </div>
-    </div>
-</div>
-
-@* What the operator should do something about *@
-<h2 class="h4">⚠ Krever oppmerksomhet</h2>
-@if (Model.Attention.Count == 0)
+@* Active needs in fixed columns, the ones that need something first. 5 shown, the rest behind "Vis alle"
+   Docs: Bootstrap Collapse - https://getbootstrap.com/docs/5.3/components/collapse/ *@
+<h2 class="h5 d-flex align-items-baseline gap-2" id="activeNeeds">
+    <i class="ti ti-list" aria-hidden="true"></i> Aktive behov · @Model.Needs.Count
+    <span class="small fw-normal text-body-secondary">· de som trenger noe først</span>
+</h2>
+@if (Model.Needs.Count == 0)
 {
-    <p class="text-body-secondary">✓ Ingenting krever oppmerksomhet nå.</p>
+    <p class="text-body-secondary">✓ Ingen aktive behov.</p>
 }
 else
 {
-    <div class="list-group mb-4">
-        @foreach (var a in Model.Attention)
+    <div class="ov-list mb-4">
+        <div class="ov-row ov-head" aria-hidden="true">
+            <span></span><span>Behov</span><span>Dekket</span><span>Svar</span><span>I nærheten</span><span></span>
+        </div>
+        @for (var i = 0; i < Model.Needs.Count; i++)
         {
-            <a class="list-group-item list-group-item-action d-flex gap-2 align-items-start"
-               asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@a.NeedId">
-                <span aria-hidden="true">@a.Icon</span>
-                <span class="flex-grow-1">@a.Text</span>
-                <span class="small text-body-secondary text-nowrap">Åpne →</span>
-            </a>
+            var n = Model.Needs[i];
+            if (i == shownFirst)
+            {
+                @Html.Raw("<div class=\"collapse\" id=\"moreNeeds\">")
+            }
+            var percent = n.Quantity == 0 ? 0 : Math.Min(100, n.Covered * 100 / n.Quantity);
+            var radiusText = $"{n.RadiusKm:0.#} km";
+            var action =
+                n.Overdue > 0 ? "☎ Ring / +30 min ▸"
+                : n.NoneNearby ? "Utvid søk ▸"
+                : n.NobodyAsked ? (n.Covered > 0 ? $"Finn {n.Missing} til ▸" : "Finn ressurser ▸")
+                : "Åpne ▸";
+
+            <div class="ov-row @(n.Level == 2 ? "is-hot" : n.Level == 1 ? "is-warm" : "")">
+                <div class="ov-when">
+                    @if (n.Urgency == NeedUrgency.Akutt)
+                    {
+                        <span class="ov-tag ov-tag-akutt">⏰ Akutt</span>
+                    }
+                    else
+                    {
+                        <span class="ov-tag ov-tag-plan">📅 @(n.NeededFrom == null ? "Planlagt" : TimeZoneInfo.ConvertTimeFromUtc(n.NeededFrom.Value, Oslo).ToString("dd.MM"))</span>
+                    }
+                </div>
+
+                <div class="ov-name">
+                    <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
+                    <div class="small text-body-secondary">
+                        @if (!string.IsNullOrWhiteSpace(n.City))
+                        {
+                            <span>📍 @n.City ·</span>
+                        }
+                        @if (n.StartsSoon && n.NeededFrom != null)
+                        {
+                            <span class="ov-text-warn">⏰ @(n.NeededFrom <= now ? "har startet" : $"starter om {Span(n.NeededFrom.Value - now)}")</span>
+                        }
+                        else if (n.Urgency == NeedUrgency.Planlagt && n.NeededFrom != null)
+                        {
+                            <span>trengs @OsloShort(n.NeededFrom.Value)</span>
+                        }
+                        else
+                        {
+                            <span>@Span(now - n.CreatedAt) siden</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="ov-progress">
+                    <div class="progress" role="progressbar" aria-label="Dekket" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar bg-success" style="width: @percent%"></div>
+                    </div>
+                    <span class="small text-body-secondary">@n.Covered av @n.Quantity@(n.Delivered > 0 ? $" · {n.Delivered} levert" : "")</span>
+                </div>
+
+                <div class="ov-answer small">
+                    @if (n.Overdue > 0)
+                    {
+                        <span class="ov-text-bad">⏱ @n.Overdue har ikke svart</span>
+                        @if (n.Waiting > 0)
+                        {
+                            <div class="text-body-secondary">⏳ @n.Waiting venter</div>
+                        }
+                    }
+                    else if (n.NobodyAsked)
+                    {
+                        <span class="@(n.Level == 2 ? "ov-text-bad" : "text-body-secondary")">○ Ingen er spurt</span>
+                    }
+                    else if (n.Waiting > 0 && n.NextAnswerBy != null)
+                    {
+                        <span class="text-body-secondary">⏳ @n.Waiting venter · innen @OsloTime(n.NextAnswerBy.Value)</span>
+                    }
+                    else if (n.Missing == 0)
+                    {
+                        <span class="ov-text-ok">✓ Dekket</span>
+                    }
+                    else
+                    {
+                        <span class="text-body-secondary">–</span>
+                    }
+                </div>
+
+                <div class="ov-near small">
+                    @if (n.NoneNearby)
+                    {
+                        <span class="@(n.Level == 2 ? "ov-text-bad" : "text-body-secondary")">⌀ Ingen innen @radiusText</span>
+                    }
+                    else if (n.FreeNearby != null)
+                    {
+                        <span class="text-body-secondary">✓ @n.FreeNearby @(n.FreeNearby == 1 ? "ledig" : "ledige") innen @radiusText</span>
+                    }
+                    else
+                    {
+                        <span class="text-body-secondary">–</span>
+                    }
+                </div>
+
+                <a class="btn btn-sm ov-action text-nowrap @(n.Level == 2 ? "btn-outline-danger" : "btn-outline-secondary")"
+                   asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">@action</a>
+            </div>
+        }
+        @if (Model.Needs.Count > shownFirst)
+        {
+            @Html.Raw("</div>")
+            <button class="btn btn-sm btn-link ov-more collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#moreNeeds"
+                    aria-expanded="false" aria-controls="moreNeeds">
+                <span class="when-closed">Vis alle @Model.Needs.Count ▾</span>
+                <span class="when-open">Vis færre ▴</span>
+            </button>
         }
     </div>
 }
 
-@* The active needs *@
-<h2 class="h4" id="activeNeeds">Aktive behov</h2>
-@if (Model.Needs.Count == 0)
-{
-    <p class="text-body-secondary">Ingen aktive behov.</p>
-}
-else
-{
-    <div class="table-responsive">
-        <table class="table align-middle">
-            <thead>
-                <tr>
-                    <th scope="col">Navn</th>
-                    <th scope="col">Når</th>
-                    <th scope="col">Dekket</th>
-                    <th scope="col">Venter</th>
-                    <th scope="col"><span class="visually-hidden">Handlinger</span></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var n in Model.Needs)
+<div class="row g-3 mb-4">
+    @* "Ute nå": said yes but not delivered, must go back, in use. Longest first *@
+    <div class="col-12 col-lg-6">
+        <div class="ov-box" id="outBox">
+            <h2 class="h6 mb-1"><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Ute nå · @Model.OutNow <span class="small fw-normal text-body-secondary">· lengst først</span></h2>
+            @if (Model.OutNow == 0)
+            {
+                <p class="small text-body-secondary mb-0">✓ Ingen ressurser er ute nå.</p>
+            }
+
+            @if (Model.NotDelivered.Count > 0)
+            {
+                <div class="ov-group is-warn">✓ Sagt ja – ikke levert</div>
+                @foreach (var l in Model.NotDelivered)
                 {
-                    var done = n.Quantity > 0 && n.Covered >= n.Quantity;
-                    <tr>
-                        <td>@n.Name</td>
-                        <td>
-                            @if (n.Urgency == NeedUrgency.Akutt)
+                    <div class="ov-item">
+                        <span class="ov-badge @(l.Late ? "ov-warn" : "ov-muted")">@(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
+                        <span class="small text-body-secondary">
+                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
+                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
                             {
-                                <span class="badge text-bg-danger">⏰ Akutt</span>
+                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
                             }
-                            else
-                            {
-                                <span class="badge text-bg-primary">📅 Planlagt</span>
-                                @if (n.NeededFrom != null)
-                                {
-                                    <span class="small text-body-secondary">fra @OsloShort(n.NeededFrom.Value)</span>
-                                }
-                            }
-                        </td>
-                        <td>
-                            <span class="badge @(done ? "text-bg-success" : "text-bg-warning")">
-                                @(done ? "✓ Dekket" : $"{n.Covered} av {n.Quantity}")
-                            </span>
-                        </td>
-                        <td>@(n.Waiting == 0 ? "–" : n.Waiting.ToString())</td>
-                        <td class="text-end">
-                            <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">Åpne</a>
-                        </td>
-                    </tr>
+                        </span>
+                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="MarkDelivered">
+                            <input type="hidden" name="needId" value="@l.NeedId" />
+                            <input type="hidden" name="back" value="overview" />
+                            <button class="btn btn-sm btn-outline-secondary" name="delivered" value="@l.RequestId">Marker levert</button>
+                        </form>
+                    </div>
                 }
-            </tbody>
-        </table>
+            }
+
+            @if (Model.GiveBack.Count > 0)
+            {
+                <div class="ov-group is-return">↩︎ Behovet er avsluttet – skal tilbake</div>
+                @foreach (var l in Model.GiveBack)
+                {
+                    <div class="ov-item">
+                        <span class="ov-badge ov-return">↩︎ @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
+                        <span class="small text-body-secondary">
+                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
+                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
+                            {
+                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
+                            }
+                        </span>
+                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="MarkReturned">
+                            <input type="hidden" name="needId" value="@l.NeedId" />
+                            <input type="hidden" name="back" value="overview" />
+                            <button class="btn btn-sm btn-outline-secondary" name="returned" value="@l.RequestId">Marker tilbake</button>
+                        </form>
+                    </div>
+                }
+            }
+
+            @if (Model.InUse.Count > 0)
+            {
+                <div class="ov-group">📦 I bruk</div>
+                @foreach (var l in Model.InUse)
+                {
+                    <div class="ov-item">
+                        <span class="ov-badge ov-info">📦 @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
+                        <span class="small text-body-secondary">
+                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
+                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
+                            {
+                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
+                            }
+                        </span>
+                    </div>
+                }
+            }
+        </div>
     </div>
-}
+
+    @* "Forespørsler": deadline passed, waiting, said no the last 24 hours *@
+    <div class="col-12 col-lg-6">
+        <div class="ov-box" id="requestsBox">
+            <h2 class="h6 mb-1"><i class="ti ti-hourglass" aria-hidden="true"></i> Forespørsler</h2>
+            @if (Model.Overdue.Count == 0 && Model.WaitingList.Count == 0 && Model.Declined.Count == 0)
+            {
+                <p class="small text-body-secondary mb-0">✓ Ingen forespørsler å følge med på.</p>
+            }
+
+            @if (Model.Overdue.Count > 0)
+            {
+                <div class="ov-group is-bad">⏱ Frist gått · @Model.Overdue.Sum(g => g.ResourceNames.Count)</div>
+                @foreach (var g in Model.Overdue)
+                {
+                    <div class="ov-item">
+                        <span class="ov-what">@Names(g.ResourceNames)</span>
+                        <span class="small text-body-secondary">@g.NeedName · gikk ut @OsloShort(g.When)</span>
+                        <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@g.NeedId">Åpne ▸</a>
+                    </div>
+                }
+            }
+
+            @if (Model.WaitingList.Count > 0)
+            {
+                <div class="ov-group">⏳ Venter på svar · @Model.WaitingList.Count</div>
+                @foreach (var r in Model.WaitingList)
+                {
+                    <div class="ov-item">
+                        <span class="ov-what">@r.ResourceName</span>
+                        <span class="small text-body-secondary">
+                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@r.NeedId">@r.NeedName</a> · innen @OsloTime(r.AnswerBy)
+                        </span>
+                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="ExtendDeadline">
+                            <input type="hidden" name="needId" value="@r.NeedId" />
+                            <input type="hidden" name="back" value="overview" />
+                            <button class="btn btn-sm btn-outline-secondary" name="extend" value="@($"{r.RequestId}:30")">+30 min</button>
+                        </form>
+                    </div>
+                }
+            }
+
+            @if (Model.Declined.Count > 0)
+            {
+                <div class="ov-group">✗ Sagt nei siste døgn · @Model.Declined.Sum(g => g.ResourceNames.Count)</div>
+                @foreach (var g in Model.Declined)
+                {
+                    <div class="ov-item">
+                        <span class="ov-what">@Names(g.ResourceNames)</span>
+                        <span class="small text-body-secondary">
+                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@g.NeedId">@g.NeedName</a> · @OsloTime(g.When)
+                        </span>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>

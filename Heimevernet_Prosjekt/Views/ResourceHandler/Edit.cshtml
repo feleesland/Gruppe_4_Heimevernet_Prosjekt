@@ -1,164 +1,45 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
-@using Heimevernet_Prosjekt.Models.Entities
 @model ResourceViewModel
 
 @{
-    ViewData["Title"] = "Endre Ressurs";
-
-    var resourceTypes = ViewData["ResourceTypes"] as IEnumerable<ResourceType> ?? [];
-    var currentType = Model.Type;
-    var hasOldType = !string.IsNullOrEmpty(currentType)
-        && !resourceTypes.Any(t => t.Name == currentType);
+    ViewData["Title"] = "Endre ressurs";
+    // In the side panel on the map (?embed=1): no menu, like the resource page
+    if (Context.Request.Query["embed"] == "1")
+    {
+        Layout = "_EmbedLayout";
+    }
 }
 
-<h1>@ViewData["Title"]</h1>
+<div class="wizard">
+    <h1 class="wizard-title">@ViewData["Title"]</h1>
+    <p class="wizard-lead">Endre det som har forandret seg. <span class="text-body-secondary">Trykk «Endre» i «Din ressurs» for å hoppe til et steg.</span></p>
 
-@* Keep multipart encoding for picture uploads. *@
-<form asp-controller="ResourceHandler"
-      asp-action="Edit"
-      method="post"
-      enctype="multipart/form-data">
-
-    @* Stack fields on phones and use two columns on wider screens. *@
-    <div class="row g-3">
-        <div class="col-12 col-md-6">
-            <label asp-for="Name" class="form-label"></label>
-            <input asp-for="Name"
-                   class="form-control"
-                   style="min-height: 44px;" />
-            <span asp-validation-for="Name" class="text-danger"></span>
-        </div>
-
-        <div class="col-12 col-md-6">
-            <label asp-for="Type" class="form-label"></label>
-            <select asp-for="Type"
-                    class="form-select"
-                    style="min-height: 44px;"
-                    data-type-select
-                    aria-describedby="typeExamples">
-                <option value="">Velg type …</option>
-
-                @foreach (var t in resourceTypes)
-                {
-                    <option value="@t.Name" data-examples="@t.Examples">
-                        @t.Name
-                    </option>
-                }
-
-                @if (hasOldType)
-                {
-                    <option value="@currentType">
-                        @currentType (gammel type – velg en ny)
-                    </option>
-                }
-            </select>
-            <small id="typeExamples" class="form-text d-block"></small>
-            <span asp-validation-for="Type" class="text-danger"></span>
-        </div>
-
-        <div class="col-12">
-            <label asp-for="Description" class="form-label"></label>
-            <input asp-for="Description"
-                   class="form-control"
-                   style="min-height: 44px;" />
-            <span asp-validation-for="Description" class="text-danger"></span>
-        </div>
-
-        @* Keep the existing role check and status options. *@
-        @if (User.IsInRole("admin") || User.IsInRole("operator"))
-        {
-            <div class="col-12 col-md-6">
-                <label asp-for="Status" class="form-label"></label>
-                <select asp-for="Status"
-                        class="form-select"
-                        style="min-height: 44px;">
-                    <option value="Ledig">Ledig</option>
-                    <option value="Opptatt">Opptatt</option>
-                    <option value="Ugyldig">Ugyldig</option>
-                </select>
-                <span asp-validation-for="Status" class="text-danger"></span>
-            </div>
-        }
-
-        <div class="col-12">
-            <label asp-for="Notes" class="form-label"></label>
-            <textarea asp-for="Notes"
-                      class="form-control"
-                      rows="3"
-                      placeholder="F.eks. hvor nøklene ligger"></textarea>
-            <span asp-validation-for="Notes" class="text-danger"></span>
-        </div>
-
-        <div class="col-12">
-            <label asp-for="Image" class="form-label"></label>
-
-            @* Keep the picture preview within the screen width. *@
-            @if (Model.HasImage)
-            {
-                <div class="mb-2">
-                    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })"
-                         alt="@Model.Name"
-                         class="img-fluid"
-                         style="max-width: 200px; width: 100%;" />
-                </div>
-            }
-
-            <input asp-for="Image"
-                   type="file"
-                   accept="image/*"
-                   capture="environment"
-                   class="form-control"
-                   style="min-height: 44px;" />
-            <span asp-validation-for="Image" class="text-danger"></span>
-            <input type="hidden" asp-for="HasImage" />
-        </div>
-
-        <div class="col-12">
-            <label asp-for="Address" class="form-label"></label>
-            <input asp-for="Address"
-                   class="form-control"
-                   style="min-height: 44px;" />
-        </div>
-
-        <div class="col-12 col-md-4">
-            <label asp-for="ZipCode" class="form-label"></label>
-            <input asp-for="ZipCode"
-                   class="form-control"
-                   style="min-height: 44px;" />
-        </div>
-
-        <div class="col-12 col-md-8">
-            <label asp-for="City" class="form-label"></label>
-            <input asp-for="City"
-                   class="form-control"
-                   style="min-height: 44px;" />
-        </div>
-    </div>
-
-    @* Allow the larger map buttons to wrap on narrow screens. *@
-    <div class="d-flex flex-wrap gap-2 mt-3">
-        <button type="button"
-                id="findOnMap"
-                class="button"
-                style="min-height: 44px;">
-            Finn på kartet
-        </button>
-
-        <button type="button" id="useMyLocation" class="button">Bruk min posisjon</button>
-    </div>
-
-    <span id="geoStatus" class="d-block mt-2"></span>
-    <p>Du kan også klikke på kartet eller dra markøren.</p>
-
-    <div id="pickMap" style="height: 300px; width: 100%;"></div>
-
-    <input type="hidden" asp-for="Latitude" />
-    <input type="hidden" asp-for="Longitude" />
-    <input type="hidden" asp-for="Id" />
-
-    <button type="submit" class="button mt-3 mb-3">Lagre</button>
-</form>
+    @* The whole form is in _ResourceVeiviser.cshtml (shared with Create) *@
+    <partial name="_ResourceVeiviser" model="Model" />
+</div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
     <script src="~/js/location-picker.js" asp-append-version="true"></script>
+    <script src="~/js/resource-veiviser.js" asp-append-version="true"></script>
+    <script>
+        // Coming from the side panel on the map ("Åpne på egen side ↗"): fill in what was typed there, and go to the same step (help with AI)
+        (function () {
+            var saved = null;
+            try { saved = JSON.parse(sessionStorage.getItem('wizardHandover')); sessionStorage.removeItem('wizardHandover'); } catch (e) { }
+            var form = document.getElementById('resourceWizard');
+            if (!saved || !form || saved.path.toLowerCase() !== location.pathname.toLowerCase()) return;
+            var names = new Set(saved.fields.map(function (f) { return f[0]; }));
+            form.querySelectorAll('input[type=checkbox], input[type=radio]').forEach(function (input) {
+                if (names.has(input.name)) input.checked = saved.fields.some(function (f) { return f[0] === input.name && f[1] === input.value; });
+            });
+            saved.fields.forEach(function (f) {
+                var input = form.querySelector('[name="' + CSS.escape(f[0]) + '"]:not([type=checkbox]):not([type=radio]):not([type=file])');
+                if (input) input.value = f[1];
+            });
+            form.querySelectorAll('input, select, textarea').forEach(function (input) { input.dispatchEvent(new Event('change', { bubbles: true })); });
+            if (window.moveResourcePin && document.getElementById('Latitude').value) moveResourcePin();
+            for (var i = 0; i < saved.step; i++) form.querySelector('[data-wizard-next]').click();
+        })();
+    </script>
 }

@@ -5,11 +5,11 @@ namespace Heimevernet_Prosjekt.DataAccess
 {
     public interface IResourceNeedRepository
     {
-        ResourceNeed Create(ResourceNeedViewModel model);
+        //ResourceNeed Create(ResourceNeedViewModel model); ikke i bruk
         bool Delete(int id);
         IReadOnlyCollection<ResourceNeed> GetAll();
         ResourceNeed? GetById(int id);
-        bool Update(int id, ResourceNeedViewModel model);
+        //bool Update(int id, ResourceNeedViewModel model); ikke i bruk
         int RemoveOwner(string ownerId);
         int DeleteAllByOwner(string ownerId);
 
@@ -28,5 +28,12 @@ namespace Heimevernet_Prosjekt.DataAccess
         bool UpdateWithItems(int id, ReportNeedViewModel model);
         void AddLog(int needId, string userId, string userName, string text);
         IReadOnlyList<ResourceNeedLog> GetLog(int needId);
+
+        // "Ofte brukt" in "Meld behov": the types that are asked for in the most needs, most first
+        IReadOnlyList<string> GetPopularTypes(int count);
+
+        // "Info til innbyggere": public updates on a need, newest first
+        void AddUpdate(int needId, string userId, string userName, string text);
+        IReadOnlyList<NeedUpdate> GetUpdates(int needId);
     }
 }
