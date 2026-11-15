@@ -1,0 +1,30 @@
+﻿:root {
+    --bg-size: 62vw; /* width of the drawing, relative to the window */
+    --bg-pos: right bottom;
+    --bg-strength-light: .14; /* light mode */
+    --bg-strength-dark: .40; /* dark mode: keep as it is */
+}
+
+body {
+    isolation: isolate;
+}
+
+    body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: url("/images/bg-varde.png") var(--bg-pos) / var(--bg-size) auto no-repeat;
+        opacity: var(--bg-strength-light);
+        mix-blend-mode: multiply;
+        /* fades the left edge of the drawing, so the ground line has no hard start */
+        -webkit-mask-image: linear-gradient(to right, transparent 35%, #000 62%);
+        mask-image: linear-gradient(to right, transparent 35%, #000 62%);
+    }
+
+[data-bs-theme="dark"] body::before {
+    filter: invert(1);
+    mix-blend-mode: screen;
+    opacity: var(--bg-strength-dark);
+}
