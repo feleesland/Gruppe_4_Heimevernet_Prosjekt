@@ -7,5 +7,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Account
         [Phone(ErrorMessage = "Telefonnummeret er ikke gyldig.")]
         [StringLength(20, ErrorMessage = "Telefonnummeret er for langt.")]
         public string? Phone { get; set; }
+
+        public string? ActorKind { get; set; }
+
+        public List<string> SelectedSkills { get; set; } = new();
     }
 }
