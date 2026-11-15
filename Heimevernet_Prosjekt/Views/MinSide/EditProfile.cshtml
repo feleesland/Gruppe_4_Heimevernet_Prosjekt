@@ -1,4 +1,5 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Account
+@using Heimevernet_Prosjekt.Security.Authorization
 @model EditProfileViewModel
 @{
     ViewData["Title"] = "Rediger opplysninger";
@@ -28,6 +29,38 @@
 
     <form asp-action="EditProfile" method="post">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+@if (!User.IsInRole(RoleNames.Admin))
+{
+    var isOp = User.IsInRole(RoleNames.Operator);
+
+    <fieldset class="mb-3">
+        <legend class="form-label fs-6">@(isOp ? "Etat / organisasjon" : "Jeg er")</legend>
+        @foreach (var kind in ActorTypes.KindsFor(isOp))
+        {
+            var id = "kind-" + kind.Replace(" ", "");
+            <div class="form-check">
+                <input class="form-check-input" type="radio" name="ActorKind"
+                       value="@kind" id="@id" @(Model.ActorKind == kind ? "checked" : "") />
+                <label class="form-check-label" for="@id">@kind</label>
+            </div>
+        }
+    </fieldset>
+
+    @if (!isOp)
+    {
+        <fieldset class="mb-3">
+            <legend class="form-label fs-6">Jeg kan også bidra som</legend>
+            @foreach (var skill in ActorTypes.Skills)
+            {
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="SelectedSkills"
+                           value="@skill" id="skill-@skill" @(Model.SelectedSkills.Contains(skill) ? "checked" : "") />
+                    <label class="form-check-label" for="skill-@skill">@skill</label>
+                </div>
+            }
+        </fieldset>
+    }
+}
 
         <div class="mb-3">
             <label asp-for="Phone" class="form-label"></label>

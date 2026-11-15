@@ -1,4 +1,5 @@
 ﻿@using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.Security.Authorization
 @model ApplicationUser
 @{
     ViewData["Title"] = "Min side";
@@ -27,10 +28,10 @@
 <section class="home-panel">
     <h1 class="h3">Min side</h1>
 
-    @if (TempData["SuccessMessage"] != null)
+    @if (TempData["Message"] != null)
     {
         <div class="alert alert-success" role="alert">
-            @TempData["SuccessMessage"]
+            @TempData["Message"]
         </div>
     }
 
@@ -46,11 +47,29 @@
 
         <dt class="col-sm-4">Rolle</dt>
         <dd class="col-sm-8">@ViewData["Roles"]</dd>
+        @if (!User.IsInRole(RoleNames.Admin))
+        {
+            <dt class="col-sm-4">@(User.IsInRole(RoleNames.Operator) ? "Etat" : "Jeg er")</dt>
+            <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorKind) ? "Ikke valgt" : Model.ActorKind)</dd>
+
+        @if (!User.IsInRole(RoleNames.Operator))
+            {
+                <dt class="col-sm-4">Kan bidra som</dt>
+                <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorSkills) ? "Ikke valgt" : string.Join(", ", ActorTypes.Split(Model.ActorSkills)))</dd>
+            }
+        }
     </dl>
 
     <div class="d-flex flex-wrap gap-2">
         <a asp-action="EditProfile" class="btn btn-success">Rediger profil</a>
         <a asp-controller="Resource" asp-action="List" asp-route-mine="true" class="btn btn-outline-success">Mine ressurser</a>
+    </div>
+
+    <div class="my-4">
+        <hr />
+    <form asp-action="RequestPasswordReset" method="post" class="d-inline">
+    <button type="submit" class="btn btn-outline-success">Tilbakestill passord</button>
+    </form>
     </div>
 
     <hr class="my-4" />
