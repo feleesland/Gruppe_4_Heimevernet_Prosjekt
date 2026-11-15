@@ -1938,3 +1938,7 @@ footer.footer {
         line-height: 1;
     }
 }
+/* The line under the green top: a darker green instead of Bootstrap's light grey, so it doesn't show as a white gap over the picture on the homepage */
+.navbar.border-bottom {
+    border-bottom-color: #164d36 !important;
+}

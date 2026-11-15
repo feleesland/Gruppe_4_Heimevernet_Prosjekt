@@ -14,8 +14,10 @@ overflow-x: clip;
     min-height: 320px;
     background: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)),
                 url(/images/Krs.png) center 40% / cover no-repeat;
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+        /* Edge to edge: pulls out the page's padding on each side (the same values as .page-width in site.css).
+           100vw also counted the scrollbar, and the padding is not the same on both sides, so it left a white stripe (help with AI) */
+        margin-left: calc(-1 * max(clamp(16px, 4vw, 72px), env(safe-area-inset-left, 0px)));
+        margin-right: calc(-1 * max(clamp(24px, 5vw, 96px), env(safe-area-inset-right, 0px)));
 
     
     display: flex;
