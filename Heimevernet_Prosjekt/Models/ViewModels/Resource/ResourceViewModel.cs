@@ -64,6 +64,10 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         public string? Icon { get; set; }
         public string? Category { get; set; }
         public string? UsedByNeedName { get; set; }
+        // The resource page: the status people see now ("I bruk", "Lever tilbake", "Ledig senere") and the need it is lent to
+        // (Status above is what is saved: "Ledig", "Ikke tilgjengelig", "Ugyldig") (help with AI)
+        public string? ShownStatus { get; set; }
+        public int? UsedByNeedId { get; set; }
 
         // Address (used to find the position on the map)
         [Display(Name = "Adresse")]

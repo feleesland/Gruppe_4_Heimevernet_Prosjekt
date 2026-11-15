@@ -468,3 +468,154 @@
         font-size: 1.05rem;
     }
 }
+/* ---- Kontaktpunkt (help with AI): one short row over the map (the name is cut with «…»), the small menu,
+   and the purple stripe while picking on the map - Docs: Bootstrap Dropdowns https://getbootstrap.com/docs/5.3/components/dropdowns/ ---- */
+.need-meeting-row {
+    margin: .35rem 0;
+}
+
+.need-meeting-toggle {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    width: 100%;
+    min-width: 0;
+    padding: .35rem .6rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: var(--bs-tertiary-bg);
+    color: var(--bs-body-color);
+    font-size: .875rem;
+    text-align: left;
+}
+
+    .need-meeting-toggle:hover {
+        border-color: #7A5AF8;
+    }
+
+.need-meeting-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.need-meeting-menu {
+    min-width: 280px;
+}
+
+.meeting-flag.meeting-flag-sm {
+    width: 20px;
+    height: 20px;
+    font-size: 11px;
+    flex: 0 0 auto;
+    border-width: 1px;
+}
+
+.need-meeting-pickbar {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .4rem .6rem;
+    margin-bottom: .35rem;
+    border-radius: .5rem;
+    background: #7A5AF8;
+    color: #fff;
+    font-size: .875rem;
+}
+
+/* Planlagt (help with AI): yellow text is hard to read on white, so darker text and an orange border.
+   Filled yellow when chosen, the same colours as the crisis cards (crisis.css) */
+.need-urgency .btn-outline-warning {
+    color: var(--bs-warning-text-emphasis);
+    border-color: #E69500;
+}
+
+.need-urgency .btn-check:checked + .btn-outline-warning {
+    background: #FFC107;
+    border-color: #E69500;
+    color: #3A2A00;
+}
+
+/* "Hva trengs?" with some lines (help with AI): the lines take only the room they need, the big cards stay under them,
+   and «Vis alle ressurser» sits at the bottom. need-form.js switches to chips when the lines no longer fit */
+.need-lines-card.is-full .need-lines {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+
+.need-lines-card.is-full .need-quick {
+    flex: 0 0 auto;
+}
+
+.need-lines-card.is-full .need-all {
+    margin-top: auto;
+}
+
+/* A chosen card: green with ✓ and the number (icon + text, not colour alone) */
+.need-quick-card.is-on {
+    border-color: var(--bs-success);
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+}
+
+    .need-quick-card.is-on .need-type-icon {
+        background: var(--bs-success);
+        color: #fff;
+    }
+
+/* ---- Big screens (help with AI): bigger fields and cards, «Ofte brukt» 3 × 2 with the icon over the name,
+   and all the categories 3 in a row (need-form.js shows all of them from 1400px) ---- */
+@media (min-width: 1400px) {
+    .need-layout .form-control,
+    .need-layout .form-select,
+    .need-layout .btn:not(.need-step):not(.btn-link) {
+        font-size: 1.05rem;
+    }
+
+    .need-layout .form-control-sm {
+        padding: .45rem .75rem;
+    }
+
+    .need-layout .form-select-sm {
+        padding-top: .45rem;
+        padding-bottom: .45rem;
+    }
+
+    .need-quick-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .need-quick-card {
+        position: relative;
+        flex-direction: column;
+        justify-content: center;
+        gap: .4rem;
+        min-height: 96px;
+        font-size: 1.05rem;
+        text-align: center;
+    }
+
+        .need-quick-card .flex-grow-1 {
+            flex-grow: 0 !important;
+        }
+
+        .need-quick-card .need-type-plus {
+            position: absolute;
+            top: .5rem;
+            right: .5rem;
+        }
+
+    .need-quick-cats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .5rem;
+    }
+
+        .need-quick-cats .need-cat {
+            flex-direction: row;
+            justify-content: flex-start;
+            gap: .5rem;
+            padding: .7rem .9rem;
+        }
+}

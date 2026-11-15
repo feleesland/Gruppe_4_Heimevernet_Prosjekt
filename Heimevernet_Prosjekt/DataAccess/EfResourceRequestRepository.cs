@@ -98,6 +98,7 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
                 NeedName = request.ResourceNeedItem.ResourceNeed.Name,
                 request.ResourceNeedItem.ResourceNeed.Address,
                 request.ResourceNeedItem.ResourceNeed.City,
+                request.ResourceNeedItem.ResourceNeed.MeetingPointName,
                 request.ResourceNeedItem.ResourceNeed.Urgency,
                 request.ResourceNeedItem.ResourceNeed.NeededFrom,
                 LineType = request.ResourceNeedItem.Type,
@@ -113,7 +114,8 @@ public class EfResourceRequestRepository(HeimevernetDbContext dbContext) : IReso
                 x.Id, names[x.ResourceId], x.NeedId, x.NeedName,
                 string.Join(", ", new[] { x.Address, x.City }.Where(part => !string.IsNullOrWhiteSpace(part))),
                 x.Urgency, x.NeededFrom, x.LineType, x.LineQuantity,
-                x.Status, x.SentAt, x.AnswerBy, x.Delivery, x.Comment))
+                x.Status, x.SentAt, x.AnswerBy, x.Delivery, x.Comment)
+            { MeetingPoint = x.MeetingPointName })
             .ToList()
             .AsReadOnly();
     }

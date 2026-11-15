@@ -85,6 +85,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             // Existing needs get 2 km in the migration; new needs get what the operator picks in the form
             entity.Property(resourceneed => resourceneed.RadiusKm)
                 .HasDefaultValue(2.0);
+            entity.Property(resourceneed => resourceneed.MeetingPointName).HasMaxLength(200); // Kontaktpunkt
 
             // One need has many lines; deleting a need deletes its lines - Docs: Relationships (one-to-many)
             // https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many

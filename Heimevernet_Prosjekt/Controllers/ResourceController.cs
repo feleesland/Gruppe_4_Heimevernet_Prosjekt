@@ -89,6 +89,7 @@ namespace Heimevernet_Prosjekt.Controllers
                 Longitude = resource.Longitude,
                 CreatedAt = resource.CreatedAt,
                 OwnerRemoved = resource.OwnerRemoved,
+                OwnerId = resource.OwnerId, // the page: only the owner can change the times
                 CanEdit = canEdit.Succeeded,
                 CanDelete = canDelete.Succeeded,
                 Status = resource.Status,
@@ -101,8 +102,19 @@ namespace Heimevernet_Prosjekt.Controllers
                 AvailableDayBits = Enumerable.Range(0, 7).Select(i => 1 << i).Where(bit => (resource.AvailableDays & bit) != 0).ToList(),
                 AvailableFromDate = resource.AvailableFromDate,
                 AvailableToDate = resource.AvailableToDate,
-                FreeFrom = ShownStatus(resource, _requestRepository.GetResourceIdsInUse()).FreeFrom,
             };
+
+            // What people see now, the need it is lent to, and the type's icon and category (help with AI)
+            var shown = ShownStatus(resource, _requestRepository.GetResourceIdsInUse());
+            viewModel.ShownStatus = shown.Status;
+            viewModel.FreeFrom = shown.FreeFrom;
+            viewModel.UsedByNeedId = shown.NeedId;
+            viewModel.UsedByNeedName = shown.NeedName;
+            var typeInfo = _typeRepository.GetCategories()
+                .SelectMany(category => category.Types.Select(t => (t.Name, Icon: t.Icon ?? category.Icon, Category: category.Name)))
+                .FirstOrDefault(t => t.Name == resource.Type);
+            viewModel.Icon = typeInfo.Icon;
+            viewModel.Category = typeInfo.Category;
 
             // Owner's name, email and phone come from the account, so they are always up to date - Docs: Introduction to Identity on ASP.NET Core
             // https://learn.microsoft.com/aspnet/core/security/authentication/identity

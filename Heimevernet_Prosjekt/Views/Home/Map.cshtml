@@ -59,6 +59,13 @@
 </aside>
 @* A short message at the bottom after you choose a resource (gone after 3 seconds) *@
 <div id="mapToast" class="map-toast" role="status" aria-live="polite" hidden></div>
+@* Phones: the choices for a clicked point as a sheet from the bottom, like Google Maps (help with AI) *@
+<div id="mapSheet" class="map-sheet" role="dialog" aria-label="Valg for punktet på kartet" hidden>
+	<div class="map-sheet-grip" aria-hidden="true"></div>
+	<button type="button" id="mapSheetClose" class="btn-close map-sheet-close" aria-label="Lukk"></button>
+	<div id="mapSheetBody"></div>
+</div>
+
 @* "Ressurser i området" at the bottom of the map: change the distance with the slider, the number, the quick buttons
    or the white dot on the edge of the circle. Shown when a point is chosen; "Ferdig" makes it small (updateRadiusBar below) *@
 <div id="radiusBar" class="radius-bar" role="group" aria-labelledby="radiusBarTitle" hidden>
@@ -222,9 +229,109 @@
 			color: #7A5200;
 		}
 
-	.map-menu a {
-		display: block;
-		padding: 4px 0;
+	/* Click on the map (help with AI): the address, three round buttons with text under, and what is near, like Google Maps */
+	.point-menu {
+		min-width: 230px;
+	}
+
+	.point-addr {
+		font-weight: 600;
+		padding-right: 18px;
+	}
+
+	.point-sub {
+		min-height: 1em;
+		margin-bottom: 10px;
+		font-size: .8rem;
+		color: var(--bs-secondary-color);
+	}
+
+	.point-buttons {
+		display: flex;
+		justify-content: space-around;
+		gap: 6px;
+	}
+
+	.point-btn {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		font-size: .8rem;
+		color: var(--bs-body-color) !important;
+		text-decoration: none;
+	}
+
+	.point-icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
+		font-size: 20px;
+		transition: transform .1s;
+	}
+
+	.point-btn:hover .point-icon, .point-btn:focus-visible .point-icon {
+		transform: scale(1.08);
+	}
+
+	.point-btn.is-need .point-icon {
+		background: var(--bs-danger-bg-subtle);
+		color: var(--bs-danger-text-emphasis);
+	}
+
+	.point-btn.is-resource .point-icon {
+		background: var(--bs-success-bg-subtle);
+		color: var(--bs-success-text-emphasis);
+	}
+
+	.point-btn.is-area .point-icon {
+		background: var(--bs-primary-bg-subtle);
+		color: var(--bs-primary-text-emphasis);
+	}
+
+	.point-near {
+		margin-top: 10px;
+		padding-top: 8px;
+		border-top: 1px solid var(--bs-border-color);
+		font-size: .8rem;
+		color: var(--bs-secondary-color);
+		text-align: center;
+	}
+
+	/* Phones: the same as a sheet from the bottom */
+	.map-sheet {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 1060;
+		padding: 8px 16px 20px;
+		background: var(--bs-body-bg);
+		color: var(--bs-body-color);
+		border-radius: 16px 16px 0 0;
+		box-shadow: 0 -4px 16px rgba(0,0,0,.3);
+	}
+
+		.map-sheet[hidden] {
+			display: none;
+		}
+
+	.map-sheet-grip {
+		width: 40px;
+		height: 4px;
+		margin: 0 auto 10px;
+		border-radius: 2px;
+		background: var(--bs-border-color);
+	}
+
+	.map-sheet-close {
+		position: absolute;
+		top: 12px;
+		right: 12px;
 	}
 
 	.resource-row {
@@ -615,6 +722,11 @@
 		outline: none;
 	}
 
+	/* "Meld behov" in the side panel: the stripe is purple while the kontaktpunkt is chosen */
+	.place-bar.is-meeting {
+		background: #7A5AF8;
+	}
+
 	/* The resource pins (resourcePin below): green = ledig now, grey = not ledig now; the white icon is the type's own icon */
 	.resource-pin svg {
 		position: absolute;
@@ -643,7 +755,7 @@
 		line-height: 1;
 	}
 
-	/* "Lever tilbake": a purple ring, a ↩ badge and a name tag, so it is easy to see (icon + text, not colour alone) */
+	/* "Lever tilbake": a purple ring, a ↩︎ badge and a name tag, so it is easy to see (icon + text, not colour alone) */
 	.resource-pin-return::before {
 		content: "";
 		position: absolute;
@@ -689,7 +801,7 @@
 		box-shadow: 0 1px 3px rgba(0,0,0,.3);
 	}
 
-	/* "↩ 2 skal leveres tilbake" next to Filter */
+	/* "↩︎ 2 skal leveres tilbake" next to Filter */
 	.return-chip {
 		margin-left: 8px;
 		padding: 6px 14px;
@@ -807,7 +919,7 @@
 
 		// The pins on the map (help with AI): the type's own icon (the same as in "Ny ressurs") in a pin.
 		// Green = ledig now, grey = everything else (I bruk, Ledig senere ...). The status is in the tooltip too, so it isn't colour alone.
-		// "Lever tilbake" also gets a purple ring, a ↩ badge and a name tag - Docs: Leaflet DivIcon - https://leafletjs.com/reference.html#divicon
+		// "Lever tilbake" also gets a purple ring, a ↩︎ badge and a name tag - Docs: Leaflet DivIcon - https://leafletjs.com/reference.html#divicon
 		function resourcePin(resource) {
 			var free = (resource.status || 'Ledig') === 'Ledig';
 			var returning = resource.status === 'Lever tilbake';
@@ -815,7 +927,7 @@
 			return L.divIcon({
 				className: 'resource-pin' + (free ? '' : ' resource-pin-busy') + (returning ? ' resource-pin-return' : ''),
 				html: '<svg viewBox="0 0 36 46" width="36" height="46" aria-hidden="true"><path d="M18 45 C6 30 2 24 2 17 A16 16 0 0 1 34 17 C34 24 30 30 18 45Z"/></svg><i class="ti ti-' + icon + '" aria-hidden="true"></i>'
-					+ (returning ? '<span class="return-badge" aria-hidden="true">↩</span><span class="return-tag">Lever tilbake</span>' : ''),
+					+ (returning ? '<span class="return-badge" aria-hidden="true">↩︎</span><span class="return-tag">Lever tilbake</span>' : ''),
 				iconSize: [36, 46],
 				iconAnchor: [18, 45],
 				popupAnchor: [0, -40]
@@ -1341,26 +1453,86 @@
 		var mapUrl = '@Url.Action("Map", "Home")';
 		var signedIn = @(signedIn ? "true" : "false");
 
-		map.on('click', function (e) {
-			// Not while "Velg punkt på kartet" is choosing the centre of the filter
-			if (pickingCenter || placeMode || !signedIn) return;
+		// Click on the map (help with AI): like Google Maps and Apple Kart - the address, three round buttons with text under,
+		// and what is near. On PC a popup at the point, on phones a sheet from the bottom. A pin shows the point
+		// Docs: Leaflet Popup - https://leafletjs.com/reference.html#popup
+		// Docs: Kartverket Adresse-API, punktsok - https://ws.geonorge.no/adresser/v1/#/default/get_punktsok
+		var pointPin = null;
+		var mapSheet = document.getElementById('mapSheet');
 
-			var lat = e.latlng.lat.toFixed(6);
-			var lng = e.latlng.lng.toFixed(6);
+		function roundButton(href, icon, text, css, onclick) {
+			return `<a class="point-btn ${css}" href="${href}"${onclick ? ` onclick="${onclick}"` : ''}>`
+				+ `<span class="point-icon"><i class="ti ti-${icon}" aria-hidden="true"></i></span>${text}</a>`;
+		}
+
+		function closePointMenu() {
+			if (pointPin) { map.removeLayer(pointPin); pointPin = null; }
+			mapSheet.hidden = true;
+		}
+
+		function pointMenu(latlng) {
+			var lat = latlng.lat.toFixed(6);
+			var lng = latlng.lng.toFixed(6);
 			var radius = radiusCircle ? (radiusCircle.getRadius() / 1000) : 2;
 
-			var links = '';
+			var buttons = '';
 			if (canNeeds) {
-				links += `<a href="${needCreateUrl}?lat=${lat}&lng=${lng}&radius=${radius}" onclick="return openNeedPanel(this.href);">+ Meld behov her</a>`;
+				buttons += roundButton(`${needCreateUrl}?lat=${lat}&lng=${lng}&radius=${radius}`, 'alert-triangle', 'Meld behov', 'is-need', 'closePointMenu(); return openNeedPanel(this.href);');
 			}
-			links += `<a href="${resourceCreateUrl}?lat=${lat}&lng=${lng}">+ Registrer ressurs her</a>`;
-			links += `<a href="${mapUrl}?lat=${lat}&lng=${lng}&radius=${radius}">Vis ressurser i området</a>`;
+			buttons += roundButton(`${resourceCreateUrl}?lat=${lat}&lng=${lng}`, 'plus', 'Ny ressurs', 'is-resource');
+			buttons += roundButton(`${mapUrl}?lat=${lat}&lng=${lng}&radius=${radius}`, 'radar', 'I området', 'is-area');
 
-			L.popup()
-				.setLatLng(e.latlng)
-				.setContent(`<div class="map-menu">${links}</div>`)
-				.openOn(map);
+			// What is near: resources on the map within the radius, and active needs whose circle covers the point
+			var resources = Object.values(markersById).filter(m => map.distance(m.getLatLng(), latlng) <= radius * 1000).length;
+			var needs = 0;
+			needLayer.eachLayer(l => { if (l instanceof L.Circle && map.distance(l.getLatLng(), latlng) <= l.getRadius()) needs++; });
+			var near = [(resources === 1 ? '1 ressurs' : resources + ' ressurser') + ' innen ' + kmText(radius)];
+			if (canNeeds && needs > 0) near.push(needs === 1 ? 'inne i 1 aktivt behov' : `inne i ${needs} aktive behov`);
+
+			var box = document.createElement('div');
+			box.className = 'point-menu';
+			box.innerHTML = '<div class="point-addr">Henter adresse …</div><div class="point-sub"></div>'
+				+ `<div class="point-buttons">${buttons}</div><div class="point-near">${near.join(' · ')}</div>`;
+
+			// The nearest address within 1 km. More than 150 m away: «Nær …», like Google Maps (help with AI)
+			fetch(`https://ws.geonorge.no/adresser/v1/punktsok?lat=${lat}&lon=${lng}&radius=1000&treffPerSide=1&utkoordsys=4258`)
+				.then(response => response.json())
+				.then(result => {
+					var a = result.adresser && result.adresser[0];
+					var far = a && a.meterDistanseTilPunkt > 150;
+					box.querySelector('.point-addr').textContent = a ? (far ? 'Nær ' : '') + a.adressetekst : 'Valgt punkt';
+					box.querySelector('.point-sub').textContent = a ? a.postnummer + ' ' + a.poststed + (far ? ' · ' + Math.round(a.meterDistanseTilPunkt) + ' m unna' : '')
+						: lat.replace('.', ',') + ', ' + lng.replace('.', ',');
+				})
+				.catch(() => { box.querySelector('.point-addr').textContent = 'Valgt punkt'; });
+			return box;
+		}
+
+		map.on('click', function (e) {
+			// Not while "Velg punkt på kartet" is choosing the centre of the filter
+			if (pickingCenter || placeMode || needPlaceOn || !signedIn) return;
+
+			closePointMenu();
+			var pin = L.marker(e.latlng, { interactive: false, keyboard: false }).addTo(map);
+			pointPin = pin;
+			var menu = pointMenu(e.latlng);
+
+			if (window.innerWidth < 768) {
+				document.getElementById('mapSheetBody').replaceChildren(menu);
+				mapSheet.hidden = false;
+			} else {
+				// The pin goes away with its own popup (not a newer one)
+				L.popup({ offset: [0, -30], maxWidth: 300 })
+					.setLatLng(e.latlng)
+					.setContent(menu)
+					.on('remove', function () {
+						map.removeLayer(pin);
+						if (pointPin === pin) pointPin = null;
+					})
+					.openOn(map);
+			}
 		});
+		document.getElementById('mapSheetClose').addEventListener('click', closePointMenu);
 
 		// ?focus=12 (from "Vis på hovedkartet"): zoom to that resource and open its popup
 		var startParams = Object.fromEntries(new URLSearchParams(window.location.search));
@@ -1396,7 +1568,7 @@
 		window.addEventListener('message', function (e) {
 			if (e.origin !== window.location.origin || !e.data) return;
 			if (e.data.type === 'need-open') {
-				needMode = { name: e.data.name, suggestions: e.data.suggestions || [], picked: e.data.picked || [] };
+				needMode = { name: e.data.name, suggestions: e.data.suggestions || [], picked: e.data.picked || [], meeting: e.data.meeting || null };
 				needTitle = 'Du jobber med: ' + e.data.name;
 				if (panelView === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
 				showNeedMode();
@@ -1445,6 +1617,18 @@
 					}
 				}
 			});
+
+						// The kontaktpunkt: the purple flag with a dashed line to the need (help with AI)
+			if (needMode && needMode.meeting) {
+				var m = needMode.meeting;
+				L.marker([m.lat, m.lng], {
+					icon: L.divIcon({ className: '', html: '<div class="meeting-flag"><i class="ti ti-flag" aria-hidden="true"></i></div>', iconSize: [26, 26], iconAnchor: [13, 13] }),
+					keyboard: false
+				}).bindTooltip('⚑ Kontaktpunkt: ' + escapeHtml(m.name), { direction: 'top', offset: [0, -14] }).addTo(needModeLayer);
+				if (needLatLng) {
+					L.polyline([needLatLng, [m.lat, m.lng]], { color: '#7A5AF8', weight: 2, dashArray: '6 6', interactive: false }).addTo(needModeLayer);
+				}
+			}
 
 			// Need mode is easy to see: the yellow top of the panel, and the info box with what the rings mean
 			var info = document.getElementById('needModeInfo');
@@ -1639,6 +1823,55 @@
 			if (e.origin !== window.location.origin || !e.data) return;
 			if (e.data.type === 'place-mode') { if (e.data.on) placeOn(e.data.lat, e.data.lng); else placeOff(); }
 			if (e.data.type === 'place-pin' && placeMode) { movePlace(L.latLng(e.data.lat, e.data.lng), false); map.panTo([e.data.lat, e.data.lng]); }
+		});
+
+		// "Meld behov" in the side panel (help with AI): the need is placed on the big map. The form sends where it is,
+		// the radius and the kontaktpunkt; a click on the map, or dragging the pin or the flag, sends the place back
+		var needPlaceLayer = L.layerGroup().addTo(map), needPlaceOn = false, needPlaceBar = null;
+
+		function sendToNeedForm(type, latlng) {
+			document.getElementById('needPanelFrame').contentWindow.postMessage(
+				{ type: type, lat: latlng.lat, lng: latlng.lng }, window.location.origin);
+		}
+
+		function drawNeedPlace(d) {
+			needPlaceLayer.clearLayers();
+			if (needPlaceBar) { needPlaceBar.remove(); needPlaceBar = null; }
+			needPlaceOn = !d.off;
+			map.getContainer().classList.toggle('place-mode', needPlaceOn);
+			if (!needPlaceOn) return;
+
+			// The stripe at the top says what a click does: purple while the kontaktpunkt is chosen
+			needPlaceBar = L.DomUtil.create('div', 'place-bar' + (d.pickingMeeting ? ' is-meeting' : ''), map.getContainer());
+			needPlaceBar.innerHTML = d.pickingMeeting
+				? '<i class="ti ti-flag" aria-hidden="true"></i> Klikk der kontaktpunktet er'
+				: '<i class="ti ti-map-pin" aria-hidden="true"></i> Klikk på kartet eller dra nålen for å velge hvor behovet er';
+			if (d.lat == null || d.lng == null) return;
+
+			var pos = L.latLng(d.lat, d.lng);
+			if (d.radiusKm > 0) {
+				L.circle(pos, { radius: d.radiusKm * 1000, color: d.planned ? '#E69500' : '#E24B4A', dashArray: '8 6', fillOpacity: 0.08, interactive: false }).addTo(needPlaceLayer);
+			}
+			var pin = L.marker(pos, { draggable: true, zIndexOffset: 1000, icon: new L.Icon.Default({ className: 'place-pin' }) }).addTo(needPlaceLayer);
+			pin.on('dragend', function () { sendToNeedForm('need-place-picked', pin.getLatLng()); });
+
+			if (d.meeting) {
+				var flag = L.marker([d.meeting.lat, d.meeting.lng], {
+					draggable: true, zIndexOffset: 1000,
+					icon: L.divIcon({ className: 'place-pin', html: '<div class="meeting-flag"><i class="ti ti-flag" aria-hidden="true"></i></div>', iconSize: [26, 26], iconAnchor: [13, 13] })
+				}).bindTooltip('⚑ ' + escapeHtml(d.meeting.name || 'Kontaktpunkt')).addTo(needPlaceLayer);
+				flag.on('dragend', function () { sendToNeedForm('need-meeting-moved', flag.getLatLng()); });
+				L.polyline([pos, [d.meeting.lat, d.meeting.lng]], { color: '#7A5AF8', weight: 2, dashArray: '6 6', interactive: false }).addTo(needPlaceLayer);
+			}
+			if (!map.getBounds().contains(pos)) map.panTo(pos);
+		}
+
+		// A click on the map while "Meld behov" is open: the form decides if it is the need or the kontaktpunkt
+		map.on('click', function (e) { if (needPlaceOn) sendToNeedForm('need-map-click', e.latlng); });
+
+		window.addEventListener('message', function (e) {
+			if (e.origin !== window.location.origin || !e.data || e.data.type !== 'need-place') return;
+			drawNeedPlace(e.data);
 		});
 
 		function showClusterList() {
@@ -1867,7 +2100,7 @@
 		});
 		new ChipsControl().addTo(map);
 
-		// "↩ 2 skal leveres tilbake" at the top, next to Filter: a click zooms to them (help with AI)
+		// "↩︎ 2 skal leveres tilbake" at the top, next to Filter: a click zooms to them (help with AI)
 		var ReturnControl = L.Control.extend({
 			options: { position: 'topleft' },
 			onAdd: function () {
@@ -1948,7 +2181,7 @@
 				var resources = '<div class="map-legend-title">Ressurser</div>'
 					+ '<div>' + pin('#2f8a3a') + 'Ledig nå (ikonet viser typen)</div>'
 					+ '<div>' + pin('#888780') + 'I bruk, ledig senere eller ikke tilgjengelig</div>'
-					+ '<div><span class="legend-return">↩</span>Skal leveres tilbake</div>'
+					+ '<div><span class="legend-return">↩︎</span>Skal leveres tilbake</div>'
 					+ '<div><span class="legend-cluster">2</span>Flere ressurser på samme sted</div>';
 				var actors = '<div class="map-legend-title">Offentlige aktører</div>'
 					+ '<div><img src="/images/permanent-map-icons/police.png" width="16" height="16" alt="" class="legend-img" />Politi, brann og sykehus</div>';
@@ -1959,7 +2192,8 @@
 					+ '<div class="map-legend-title">Når du jobber med et behov</div>'
 					+ '<div><span class="ring-dot"></span>Kan velges</div>'
 					+ '<div><span class="ring-dot ring-picked">✓</span>Valgt</div>'
-					+ '<div><span class="legend-line"></span>Valgt til behovet</div>';
+					+ '<div><span class="legend-line"></span>Valgt til behovet</div>'
+					+ '<div><span class="meeting-flag meeting-flag-xs"><i class="ti ti-flag" aria-hidden="true"></i></span>Kontaktpunkt</div>';
 				var crises = '<div class="map-legend-title">Kriser</div>'
 					+ '<div><span class="legend-crisis is-acute"><i class="ti ti-alarm" aria-hidden="true"></i></span>Akutt – skjer nå</div>'
 					+ '<div><span class="legend-crisis is-planned"><i class="ti ti-calendar" aria-hidden="true"></i></span>Planlagt – f.eks. en øvelse</div>'

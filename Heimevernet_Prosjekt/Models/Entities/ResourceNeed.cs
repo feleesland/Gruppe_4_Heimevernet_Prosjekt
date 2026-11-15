@@ -31,6 +31,11 @@
         // The circle on the map; a new need on a spot inside it is offered "Legg til i ..."
         public double RadiusKm { get; set; } = 2;
 
+        // Kontaktpunkt: where the resources are delivered or people meet. Empty = the same place as the need (help with AI)
+        public string MeetingPointName { get; set; } = string.Empty;
+        public double? MeetingLatitude { get; set; }
+        public double? MeetingLongitude { get; set; }
+
         // When it is needed. Empty NeededFrom = now (Akutt)
         public DateTime? NeededFrom { get; set; }
         public DateTime? NeededTo { get; set; }

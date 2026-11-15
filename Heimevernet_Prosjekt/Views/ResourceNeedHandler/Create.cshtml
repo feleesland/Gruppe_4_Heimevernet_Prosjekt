@@ -80,7 +80,27 @@
                 @* The optional things are links, so the form stays short *@
                 <div class="d-flex flex-wrap gap-3 mt-2">
                     <button type="button" id="addDeadline" class="btn btn-link btn-sm p-0 need-link">+ Frist</button>
+                    @if (!editing)
+                    {
+                        <button type="button" id="addPublic" class="btn btn-link btn-sm p-0 need-link">+ Info til innbyggere</button>
+                    }
                 </div>
+                @* «+ Info til innbyggere» (help with AI): published on the front page when the need is created.
+                   When editing, it is written on the need page instead *@
+                @if (!editing)
+                {
+                    <div id="publicBox" class="mt-2" hidden>
+                        <label asp-for="PublicText" class="form-label small mb-1"><i class="ti ti-world" aria-hidden="true"></i> Info til innbyggere <span class="text-body-secondary">· vises på forsiden for alle</span></label>
+                        <div class="d-flex flex-wrap gap-1 mb-1">
+                            @foreach (var quick in new[] { ("Unngå området", "Unngå området rundt "), ("Veien er stengt", "Veien er stengt. Bruk omkjøring via "), ("Evakuering", "Evakuerte kan møte på "), ("Strømbrudd", "Strømbrudd i området. "), ("Øvelse", "Heimevernet øver i området. ") })
+                            {
+                                <button type="button" class="btn btn-sm rf-reset rounded-pill" data-quick="@quick.Item2">@quick.Item1</button>
+                            }
+                        </div>
+                        <input asp-for="PublicText" class="form-control" maxlength="300" autocomplete="off" placeholder="Kort tekst alle kan se, f.eks. «Unngå området rundt Lund»" />
+                        <span asp-validation-for="PublicText" class="text-danger small"></span>
+                    </div>
+                }
             </div>
 
             <div id="addingInfo" class="alert alert-secondary py-2 mb-0" hidden></div>
@@ -121,11 +141,44 @@
                 </span>
             </div>
             <span id="geoStatus" class="small text-muted d-block"></span>
-            <div id="pickMap" class="need-map rounded"></div>
-            <small class="text-muted">Klikk på kartet eller dra markøren.</small>
+            @* Kontaktpunkt (help with AI): where the resources are delivered or people meet. One row; a small menu.
+               The values are in the hidden fields under the map (need-form.js) *@
+            <div class="need-meeting-row dropdown">
+                <button type="button" id="meetingToggle" class="need-meeting-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                    <span class="meeting-flag meeting-flag-sm"><i class="ti ti-flag" aria-hidden="true"></i></span>
+                    <span class="need-meeting-text"><b>Kontaktpunkt:</b> <span id="meetingText">Samme sted som behovet</span><span id="meetingDistance" class="text-body-secondary"></span></span>
+                    <span class="need-link ms-auto text-nowrap small">Endre <i class="ti ti-chevron-down" aria-hidden="true"></i></span>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end need-meeting-menu">
+                    <button type="button" id="meetingSame" class="dropdown-item"><i class="ti ti-map-pin" aria-hidden="true"></i> Samme sted som behovet</button>
+                    <button type="button" id="meetingPick" class="dropdown-item"><i class="ti ti-pointer" aria-hidden="true"></i> Velg på kartet</button>
+                    <div id="meetingNoteBox" class="px-3 pt-2 pb-1 border-top mt-1" hidden>
+                        <label for="meetingNameInput" class="form-label small mb-1">Navn eller forklaring</label>
+                        <input id="meetingNameInput" class="form-control form-control-sm" maxlength="200" autocomplete="off" placeholder="F.eks. «Lund skole, inngang bak»" />
+                    </div>
+                </div>
+            </div>
+            @* «Velg på kartet»: shown while the next click on the map sets the flag *@
+            <div id="meetingPickBar" class="need-meeting-pickbar" role="status" hidden>
+                <i class="ti ti-pointer" aria-hidden="true"></i> Klikk på kartet der kontaktpunktet er
+                <button type="button" id="meetingPickCancel" class="btn btn-sm btn-light ms-auto py-0">Avbryt</button>
+            </div>
+            @* In the side panel the need is placed on the big map instead (need-form.js tells the map) *@
+            <div id="pickMap" class="need-map rounded" hidden="@embed"></div>
+            @if (embed)
+            {
+                <div class="alert alert-success py-2 small mb-0"><i class="ti ti-pointer" aria-hidden="true"></i> Klikk på det store kartet eller dra nålen for å velge hvor behovet er.</div>
+            }
+            else
+            {
+                <small class="text-muted">Klikk på kartet eller dra markøren.</small>
+            }
             <input type="hidden" asp-for="Latitude" />
             <input type="hidden" asp-for="Longitude" />
             <input type="hidden" asp-for="Municipality" />
+            <input type="hidden" asp-for="MeetingPointName" />
+            <input type="hidden" asp-for="MeetingLatitude" />
+            <input type="hidden" asp-for="MeetingLongitude" />
         </fieldset>
 
         @* Under both columns: a short summary and the button, always in view *@

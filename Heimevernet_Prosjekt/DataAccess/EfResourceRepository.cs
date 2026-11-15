@@ -201,6 +201,29 @@ public class EfResourceRepository(HeimevernetDbContext dbContext) : IResourceRep
         return true;
     }
 
+    // "Endre" on Tilgjengelig (help with AI): the kind and the times. New times end "Ikke tilgjengelig" (Ugyldig stays)
+    public void SetAvailability(int id, AvailabilityKind kind, TimeSpan? fromTime, TimeSpan? toTime, int days, DateTime? fromDate, DateTime? toDate)
+    {
+        var resource = dbContext.Resources.Find(id);
+        if (resource == null)
+        {
+            return;
+        }
+        resource.AvailabilityKind = kind;
+        resource.AvailableFromTime = fromTime;
+        resource.AvailableToTime = toTime;
+        resource.AvailableDays = days;
+        resource.AvailableFromDate = fromDate;
+        resource.AvailableToDate = toDate;
+        if (resource.Status == "Ikke tilgjengelig")
+        {
+            resource.Status = "Ledig";
+            resource.UnavailableReason = null;
+            resource.UnavailableUntil = null;
+        }
+        dbContext.SaveChanges();
+    }
+
     // The resource's answers with their questions, in the question order
     public IReadOnlyList<ResourceAttributeValue> GetAnswers(int resourceId)
     {

@@ -148,6 +148,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             RadiusKm = model.RadiusKm,
             NeededFrom = model.NeededFrom,
             NeededTo = model.NeededTo,
+            MeetingPointName = model.MeetingPointName ?? string.Empty,
+            MeetingLatitude = model.MeetingLatitude,
+            MeetingLongitude = model.MeetingLongitude,
 
             Items = model.Lines
                 .Select(line => new ResourceNeedItem { Type = line.Type, Quantity = line.Quantity })
@@ -278,6 +281,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.RadiusKm = model.RadiusKm;
         need.NeededFrom = model.NeededFrom;
         need.NeededTo = model.NeededTo;
+        need.MeetingPointName = model.MeetingPointName ?? string.Empty;
+        need.MeetingLatitude = model.MeetingLatitude;
+        need.MeetingLongitude = model.MeetingLongitude;
 
         foreach (var item in need.Items.ToList())
         {

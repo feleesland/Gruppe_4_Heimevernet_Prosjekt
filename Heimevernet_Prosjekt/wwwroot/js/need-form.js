@@ -16,6 +16,8 @@
     const linesBox = document.getElementById('lines');
     const submitButton = document.getElementById('submitButton');
     const searchField = document.getElementById('typeSearch');
+    // In the side panel on the main map: the need is placed on the big map (tellMap at the end of this file)
+    const inPanel = window.parent !== window;
 
     function readJson(id) {
         try { return JSON.parse(document.getElementById(id).textContent) || []; } catch { return []; }
@@ -164,39 +166,58 @@
             : `${lines.length} ${lines.length === 1 ? 'type' : 'typer'} · ${totalCount()} stk`;
     }
 
-    // ---- Under the lines: "Ofte brukt", and the categories while nothing is chosen ----
+    // ---- Under the lines: "Ofte brukt" and the categories (help with AI) ----
+    // Empty: big cards. Some lines: the big cards stay (chosen ones green with ✓ and the number), so nothing disappears.
+    // When the lines no longer fit, one jump to small chips, so the page never scrolls (the lines scroll in their card)
     function drawQuick() {
-        const box = document.getElementById('quickBox');
-        box.replaceChildren();
         const empty = lines.length === 0;
-        box.className = empty ? 'need-quick is-empty' : 'need-quick';
+        // Small screens: the page scrolls anyway, so keep it short with chips once something is chosen
+        if (!empty && window.innerWidth < 992) {
+            renderQuick('compact');
+            return;
+        }
+        renderQuick(empty ? 'empty' : 'full');
+        // The lines are squeezed (taller than their space): switch to chips
+        if (!empty && linesBox.scrollHeight > linesBox.clientHeight + 1) {
+            renderQuick('compact');
+        }
+    }
 
-        box.append(el('div', 'need-quick-label', empty ? 'Ofte brukt · ett klikk legger til' : 'Ofte brukt'));
-        const grid = el('div', empty ? 'need-quick-grid' : 'need-quick-chips');
+    // mode: 'empty' (nothing chosen), 'full' (big cards + categories) or 'compact' (one row of chips)
+    function renderQuick(mode) {
+        const box = document.getElementById('quickBox');
+        const big = mode !== 'compact';
+        box.closest('.need-lines-card').classList.toggle('is-full', mode === 'full');
+        box.replaceChildren();
+        box.className = mode === 'empty' ? 'need-quick is-empty' : 'need-quick';
+
+        box.append(el('div', 'need-quick-label', big ? 'Ofte brukt · ett klikk legger til' : 'Ofte brukt'));
+        const grid = el('div', big ? 'need-quick-grid' : 'need-quick-chips');
         popular.forEach(name => {
             const line = findLine(name);
-            const b = el('button', empty ? 'need-quick-card' : 'need-chip' + (line ? ' is-on' : ''));
+            const count = line ? ' · ' + line.quantity : '';
+            const b = el('button', (big ? 'need-quick-card' : 'need-chip') + (line ? ' is-on' : ''));
             b.type = 'button';
-            b.setAttribute('aria-label', 'Legg til ' + name);
-            if (empty) {
+            b.setAttribute('aria-label', 'Legg til ' + name + (line ? `, ${line.quantity} valgt` : ''));
+            if (big) {
                 const dot = el('span', 'need-type-icon');
-                dot.appendChild(icon(typeInfo[name].icon));
+                dot.appendChild(icon(line ? 'check' : typeInfo[name].icon));
                 const plus = el('span', 'need-type-plus');
                 plus.appendChild(icon('plus'));
-                b.append(dot, el('span', 'flex-grow-1', name), plus);
+                b.append(dot, el('span', 'flex-grow-1', name + count), plus);
             } else {
-                b.append(icon(line ? 'check' : 'plus'), document.createTextNode(' ' + name + (line ? ' · ' + line.quantity : '')));
+                b.append(icon(line ? 'check' : 'plus'), document.createTextNode(' ' + name + count));
             }
             b.addEventListener('click', () => addType(name));
             grid.appendChild(b);
         });
         box.appendChild(grid);
 
-        // Empty: shortcuts into the window, which opens on that category
-        if (empty) {
+        // Shortcuts into the window, which opens on that category. Big screens: all of them
+        if (big) {
             box.append(el('div', 'need-quick-label mt-2', 'Eller åpne en kategori'));
             const cats = el('div', 'need-quick-cats');
-            categories.slice(0, 4).forEach((c, i) => {
+            (window.innerWidth >= 1400 ? categories : categories.slice(0, 4)).forEach((c, i) => {
                 const b = el('button', 'need-cat need-cat-small');
                 b.type = 'button';
                 b.append(icon(c.icon), el('span', null, c.name));
@@ -208,9 +229,8 @@
             });
             box.appendChild(cats);
         }
-        document.getElementById('allHint').textContent = empty ? `· ${categories.length} kategorier, søk` : '';
+        document.getElementById('allHint').textContent = mode === 'empty' ? `· ${categories.length} kategorier, søk` : '';
     }
-
     // ---- The window: categories, types and "Valgt" ----
     function searchHits() {
         const text = searchField.value.trim().toLowerCase();
@@ -342,6 +362,7 @@
     let radiusCircle = null;
     function drawRadius() {
         if (typeof pickMap === 'undefined') return;
+        tellMap();
         if (radiusCircle) {
             pickMap.removeLayer(radiusCircle);
             radiusCircle = null;
@@ -365,7 +386,9 @@
             : chosen ? `Legg til ${n} behov i ${chosen.name}`
                 : `Meld ${n} behov`;
         const where = document.getElementById('Address').value.trim() || (latField.value ? 'Valgt punkt' : 'Velg sted');
-        const parts = [chosen ? 'Legges til i ' + chosen.name : (isPlanned() ? '📅 Planlagt' : '⏰ Akutt'), '📍 ' + where, totalCount() + ' stk'];
+        const parts = [chosen ? 'Legges til i ' + chosen.name : (isPlanned() ? '📅 Planlagt' : '⏰ Akutt'), '📍 ' + where];
+        if (hasMeeting()) parts.push('⚑ ' + (meetingName.value || 'Kontaktpunkt'));
+        parts.push(totalCount() + ' stk');
         document.getElementById('needSummary').textContent = parts.join(' · ');
     }
     document.getElementById('Address').addEventListener('input', updateSubmit);
@@ -468,10 +491,208 @@
         if (typeof pickMap !== 'undefined') pickMap.invalidateSize(); // Leaflet must know the map changed size
     }
     window.addEventListener('resize', fitToScreen);
+    window.addEventListener('resize', drawQuick); // big screens show all the categories
 
+    // ---- Kontaktpunkt (help with AI): one short row over the map. «Endre» opens a small menu with «Samme sted som behovet»,
+    // «Velg på kartet» and a name/explanation field (e.g. «inngang bak»). The flag is purple, with a dashed line to the need.
+    // Docs: Bootstrap Dropdowns - https://getbootstrap.com/docs/5.3/components/dropdowns/
+    // Docs: Leaflet DivIcon and Polyline - https://leafletjs.com/reference.html
+    // Docs: Kartverket Adresse-API, punktsok - https://ws.geonorge.no/adresser/v1/#/default/get_punktsok
+    const meetingName = document.getElementById('MeetingPointName');
+    const meetingLat = document.getElementById('MeetingLatitude');
+    const meetingLng = document.getElementById('MeetingLongitude');
+    const meetingToggle = document.getElementById('meetingToggle');
+    const meetingNoteBox = document.getElementById('meetingNoteBox');
+    const meetingNameInput = document.getElementById('meetingNameInput');
+    const pickBar = document.getElementById('meetingPickBar');
+    const meetingMenu = () => bootstrap.Dropdown.getOrCreateInstance(meetingToggle);
+    let meetingMarker = null;
+    let meetingLine = null;
+
+    function hasMeeting() {
+        return meetingLat.value !== '' && meetingLng.value !== '';
+    }
+
+    // Distance in km between two points (the haversine formula)
+    function distanceKm(lat1, lng1, lat2, lng2) {
+        const rad = d => d * Math.PI / 180;
+        const a = Math.sin(rad(lat2 - lat1) / 2) ** 2
+            + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(rad(lng2 - lng1) / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function kmText(km) {
+        return km < 1 ? Math.round(km * 100) * 10 + ' m' : km.toFixed(1).replace('.', ',') + ' km';
+    }
+
+    function drawMeeting() {
+        tellMap();
+        if (meetingMarker) { pickMap.removeLayer(meetingMarker); meetingMarker = null; }
+        if (meetingLine) { pickMap.removeLayer(meetingLine); meetingLine = null; }
+
+        // The row: the name and the distance from the need. The name field only when there is an own place
+        const own = hasMeeting();
+        const lat = parseFloat(meetingLat.value);
+        const lng = parseFloat(meetingLng.value);
+        const needLat = parseFloat(latField.value);
+        const needLng = parseFloat(lngField.value);
+        const hasNeed = !isNaN(needLat) && !isNaN(needLng);
+        document.getElementById('meetingText').textContent = own ? (meetingName.value || 'Kontaktpunkt') : 'Samme sted som behovet';
+        document.getElementById('meetingDistance').textContent = own && hasNeed ? ' · ' + kmText(distanceKm(needLat, needLng, lat, lng)) : '';
+        meetingNoteBox.hidden = !own;
+        updateSubmit();
+        if (!own) return;
+
+        meetingMarker = L.marker([lat, lng], {
+            draggable: true,
+            title: meetingName.value || 'Kontaktpunkt',
+            icon: L.divIcon({ className: '', html: '<div class="meeting-flag"><i class="ti ti-flag" aria-hidden="true"></i></div>', iconSize: [26, 26], iconAnchor: [13, 13] })
+        }).addTo(pickMap);
+        meetingMarker.bindTooltip('⚑ ' + (meetingName.value || 'Kontaktpunkt'));
+        meetingMarker.on('dragend', () => setMeeting(meetingMarker.getLatLng(), true));
+        if (hasNeed) {
+            meetingLine = L.polyline([[needLat, needLng], [lat, lng]], { color: '#7A5AF8', weight: 2, dashArray: '6 6', interactive: false }).addTo(pickMap);
+        }
+    }
+
+    // A click on the map: the nearest address from Kartverket becomes the name (or «Valgt punkt»), then the menu opens
+    // so the operator can add an explanation. keepName: the flag was only dragged
+    async function setMeeting(latlng, keepName) {
+        meetingLat.value = latlng.lat.toFixed(6);
+        meetingLng.value = latlng.lng.toFixed(6);
+        if (!keepName || !meetingName.value) meetingName.value = 'Valgt punkt';
+        meetingNameInput.value = meetingName.value;
+        drawMeeting();
+        if (keepName) return;
+
+        try {
+            const url = `https://ws.geonorge.no/adresser/v1/punktsok?lat=${latlng.lat}&lon=${latlng.lng}&radius=200&treffPerSide=1&utkoordsys=4258`;
+            const a = (await (await fetch(url)).json()).adresser?.[0];
+            if (a?.adressetekst && meetingName.value === 'Valgt punkt' && meetingLat.value === latlng.lat.toFixed(6)) {
+                meetingName.value = a.adressetekst;
+                meetingNameInput.value = a.adressetekst;
+                drawMeeting();
+            }
+        } catch {
+            // No address: «Valgt punkt» is kept
+        }
+        meetingMenu().show();
+        meetingNameInput.focus();
+        meetingNameInput.setSelectionRange(meetingNameInput.value.length, meetingNameInput.value.length);
+    }
+
+    // «Velg på kartet»: a purple stripe over the map, and the next click sets the flag.
+    // location-picker.js checks window.pickingMeeting, so the need's pin stays where it is
+    function stopPicking() {
+        window.pickingMeeting = false;
+        pickBar.hidden = true;
+        pickMap.getContainer().style.cursor = '';
+        tellMap();
+    }
+
+    document.getElementById('meetingSame').addEventListener('click', () => {
+        meetingLat.value = '';
+        meetingLng.value = '';
+        meetingName.value = '';
+        meetingNameInput.value = '';
+        stopPicking();
+        meetingMenu().hide();
+        drawMeeting();
+    });
+
+    document.getElementById('meetingPick').addEventListener('click', () => {
+        meetingMenu().hide();
+        window.pickingMeeting = true;
+        pickBar.hidden = false;
+        pickMap.getContainer().style.cursor = 'crosshair';
+        pickBar.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+    document.getElementById('meetingPickCancel').addEventListener('click', stopPicking);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && window.pickingMeeting) stopPicking(); });
+
+    pickMap.on('click', e => {
+        if (!window.pickingMeeting) return;
+        stopPicking();
+        setMeeting(e.latlng, false);
+    });
+
+    // The name or explanation the operators and owners see, e.g. «Lund skole, inngang bak». Enter closes the menu, not the form
+    meetingNameInput.value = meetingName.value;
+    meetingNameInput.addEventListener('input', () => {
+        meetingName.value = meetingNameInput.value.trim();
+        drawMeeting();
+    });
+    meetingNameInput.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        meetingMenu().hide();
+    });
+
+    // The dashed line follows the need when its pin moves
+    latField.addEventListener('change', drawMeeting);
+
+    // ---- «+ Info til innbyggere» (help with AI): an optional short text, published on the front page when the need is created ----
+    const publicLink = document.getElementById('addPublic');
+    if (publicLink) {
+        const publicBox = document.getElementById('publicBox');
+        const publicField = document.getElementById('PublicText');
+        const openPublic = () => { publicBox.hidden = false; publicLink.hidden = true; };
+        if (publicField.value) openPublic();
+        publicLink.addEventListener('click', () => { openPublic(); publicField.focus(); });
+        publicBox.querySelectorAll('[data-quick]').forEach(b => b.addEventListener('click', () => {
+            publicField.value = b.dataset.quick;
+            publicField.focus();
+            publicField.setSelectionRange(publicField.value.length, publicField.value.length);
+        }));
+    }
+
+    // ---- In the side panel on the main map (help with AI): the small map is hidden, and the need is placed on the big map.
+    // The form tells the big map where the need is (pin, circle, kontaktpunkt); a click or a drag there sends the place back
+    // Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
+    function tellMap() {
+        if (!inPanel) return;
+        const lat = parseFloat(latField.value);
+        const lng = parseFloat(lngField.value);
+        parent.postMessage({
+            type: 'need-place',
+            lat: isNaN(lat) ? null : lat,
+            lng: isNaN(lng) ? null : lng,
+            radiusKm: chosen ? 0 : parseFloat(radiusSelect.value),
+            planned: isPlanned(),
+            meeting: hasMeeting() ? { lat: parseFloat(meetingLat.value), lng: parseFloat(meetingLng.value), name: meetingName.value } : null,
+            pickingMeeting: !!window.pickingMeeting
+        }, location.origin);
+    }
+
+    if (inPanel) {
+        window.addEventListener('message', e => {
+            if (e.origin !== location.origin || !e.data) return;
+            if (!['need-map-click', 'need-place-picked', 'need-meeting-moved'].includes(e.data.type)) return;
+            const latlng = L.latLng(e.data.lat, e.data.lng);
+            if (e.data.type === 'need-map-click' && window.pickingMeeting) {
+                // «Velg på kartet» for the kontaktpunkt: the click sets the flag
+                stopPicking();
+                setMeeting(latlng, false);
+            } else if (e.data.type === 'need-meeting-moved') {
+                setMeeting(latlng, true);
+            } else {
+                // The need's place: the same as a click on the small map (location-picker.js)
+                setPosition(latlng.lat, latlng.lng);
+                fillAddress(latlng.lat, latlng.lng);
+                document.getElementById('geoStatus').textContent = 'Plassering valgt på kartet.';
+            }
+        });
+        // «Velg på kartet» for the kontaktpunkt: the big map shows the purple stripe
+        document.getElementById('meetingPick').addEventListener('click', tellMap);
+        // The form is closed or saved: the big map removes the pin and the circle
+        window.addEventListener('pagehide', () => parent.postMessage({ type: 'need-place', off: true }, location.origin));
+    }
+
+    drawMeeting();
     drawAll();
     applyUrgency();
     grow();
     fitToScreen();
     checkPlace();   // e.g. when the form opens with a place from the main map
+    drawQuick();    // measure again now that the card has its height
 })();

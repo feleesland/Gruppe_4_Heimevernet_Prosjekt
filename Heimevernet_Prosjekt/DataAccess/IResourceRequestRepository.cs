@@ -27,7 +27,7 @@ public interface IResourceRequestRepository
     // The operator got the yes on the phone (allowed after the deadline too, as long as nobody has answered)
     AnswerResult ConfirmByPhone(int requestId, bool yes, DeliveryMethod? delivery);
 
-    // "↩ Angre": only answers the operator registered by phone. The request goes back to "Venter"
+    // "↩︎ Angre": only answers the operator registered by phone. The request goes back to "Venter"
     bool Undo(int requestId);
 
     // "Avbryt forespørsel": waiting or accepted (not delivered). The resource becomes free again
@@ -55,6 +55,8 @@ public record OwnerRequest(
 {
     // Waiting for the owner's answer, and the deadline has not passed
     public bool IsOpen(DateTime nowUtc) => Status == RequestStatus.Sendt && AnswerBy >= nowUtc;
+    // The need's kontaktpunkt, if it has its own (help with AI)
+    public string? MeetingPoint { get; init; }
 }
 
 public enum AnswerResult { Accepted, Declined, AlreadyCovered, NotOpen, NotFound }

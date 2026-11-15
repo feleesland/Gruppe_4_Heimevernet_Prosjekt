@@ -451,6 +451,17 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.Property<double?>("Longitude")
                         .HasColumnType("double");
 
+                    b.Property<double?>("MeetingLatitude")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("MeetingLongitude")
+                        .HasColumnType("double");
+
+                    b.Property<string>("MeetingPointName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<string>("Municipality")
                         .IsRequired()
                         .HasColumnType("longtext");
