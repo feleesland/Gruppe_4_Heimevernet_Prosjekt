@@ -491,4 +491,4 @@ window.ResourceFilter = (function () {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
     return { matches: matches, render: render, distanceKm: distanceKm };
-})();
+})();
