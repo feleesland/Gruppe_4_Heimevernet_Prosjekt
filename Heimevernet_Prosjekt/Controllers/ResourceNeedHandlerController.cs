@@ -902,4 +902,4 @@ namespace Heimevernet_Prosjekt.Controllers
             _resourceNeedRepository.AddLog(needId, userId, userName, text);
         }
     }
-}
+}
