@@ -56,16 +56,20 @@ namespace Heimevernet_Prosjekt.Controllers
             return RedirectToAction("List", "ResourceNeed");
         }
 
-        // "Meld behov". From the map, place and radius come in the address (?lat=..&lng=..&radius=..)
+        // "Meld behov". From the map, place and radius come in the address (?lat=..&lng=..&radius=..).
+        // It always starts as a new need; the yellow box only suggests an active need nearby.
+        // ?add=5 («+ Legg til mer» on the need page): adds to that need from the start (help with AI)
+        // Docs: https://learn.microsoft.com/aspnet/core/mvc/models/model-binding
         [HttpGet]
-        public IActionResult Create(double? lat, double? lng, double? radius)
+        public IActionResult Create(double? lat, double? lng, double? radius, int? add)
         {
             LoadTypes();
             var model = new ReportNeedViewModel
             {
                 Latitude = lat,
                 Longitude = lng,
-                RadiusKm = radius is > 0 ? radius.Value : 2
+                RadiusKm = radius is > 0 ? radius.Value : 2,
+                ExistingNeedId = add
             };
             return View(model);
         }

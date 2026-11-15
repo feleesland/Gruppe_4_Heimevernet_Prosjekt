@@ -1942,3 +1942,15 @@ footer.footer {
 .navbar.border-bottom {
     border-bottom-color: #164d36 !important;
 }
+/* Meld behov: the "Legg til i …" buttons in the yellow box. Yellow text on yellow was hard to read
+   in light mode, so the text and border are dark amber; dark mode keeps Bootstrap's colours (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/components/buttons/#variables */
+[data-bs-theme="light"] #activeList .btn-outline-warning,
+html:not([data-bs-theme]) #activeList .btn-outline-warning {
+    --bs-btn-color: #7a5200;
+    --bs-btn-border-color: #d9a400;
+    --bs-btn-bg: #fff;
+    --bs-btn-hover-color: #000;
+    --bs-btn-hover-bg: #ffc107;
+    --bs-btn-hover-border-color: #ffc107;
+}
