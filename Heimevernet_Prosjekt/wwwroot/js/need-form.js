@@ -494,7 +494,6 @@
         const fromServer = parseInt(existingField.value);
         if (chosen && !activeNeeds.some(n => n.id === chosen.id)) chosen = null;
         if (!chosen && !isNaN(fromServer)) chosen = activeNeeds.find(n => n.id === fromServer) || null;
-        if (!chosen && !userChoseNew && activeNeeds.length > 0) chosen = activeNeeds[0];
 
         renderBox();
         applyMode();

@@ -222,6 +222,7 @@
             <a class="btn btn-sm btn-primary"
                asp-controller="ResourceNeedHandler" asp-action="Create"
                asp-route-lat="@Invariant(Model.Latitude.Value)" asp-route-lng="@Invariant(Model.Longitude.Value)"
+               asp-route-add="@Model.Id"
                asp-route-embed="@(embed ? "1" : null)">
                 <i class="ti ti-plus" aria-hidden="true"></i> @(embed ? "Mer" : "Legg til mer")
             </a>
