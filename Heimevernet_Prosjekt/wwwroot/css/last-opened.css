@@ -1,0 +1,26 @@
+﻿/* «Sist åpnet» (help with AI): the blue row and tag in the lists (last-opened.js).
+   Bootstrap variables, so light and dark mode both work - Docs: Bootstrap CSS variables https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+.last-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    padding: 0 .45rem;
+    border: 1px solid var(--bs-primary-border-subtle);
+    border-radius: 999px;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    font-size: .75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+/* The row: a blue edge and a light blue tint (the tag says it in text too). Light, so red and green tags still read well */
+.is-last {
+    background: rgba(13, 110, 253, .06) !important;
+    box-shadow: inset 4px 0 0 var(--bs-primary);
+}
+
+[data-bs-theme="dark"] .is-last {
+    background: rgba(110, 168, 254, .08) !important;
+}

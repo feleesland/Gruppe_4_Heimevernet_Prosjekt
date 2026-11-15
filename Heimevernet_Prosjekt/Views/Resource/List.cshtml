@@ -36,6 +36,8 @@
     var nb = System.Globalization.CultureInfo.GetCultureInfo("nb-NO"); // "KRISTIANSAND" from Kartverket -> "Kristiansand"
 }
 
+<link rel="stylesheet" href="~/css/last-opened.css" asp-append-version="true" />
+
 @* The top row: the title and the buttons. The area is at the start of the list bar (B) *@
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
     <h1 class="mb-0 me-2">@ViewData["Title"]</h1>
@@ -99,6 +101,9 @@
             <div id="printInfo" class="small"></div>
         </div>
 
+        @* «Sist åpnet»: last-opened.js marks the resource you opened last *@
+        <div data-last-list="resource" hidden></div>
+
         @* The filter bar: green "Viser 6 av 34" with the chips while something is filtered away, grey "34 ressurser" otherwise.
            Admin and operator: the area first, and the bar is green (the same area as on Oversikt and Behov).
            Vis på kart and Eksporter are in the same bar (help with AI) *@
@@ -159,7 +164,7 @@
                                  data-name="@r.Name" data-category="@r.Category" data-status-text="@statusText" data-place="@place"
                                  data-owner="@(seeOwners ? r.OwnerName : null)" data-phone="@(seeOwners ? r.OwnerPhone : null)"
                                  data-reports="@openReports.GetValueOrDefault(r.Id ?? 0)"
-                                 data-href="@Url.Action("Index", "Resource", new { id = r.Id })">
+                                 data-href="@Url.Action("Index", "Resource", new { id = r.Id })" data-last-id="@r.Id">
                                 <span class="res-icon list-icon @(r.Status == "Ledig" ? "" : r.Status == "Lever tilbake" ? "list-icon-return" : "list-icon-busy")"><i class="ti @icon" aria-hidden="true"></i></span>
                                 <span class="res-name">
                                     <a class="list-name" asp-controller="Resource" asp-action="Index" asp-route-id="@r.Id">@r.Name</a>
@@ -198,6 +203,7 @@
 @section Scripts {
     <script src="~/js/resource-filter.js" asp-append-version="true"></script>
     <script src="~/js/resource-export.js" asp-append-version="true"></script>
+    <script src="~/js/last-opened.js" asp-append-version="true"></script>
     <script>
         // Ressursoversikt: the filter hides rows right away, without reloading.
         // Search and "Mine" are done by the server, so the page reloads when they change (help with AI)

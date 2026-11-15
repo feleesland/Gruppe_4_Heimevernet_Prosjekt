@@ -36,14 +36,11 @@
         </span>
     }
 
-    // The map button on a loan row: opens Kart at the resource. Nothing for a deleted resource
+    // The map button on a loan row: opens Kart at the resource. Nothing for a deleted resource.
+    // «📦 Levert» is in the loop below, next to it: a form (TagHelper) can't be in a local function (help with AI)
     void LoanMap(OverviewLoanRow l)
     {
-        if (l.ResourceDeleted)
-        {
-            <span></span>
-        }
-        else
+        if (!l.ResourceDeleted)
         {
             <a class="btn btn-sm btn-outline-secondary ov-map" href="@Url.Action("Map", "Home", new { resource = l.ResourceId })"
                title="Vis på kartet" aria-label="Vis «@l.ResourceName» på kartet"><i class="ti ti-map-2" aria-hidden="true"></i></a>
@@ -64,6 +61,7 @@
 }
 
 <link rel="stylesheet" href="~/css/overview.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/last-opened.css" asp-append-version="true" />
 
 @if (TempData["Message"] != null)
 {
@@ -85,6 +83,9 @@
 @* The area: the shared picker (Views/Shared/_RegionPicker.cshtml), the same as on Ressurser and Behov.
    Shown big here, so you always see which area you look at *@
 <partial name="_RegionPicker" model="regionPicker" />
+
+@* «Sist åpnet»: last-opened.js marks the need you opened last *@
+<div data-last-list="need" hidden></div>
 
 @* Until an area is chosen the rest is shown for all of Norway, but dimmed, so the choice comes first *@
 <div class="@(chosen ? "" : "ov-dim")">
@@ -124,18 +125,23 @@
     }
 
     @* The number strip: each box jumps to its list *@
-    <div class="row g-2 mb-3">
-        <div class="col-6 col-md-3">
-            <a class="ov-stat" href="#activeNeeds"><b>@Model.ActiveAkutt</b><i class="ti ti-alarm" aria-hidden="true"></i> Akutt</a>
+    @* The numbers, each with its colour (red Akutt, yellow Planlagt and Ikke levert, blue Venter, purple Utlånt), grey at 0,
+       so what needs something stands out. Icon + text too, not colour alone (help with AI) *@
+    <div class="row row-cols-2 row-cols-md-5 g-2 mb-3">
+        <div class="col">
+            <a class="ov-stat @(Model.ActiveAkutt > 0 ? "is-red" : "")" href="#activeNeeds"><b>@Model.ActiveAkutt</b><i class="ti ti-alarm" aria-hidden="true"></i> Akutt</a>
         </div>
-        <div class="col-6 col-md-3">
-            <a class="ov-stat" href="#activeNeeds"><b>@Model.ActivePlanned</b><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt</a>
+        <div class="col">
+            <a class="ov-stat @(Model.ActivePlanned > 0 ? "is-warn" : "")" href="#activeNeeds"><b>@Model.ActivePlanned</b><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt</a>
         </div>
-        <div class="col-6 col-md-3">
-            <a class="ov-stat" href="#activeNeeds"><b>@Model.Waiting</b><i class="ti ti-hourglass" aria-hidden="true"></i> Venter på svar</a>
+        <div class="col">
+            <a class="ov-stat @(Model.Waiting > 0 ? "is-blue" : "")" href="#activeNeeds"><b>@Model.Waiting</b><i class="ti ti-hourglass" aria-hidden="true"></i> Venter på svar</a>
         </div>
-        <div class="col-6 col-md-3">
-            <a class="ov-stat" href="#loanBox"><b>@Model.InUse.Count</b><i class="ti ti-package" aria-hidden="true"></i> Utlånt nå</a>
+        <div class="col">
+            <a class="ov-stat @(Model.NotDelivered.Count > 0 ? "is-warn" : "")" href="#followUp"><b>@Model.NotDelivered.Count</b><i class="ti ti-package" aria-hidden="true"></i> Ikke levert</a>
+        </div>
+        <div class="col">
+            <a class="ov-stat @(Model.InUse.Count > 0 ? "is-purple" : "")" href="#loanBox"><b>@Model.InUse.Count</b><i class="ti ti-package" aria-hidden="true"></i> Utlånt nå</a>
         </div>
     </div>
 
@@ -236,7 +242,7 @@
                 }
                 var quiet = nextIcon == "ti-check" || nextIcon == "ti-hourglass";
 
-                <div class="ov-row @(n.Level == 2 ? "is-hot" : n.Level == 1 ? "is-warm" : "")" data-href="@needUrl">
+                <div class="ov-row @(n.Level == 2 ? "is-hot" : n.Level == 1 ? "is-warm" : "")" data-href="@needUrl" data-last-id="@n.Id">
                     <div class="ov-when">
                         @if (n.Urgency == NeedUrgency.Akutt)
                         {
@@ -340,9 +346,11 @@
                         @{
                             Contact(l);
                         }
-                        @{
-                            LoanMap(l);
-                        }
+                        <span class="ov-loan-act">
+                            @{
+                                LoanMap(l);
+                            }
+                        </span>
                         <span class="text-body-secondary" aria-hidden="true">›</span>
                     </div>
                 }
@@ -350,7 +358,7 @@
         </div>
 
         <div class="col-12 col-lg-6">
-            <div class="ov-box">
+            <div class="ov-box" id="followUp">
                 <h2 class="h6 mb-1"><i class="ti ti-alert-circle" aria-hidden="true"></i> Må følges opp · @(Model.NotDelivered.Count + Model.GiveBack.Count) <span class="small fw-normal text-body-secondary">· ikke der de skal være</span></h2>
                 @if (Model.NotDelivered.Count + Model.GiveBack.Count == 0)
                 {
@@ -359,7 +367,7 @@
 
                 @if (Model.NotDelivered.Count > 0)
                 {
-                    <div class="ov-group is-warn"><i class="ti ti-check" aria-hidden="true"></i> Sagt ja – ikke levert</div>
+                    <div class="ov-group is-warn"><i class="ti ti-check" aria-hidden="true"></i> Sagt ja – ikke levert · trykk «Levert» når den er kommet fram</div>
                     @foreach (var l in Model.NotDelivered)
                     {
                         <div class="ov-loan" data-href="@Url.Action("Index", "ResourceNeed", new { id = l.NeedId, from = "overview" })">
@@ -368,9 +376,19 @@
                             @{
                                 Contact(l);
                             }
-                            @{
-                                LoanMap(l);
-                            }
+                            @* «📦 Levert»: back to Oversikt after (back=overview) *@
+                            <span class="ov-loan-act">
+                                <form asp-controller="ResourceNeedHandler" asp-action="MarkDelivered" method="post">
+                                    <input type="hidden" name="needId" value="@l.NeedId" />
+                                    <input type="hidden" name="back" value="overview" />
+                                    <button type="submit" name="delivered" value="@l.RequestId" class="btn btn-sm btn-success" aria-label="Marker @l.ResourceName som levert">
+                                        <i class="ti ti-package" aria-hidden="true"></i> Levert
+                                    </button>
+                                </form>
+                                @{
+                                    LoanMap(l);
+                                }
+                            </span>
                             <span class="text-body-secondary" aria-hidden="true">›</span>
                         </div>
                     }
@@ -387,9 +405,11 @@
                             @{
                                 Contact(l);
                             }
-                            @{
-                                LoanMap(l);
-                            }
+                            <span class="ov-loan-act">
+                                @{
+                                    LoanMap(l);
+                                }
+                            </span>
                             <span class="text-body-secondary" aria-hidden="true">›</span>
                         </div>
                     }
@@ -402,4 +422,5 @@
 
 @section Scripts {
     <script src="~/js/overview.js" asp-append-version="true"></script>
+    <script src="~/js/last-opened.js" asp-append-version="true"></script>
 }

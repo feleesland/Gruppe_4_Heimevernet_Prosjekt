@@ -254,6 +254,11 @@
             // The same type on two lines is said once ("Lokaler", not "Lokaler. Lokaler")
             var idleTypes = idleLines.GroupBy(l => l.Type).Select(g => g.First()).ToList();
             var far = idleTypes.Any(l => !l.Suggestions.Any(s => s.InsideCircle));
+            // Said yes, not delivered yet: shown with a «📦 Levert» button each, under the next step (help with AI)
+            var undelivered = Model.Lines
+                .SelectMany(l => l.Requests.Where(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt == null && r.ReturnedAt == null).Select(r => (Line: l, Req: r)))
+                .OrderBy(x => x.Req.SentAt)
+                .ToList();
 
             if (overdueReqs.Count > 0)
             {
@@ -310,11 +315,39 @@
                     <div class="np-next-why">@waitingReqs.Count venter@(waitingReqs.Count > 0 ? $" · første frist {OsloShort(waitingReqs.Min(r => r.AnswerBy))}" : "").</div>
                 </section>
             }
-            else
+            else if (undelivered.Count == 0)
             {
-                var notDelivered = Model.Lines.SelectMany(l => l.Requests).Count(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt == null && r.ReturnedAt == null);
                 <section class="np-next is-ok np-noprint" aria-label="Neste steg">
-                    <i class="ti ti-circle-check" aria-hidden="true"></i> Alt er dekket.@(notDelivered > 0 ? $" Marker som levert når {(notDelivered == 1 ? "ressursen" : $"de {notDelivered} ressursene")} kommer." : "")
+                    <i class="ti ti-circle-check" aria-hidden="true"></i> Alt er dekket og levert.
+                </section>
+            }
+
+            @* «📦 Sagt ja – ikke levert»: one row per resource with «📦 Levert», so nobody has to open the line to find it.
+               Alone it is the next step (all covered); otherwise it comes under the red/yellow box *@
+            if (undelivered.Count > 0)
+            {
+                <section class="np-next is-deliver np-noprint" aria-labelledby="npDeliverTitle">
+                    <div id="npDeliverTitle" class="np-next-title">
+                        <i class="ti ti-package" aria-hidden="true"></i> @(missingLines.Count == 0 ? "Neste steg: marker som levert" : "Sagt ja – ikke levert") (@undelivered.Count)
+                    </div>
+                    <div class="np-next-why">Trykk «Levert» når ressursen er kommet fram.</div>
+                    @foreach (var x in undelivered)
+                    {
+                        <div class="np-next-call">
+                            <b>@x.Req.ResourceName</b>
+                            <span class="text-body-secondary">· @x.Line.Type · @x.Req.OwnerName @(x.Req.Delivery == DeliveryMethod.Hentes ? "· må hentes" : "leverer")</span>
+                            <form asp-controller="ResourceNeedHandler" asp-action="MarkDelivered" method="post">
+                                <input type="hidden" name="needId" value="@Model.Id" />
+                                @if (embed)
+                                {
+                                    <input type="hidden" name="embed" value="1" />
+                                }
+                                <button type="submit" name="delivered" value="@x.Req.Id" class="btn btn-sm btn-success" aria-label="Marker @x.Req.ResourceName som levert">
+                                    <i class="ti ti-package" aria-hidden="true"></i> Levert
+                                </button>
+                            </form>
+                        </div>
+                    }
                 </section>
             }
         }
@@ -556,6 +589,9 @@
                         var badge = LineBadge(line);
                         var note = LineNote(line, active, radiusText);
                         var find = active && !line.IsCovered;
+                        // 📦 Ikke levert (yellow) / 📦 Levert (blue) next to the line's badge, icon + text (help with AI)
+                        var yesOut = line.Requests.Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null).ToList();
+                        var notDeliveredHere = yesOut.Count(r => r.DeliveredAt == null);
                         <button type="button" class="np-row @(find ? "is-missing" : "")" data-open-line="@line.ItemId" aria-controls="np-line-@line.ItemId">
                             <span class="np-row-main">
                                 <b>@line.Quantity × @line.Type</b>
@@ -564,6 +600,14 @@
                                     <span class="np-row-note">@note</span>
                                 }
                             </span>
+                            @if (active && notDeliveredHere > 0)
+                            {
+                                <span class="badge np-badge-undelivered"><i class="ti ti-package" aria-hidden="true"></i> Ikke levert@(notDeliveredHere > 1 ? $" ({notDeliveredHere})" : "")</span>
+                            }
+                            else if (yesOut.Count > 0)
+                            {
+                                <span class="badge text-bg-info"><i class="ti ti-package" aria-hidden="true"></i> Levert</span>
+                            }
                             <span class="badge @badge.Css">@badge.Text</span>
                             <span class="np-row-go @(find ? "is-find" : "")">@(find ? "Finn ▸" : "Vis ▸")</span>
                         </button>
@@ -623,6 +667,17 @@
                                         }
                                     </div>
 
+                                    @* The next step as a button you can see (help with AI): said yes, not delivered yet = «📦 Levert».
+                                       It was hard to find in ⋯ (it is still there too) *@
+                                    @if (r.Status == RequestStatus.Godtatt && r.DeliveredAt == null && r.ReturnedAt == null && active)
+                                    {
+                                        <button type="submit" class="btn btn-sm btn-success np-noprint"
+                                                formaction="@Url.Action("MarkDelivered", "ResourceNeedHandler")"
+                                                name="delivered" value="@r.Id"
+                                                aria-label="Marker @r.ResourceName som levert">
+                                            <i class="ti ti-package" aria-hidden="true"></i> Levert
+                                        </button>
+                                    }
                                     @* One small menu instead of many buttons. Every choice that changes much asks "Er du sikker?" - Docs: Bootstrap Dropdowns
                                        strategy fixed: the menu isn't cut off by the scrolling column *@
                                     @if ((r.Status == RequestStatus.Sendt && active) || (r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
@@ -957,6 +1012,9 @@
 }
 <script type="application/json" id="needExport">@Json.Serialize(exportData)</script>
 
+@* «Sist åpnet»: last-opened.js remembers this need for Oversikt and Behov *@
+<div id="lastOpened" hidden data-kind="need" data-id="@Model.Id" data-name="@Model.Name" data-url="@Url.Action("Index", "ResourceNeed", new { id = Model.Id })"></div>
+
 @* Data for need-page.js *@
 <div id="needPage" hidden data-need-id="@Model.Id" data-need-name="@Model.Name"
      data-meeting-name="@Model.MeetingPointName"
@@ -966,4 +1024,5 @@
 @section Scripts {
     <script src="~/js/need-page.js" asp-append-version="true"></script>
     <script src="~/js/resource-export.js" asp-append-version="true"></script>
+    <script src="~/js/last-opened.js" asp-append-version="true"></script>
 }

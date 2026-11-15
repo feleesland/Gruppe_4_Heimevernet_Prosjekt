@@ -74,6 +74,8 @@
     };
 }
 
+<link rel="stylesheet" href="~/css/last-opened.css" asp-append-version="true" />
+
 @* The top row: the title and «Meld behov». The area is at the start of the list bar (B) *@
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
     <h1 class="mb-0 me-2">@ViewData["Title"]</h1>
@@ -146,6 +148,9 @@ else
                 <div id="needPrintInfo" class="small"></div>
             </div>
 
+            @* «Sist åpnet»: last-opened.js marks the need you opened last *@
+            <div data-last-list="need" hidden></div>
+
             @* The bar, like on Ressursoversikt: green "Viser 2 av 16" with the chips while something is filtered away, grey "16 behov" otherwise.
                The area first, and the bar is green (the same area as on Oversikt and Ressurser) *@
             <div id="needBar" class="list-bar no-print @(regionPicker != null ? "is-region" : "")">
@@ -201,7 +206,7 @@ else
                                  data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())"
                                  data-name="@n.Name" data-status-label="@StatusLabel(n.Status)" data-items="@Items(n)"
                                  data-created="@OsloFull(n.CreatedAt)" data-needed="@OsloFull(n.NeededFrom)" data-closed="@OsloFull(n.ClosedAt)"
-                                 data-href="@Url.Action("Index", "ResourceNeed", new { id = n.Id })">
+                                 data-href="@Url.Action("Index", "ResourceNeed", new { id = n.Id })" data-last-id="@n.Id">
                                 <span class="res-icon list-icon @g.IconCss"><i class="ti @g.Icon" aria-hidden="true"></i></span>
                                 <span class="res-name">
                                     <a class="list-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
@@ -250,6 +255,7 @@ else
 
 @section Scripts {
     <script src="~/js/resource-export.js" asp-append-version="true"></script>
+    <script src="~/js/last-opened.js" asp-append-version="true"></script>
     <script>
         // The filter on Behov (help with AI): search, urgency and status hide rows right away (the place is the area at the top).
         // The choices are kept in the URL,

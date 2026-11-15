@@ -1807,3 +1807,81 @@ footer.footer {
 .res-status {
     white-space: nowrap;
 }
+
+/* The top on phones (help with AI): logo, search, bell, A and ☰ on one line, also on 320–360 px.
+   flex-basis 0 lets the search take the space that is left instead of its placeholder's width, so nothing wraps.
+   overflow-x: clip stops the page from being wider than the screen (no white stripe on the right, no sideways scroll)
+   Docs: flex-basis (MDN) - https://developer.mozilla.org/docs/Web/CSS/flex-basis  ·  overflow clip (MDN) - https://developer.mozilla.org/docs/Web/CSS/overflow */
+html,
+body {
+    overflow-x: clip;
+}
+
+@media (max-width: 1199.98px) {
+    .navbar .nav-search {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .navbar {
+        padding: 8px 10px;
+    }
+
+        .navbar .navbar-brand {
+            margin-right: .25rem;
+            padding: 0;
+        }
+
+            .navbar .navbar-brand img {
+                width: 30px;
+                height: auto;
+            }
+
+        .navbar .nav-search {
+            margin-left: .25rem !important;
+            margin-right: .25rem !important;
+        }
+
+    .search-box .form-control {
+        height: 38px;
+        padding-left: 2.2rem;
+        padding-right: 1.9rem;
+        font-size: .9rem;
+    }
+
+    .search-icon {
+        left: .75rem;
+    }
+
+    .navbar .account-nav .nav-link {
+        padding-left: .3rem;
+        padding-right: .3rem;
+    }
+
+        .navbar .account-nav .nav-link img {
+            width: 22px;
+        }
+
+    .navbar .account-nav .nav-item.ms-2 {
+        margin-left: .25rem !important;
+    }
+
+    .account-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .navbar .navbar-toggler {
+        margin-left: .35rem !important;
+        padding: .2rem .45rem;
+    }
+
+    /* The bell and account lists are never wider than the screen */
+    .notification-panel,
+    .account-menu {
+        max-width: calc(100vw - 1rem);
+    }
+}
