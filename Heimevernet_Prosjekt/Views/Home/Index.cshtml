@@ -274,78 +274,135 @@ else
         </p>
     </section>
 
-@* Guider som må fylles ut og beskriver de forskjellige funksjonene til applikasjonen*@
+@* Guider som beskriver de forskjellige funksjonene til applikasjonen *@
 <h2 class="text-center h3" style="color:#fff;">Guide</h2>
 
 <section class="home-panel guide-section" id="guide-kart">
     <h2 class="h4">Guide for kart</h2>
     <p>
-        Kartet viser ressurser og behov som er registrert i systemet. Du kan zoome inn og ut, samt klikke på markører for å se mer informasjon.
-        Kartet kan også brukes til å filtrere ressurser og behov basert på type, status og andre kriterier.
+        Kartet gir en samlet oversikt over registrerte ressurser, offentlige aktører og innmeldte behov i området.
+        Bruk <strong>+</strong> og <strong>-</strong> øverst til venstre (eller musehjulet) for å zoome, og dra i kartet for å flytte visningen.
+        Du kan også bruke søkefeltet i toppmenyen til å søke direkte etter adresser, stedsnavn eller spesifikke ressurser.
+    </p>
 
-        Ressurser er grønne og har dedikerte ikoner basert på type.
+    <h3 class="h6 mt-4">Markører og fargekoder</h3>
+    <p>
+        Klikk på en hvilken som helst markør i kartet for å åpne detaljert informasjon, status og handlingsvalg.
+        Du finner også en fullstendig oversikt under <strong>Tegnforklaring</strong> nederst i høyre hjørne av kartet.
     </p>
-    <p>    
-        Behov er fargekodet røde for akutte behov og gule for planlagte behov. Klikk på markørene for å se mer informasjon om ressursen eller behovet.
+    <ul>
+        <li><strong>Ressurser (grønne markører):</strong> Viser tilgjengelige ressurser med et ikon som illustrerer kategorien. Grå markører betyr at ressursen er i bruk, ledig senere eller ikke tilgjengelig akkurat nå.</li>
+        <li><strong>Grupperte ressurser (sirkler med tall):</strong> Når flere ressurser befinner seg tett på hverandre, slås de sammen til én sirkel. Klikk på sirkelen eller zoom inn for å se enkeltressursene.</li>
+        <li><strong>Behov (røde og gule markører):</strong> Innmeldte behov er fargekodet røde for <em>akutte</em> behov og gule for <em>planlagte</em> behov. Den stiplede sirkelen rundt et behov viser hvilket geografisk område behovet gjelder.</li>
+        <li><strong>Offentlige aktører (blå markører):</strong> Viser faste samfunns- og beredskapsaktører som politi, brannvesen og sykehus.</li>
+    </ul>
+
+    <h3 class="h6 mt-4">Klikk direkte i kartet</h3>
+    <p>
+        Ved å klikke på et vilkårlig punkt i kartet åpnes en hurtigmeny for den valgte posisjonen med følgende valg:
     </p>
-    
-<h3 class="h6 mt-4">Ressurser</h3>
-<div class="guide-legend">
-    <div class="legend-item">
-        <i class="ti ti-car legend-icon" aria-hidden="true"></i>
-        <span><strong>Kjøretøy</strong><br>Bil, lastebil</span>
+    <ul>
+        <li><strong>Ny ressurs:</strong> Opprett en ny ressurs ferdig plassert på dette stedet.</li>
+        <li><strong>I området:</strong> Se en oversikt over registrerte ressurser i umiddelbar nærhet (innen 2 km justerbar med en pop up bar på bunnen av kartet).</li>
+        <li><strong>Meld behov <em>(kun for operatører og administratorer)</em>:</strong> Opprett et nytt behov knyttet til posisjonen.</li>
+    </ul>
+
+    <h3 class="h6 mt-4">Filtrering og kartinnstillinger</h3>
+    <p>
+        Klikk på <strong>Filter</strong>-knappen øverst til venstre for å åpne filter- og listepanelet. Her kan du skru av og på kartlag (<em>Ressurser</em>, <em>Behov</em>, <em>Offentlige aktører</em>), eller filtrere på ressurstype, status, feilmeldinger, kommune og avstand fra et valgt punkt.
+        Via <strong>brukerikonet</strong> øverst til høyre kan du også bytte mellom <em>Kartverket</em>, <em>Kartverket gråtone</em> og <em>OpenStreetMap</em>, samt endre fargetema mellom lys og mørk modus.
+    </p>
+
+    <h3 class="h6 mt-4">Ressurser</h3>
+    <div class="guide-legend">
+        <div class="legend-item">
+            <i class="ti ti-car legend-icon" aria-hidden="true"></i>
+            <span><strong>Kjøretøy</strong><br>Bil, lastebil</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-snowflake legend-icon" aria-hidden="true"></i>
+            <span><strong>Snø og terreng</strong><br>Snøskuter, ATV, beltevogn, snøfreser</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-trees legend-icon" aria-hidden="true"></i>
+            <span><strong>Skog og landbruk</strong><br>Traktor, skogsmaskin</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-bulldozer legend-icon" aria-hidden="true"></i>
+            <span><strong>Anleggsmaskiner</strong><br>Gravemaskin, hjullaster</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-sailboat legend-icon" aria-hidden="true"></i>
+            <span><strong>Sjø</strong><br>Båt</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-bolt legend-icon" aria-hidden="true"></i>
+            <span><strong>Teknisk utstyr</strong><br>Aggregat, sambandsutstyr, drone</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-tool legend-icon" aria-hidden="true"></i>
+            <span><strong>Verktøy og førstehjelp</strong><br>Verktøy, førstehjelp</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-box legend-icon" aria-hidden="true"></i>
+            <span><strong>Materialer og forsyninger</strong><br>Sand og grus, drivstoff</span>
+        </div>
+        <div class="legend-item">
+            <i class="ti ti-dots legend-icon" aria-hidden="true"></i>
+            <span><strong>Annet</strong><br>Alt som ikke passer i de andre</span>
+        </div>
     </div>
-    <div class="legend-item">
-        <i class="ti ti-snowflake legend-icon" aria-hidden="true"></i>
-        <span><strong>Snø og terreng</strong><br>Snøskuter, ATV, beltevogn, snøfreser</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-trees legend-icon" aria-hidden="true"></i>
-        <span><strong>Skog og landbruk</strong><br>Traktor, skogsmaskin</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-bulldozer legend-icon" aria-hidden="true"></i>
-        <span><strong>Anleggsmaskiner</strong><br>Gravemaskin, hjullaster</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-sailboat legend-icon" aria-hidden="true"></i>
-        <span><strong>Sjø</strong><br>Båt</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-bolt legend-icon" aria-hidden="true"></i>
-        <span><strong>Teknisk utstyr</strong><br>Aggregat, sambandsutstyr, drone</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-tool legend-icon" aria-hidden="true"></i>
-        <span><strong>Verktøy og førstehjelp</strong><br>Verktøy, førstehjelp</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-box legend-icon" aria-hidden="true"></i>
-        <span><strong>Materialer og forsyninger</strong><br>Sand og grus, drivstoff</span>
-    </div>
-    <div class="legend-item">
-        <i class="ti ti-dots legend-icon" aria-hidden="true"></i>
-        <span><strong>Annet</strong><br>Alt som ikke passer i de andre</span>
-    </div>
-</div>
     <a href="#top">Tilbake til toppen</a>
 </section>
 
 <section class="home-panel guide-section" id="guide-ressurser">
     <h2 class="h4">Guide for ressurser</h2>
     <p>
-        Her kan du se en oversikt over alle ressursene som er registrert i systemet under din profil. Du kan også registrere nye ressurser.
-        Ressursene blir lagret og vist i liste for Administrator brukere og Operatør brukere som setter opp behov, slik at de lett kan finne ressursene de trenger.
+        Under <strong>Ressursoversikt</strong> får du en samlet liste over ressurser som er registrert i systemet.
+        Du kan veksle mellom <strong>Alle</strong> (for å se hva som finnes i området) og <strong>Mine</strong> (for å administrere dine egne registrerte ressurser), samt bruke filterpanelet på venstre side til å avgrense på kategori, status og sted.
+        Dine registrerte ressurser blir synlige for operatører og administratorer slik at de kan sende deg en forespørsel dersom det oppstår et behov.
     </p>
+
+    <h3 class="h6 mt-4">Slik registrerer du en ny ressurs</h3>
+    <p>
+        Klikk på <strong>+ Opprett ny ressurs</strong> øverst på siden (eller velg <em>Ny ressurs</em> direkte i kartet) for å gå gjennom de tre enkle stegene:
+    </p>
+    <ol>
+        <li><strong>Type:</strong> Velg hovedkategori (for eksempel <em>Kjøretøy</em>, <em>Sjø</em> eller <em>Teknisk utstyr</em>) og deretter ønsket undertype.</li>
+        <li><strong>Om ressursen:</strong> Gi ressursen et beskrivende navn (kun type og navn er påkrevd). Du kan også laste opp et bilde, legge inn nyttige detaljer eller merknader (for eksempel hvor nøkler befinner seg) og velge når ressursen er tilgjengelig (<em>Hele tiden</em>, <em>Faste tider</em> eller <em>En bestemt periode</em>).</li>
+        <li><strong>Hvor:</strong> Angi hvor ressursen befinner seg ved å skrive inn adresse, bruke din nåværende posisjon eller klikke direkte på kartet. Avslutt med <strong>Opprett ressurs</strong>.</li>
+    </ol>
+
+    <h3 class="h6 mt-4">Administrere og oppdatere egne ressurser</h3>
+    <p>
+        Ved å klikke på en ressurs i listen eller på kartet åpnes detaljsiden for ressursen. Her kan du:
+    </p>
+    <ul>
+        <li><strong>Endre detaljer og tilgjengelighet:</strong> Klikk på <strong>Rediger</strong> øverst til høyre for å oppdatere informasjon, bilde eller plassering, eller bruk <strong>Endre</strong> under tilgjengelighet.</li>
+        <li><strong>Sette status (Gyldig / Ugyldig):</strong> Dersom en ressurs er ødelagt, på verksted eller midlertidig ikke skal brukes, kan du sette status til <em>Ugyldig</em> slik at den ikke blir forespurt. Statusene <em>I bruk</em> og <em>Lever tilbake</em> styres automatisk når ressursen er knyttet til et aktivt behov.</li>
+        <li><strong>Se utlånshistorikk:</strong> Nederst på siden finner du en oversikt over tidligere og pågående utlån for ressursen.</li>
+    </ul>
     <a href="#top">Tilbake til toppen</a>
 </section>
 
 <section class="home-panel guide-section" id="guide-behov">
     <h2 class="h4">Guide for behov</h2>
     <p>
-        Her kan du se en oversikt over alle behovene som er registrert i systemet. Du kan også registrere nye behov som planlagt med tid og dato, eller akutte behov.
-        Akutte behov blir markert røde på kartet for operatører og administratorer. 
+        Under <strong>Behov</strong> finner du en oversikt over alle innmeldte hendelser og oppdrag, gruppert etter <strong>Akutt</strong>, <strong>Planlagt</strong> og <strong>Løst</strong>.
+        Ved hjelp av filterpanelet til venstre kan du søke på navn eller ønsket ressurs, og filtrere etter status (<em>Ny</em>, <em>Vurderes</em>, <em>Tildelt</em>, <em>Lever tilbake</em>, <em>Løst</em>), kategori og sted.
+        Du kan også eksportere oversikten ved behov.
     </p>
+
+    <h3 class="h6 mt-4">Slik melder du inn et nytt behov <em>(operatører og administratorer)</em></h3>
+    <p>
+        Klikk på <strong>+ Opprett nytt behov</strong> (eller velg <em>Meld behov</em> direkte i kartet) og fyll ut følgende:
+    </p>
+    <ol>
+        <li><strong>Beskrivelse og prioritet:</strong> Gi behovet et tydelig navn, og velg om det er <strong>Akutt - nå</strong> (markeres rødt i kartet) eller <strong>Planlagt</strong> (markeres gult i kartet, med mulighet for å sette dato og frist). Legg inn en kort beskrivelse til andre operatører.</li>
+        <li><strong>Info til innbyggere <em>(valgfritt)</em>:</strong> Du kan legge til en offentlig melding (for eksempel <em>Unngå området</em>, <em>Veien er stengt</em> eller <em>Evakuering</em>) som vises på forsiden for alle brukere.</li>
+        <li><strong>Hva trengs:</strong> Velg hvilke ressurstyper og antall som kreves for å løse oppdraget, enten fra hurtigvalgene under <em>Ofte brukt</em> eller ved å åpne kategoriene.</li>
+        <li><strong>Hvor og kontaktpunkt:</strong> Angi adressen eller klikk i kartet for å plassere behovet, velg søkeradius rundt stedet (for eksempel 2 km), og juster eventuelt eget oppmøte-/kontaktpunkt dersom det skiller seg fra selve hendelsesstedet. Avslutt med <strong>Meld behov</strong>.</li>
+    </ol>
     <a href="#top">Tilbake til toppen</a>
 </section>
 
