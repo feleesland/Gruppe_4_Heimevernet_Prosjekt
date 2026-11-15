@@ -123,6 +123,22 @@ a {
         padding: 0.5rem;
     }
 }
+/* The footer on phones (help with AI): the template's footer has white-space: nowrap, so «© 2026 UiA Gruppe 4 - Heimevernet_Prosjekt -
+   Personvern» was wider than a 360 px screen and made every page scroll sideways. Here it wraps instead (also inside .container) */
+@media (max-width: 575.98px) {
+    footer.footer,
+    footer.footer .container {
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+    }
+
+    footer.footer {
+        line-height: 1.4 !important;
+        padding: .75rem 0;
+        font-size: .85rem;
+    }
+}
 
 .search-hit {
     background-color: var(--bs-warning-bg-subtle);
@@ -1812,10 +1828,6 @@ footer.footer {
    flex-basis 0 lets the search take the space that is left instead of its placeholder's width, so nothing wraps.
    overflow-x: clip stops the page from being wider than the screen (no white stripe on the right, no sideways scroll)
    Docs: flex-basis (MDN) - https://developer.mozilla.org/docs/Web/CSS/flex-basis  ·  overflow clip (MDN) - https://developer.mozilla.org/docs/Web/CSS/overflow */
-html,
-body {
-    overflow-x: clip;
-}
 
 @media (max-width: 1199.98px) {
     .navbar .nav-search {
@@ -1883,5 +1895,46 @@ body {
     .notification-panel,
     .account-menu {
         max-width: calc(100vw - 1rem);
+    }
+}
+/* Phones (help with AI): the search field is hidden, and 🔍 opens it over the whole green top with ← to close.
+   PC and tablets keep the field in the menu */
+.search-back {
+    display: none;
+}
+
+@media (max-width: 575.98px) {
+    .navbar .nav-search {
+        display: none !important;
+    }
+
+    header.search-is-open .navbar .nav-search {
+        display: flex !important;
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        margin: 0 !important;
+        padding: 8px 10px;
+        background: #1e6447;
+    }
+
+    header.search-is-open .search-back {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        width: 38px;
+        height: 38px;
+        border: 0;
+        border-radius: 50%;
+        background: none;
+        color: #fff;
+        font-size: 1.3rem;
+    }
+
+    .search-open-btn {
+        padding: .3rem .4rem !important;
+        font-size: 1.35rem;
+        line-height: 1;
     }
 }
