@@ -331,11 +331,37 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             .ToList();
     }
 
-    // "Info til innbyggere": one public update (help with AI)
-    public void AddUpdate(int needId, string userId, string userName, string text)
+    // "Info til innbyggere" (help with AI): one message per need, so the front page never shows the same need twice.
+    // A new message replaces the old one (the need's log keeps the history). Returns the old text for «Angre», or null
+    public string? SetUpdate(int needId, string userId, string userName, string text)
     {
+        var old = dbContext.NeedUpdates
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
+        var previous = old.FirstOrDefault()?.Text;
+
+        dbContext.NeedUpdates.RemoveRange(old);
         dbContext.NeedUpdates.Add(new NeedUpdate { ResourceNeedId = needId, UserId = userId, UserName = userName, Text = text });
         dbContext.SaveChanges();
+        return previous;
+    }
+
+    // «Fjern»: the message is removed, so the need is no longer on the front page. Returns the removed text, or null
+    public string? RemoveUpdates(int needId)
+    {
+        var old = dbContext.NeedUpdates
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
+        if (old.Count == 0)
+        {
+            return null;
+        }
+
+        dbContext.NeedUpdates.RemoveRange(old);
+        dbContext.SaveChanges();
+        return old[0].Text;
     }
 
     public IReadOnlyList<NeedUpdate> GetUpdates(int needId)

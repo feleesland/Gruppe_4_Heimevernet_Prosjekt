@@ -1,0 +1,97 @@
+﻿@using Heimevernet_Prosjekt.Models.ViewModels
+@model RegionPickerViewModel
+@* The area (help with AI): one kommune, chosen once and remembered in the browser (wwwroot/js/region-picker.js), like the address
+   at a pizza place. Shared by Oversikt, Ressurser and Behov, so the choice follows you between them.
+   Oversikt shows it as a big line; the lists at the start of the list bar (Compact, the bar turns green), with the picker as a box
+   under «Bytt område». The number is in the list bar there, so it is not repeated here *@
+<link rel="stylesheet" href="~/css/region-picker.css" asp-append-version="true" />
+<div id="regionPage" hidden data-region="@Model.Region" data-url="@Model.Url" data-required="@(Model.OpenPicker ? "true" : "false")"></div>
+<script type="application/json" id="regionList">@Json.Serialize(Model.Regions.Select(r => new { name = r.Name, needs = r.Needs, resources = r.Resources }))</script>
+
+<div class="rg-wrap @(Model.Compact ? "is-compact" : "")">
+    @if (Model.Region != null || Model.Compact)
+    {
+        <div class="rg-bar">
+            <i class="ti @(Model.Region == null || Model.AllNorway ? "ti-world" : "ti-map-pin")" aria-hidden="true"></i>
+            @if (!Model.Compact)
+            {
+                <span>Viser</span>
+            }
+            <b>@Model.RegionName</b>
+            @if (!Model.Compact)
+            {
+                <span class="small">· @Model.Summary</span>
+            }
+            <button type="button" id="regionChange" class="btn btn-sm btn-outline-success ms-auto" aria-expanded="@(Model.OpenPicker ? "true" : "false")" aria-controls="regionPicker">
+                <i class="ti ti-switch-horizontal" aria-hidden="true"></i> Bytt område
+            </button>
+        </div>
+    }
+
+    @* «Du ser ut til å være i …» (only on Oversikt): only when the browser already may use the position, and it is another kommune.
+       Never changes by itself *@
+    @if (!Model.Compact && Model.Region != null && !Model.AllNorway)
+    {
+        <div id="regionAsk" class="rg-ask" hidden role="status">
+            <i class="ti ti-current-location" aria-hidden="true"></i>
+            <span>Du ser ut til å være i <b id="regionAskName"></b>. Vil du se det området i stedet?</span>
+            <button type="button" id="regionAskYes" class="btn btn-sm btn-outline-primary ms-auto">Ja, bytt</button>
+            <button type="button" id="regionAskNo" class="btn btn-sm btn-outline-secondary">Nei, bli i @Model.RegionName</button>
+        </div>
+    }
+
+    <section id="regionPicker" class="rg-picker" hidden="@(!Model.OpenPicker)" aria-labelledby="regionPickerTitle">
+        <div class="d-flex align-items-start gap-2">
+            <h2 id="regionPickerTitle" class="h5 mb-1"><i class="ti ti-map-pin" aria-hidden="true"></i> Hvilket område følger du?</h2>
+            @if (!Model.OpenPicker)
+            {
+                <button type="button" id="regionClose" class="btn-close ms-auto" aria-label="Lukk"></button>
+            }
+        </div>
+        <p class="small mb-2">Oversikt, Ressurser og Behov viser bare det som er i området du velger. Valget huskes, og du kan bytte når som helst.</p>
+
+        @* «Dine områder»: the last ones you chose, as big cards (drawn by region-picker.js) *@
+        <div id="regionRecentBox" hidden>
+            <div class="rg-label">Dine områder</div>
+            <div id="regionRecent" class="rg-cards mb-2"></div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="rg-search">
+                <label for="regionSearch" class="visually-hidden">Søk etter kommune</label>
+                <input id="regionSearch" type="search" class="form-control" placeholder="Søk etter kommune, f.eks. «Arendal» …" autocomplete="off" aria-controls="regionSuggest" />
+                <div id="regionSuggest" class="rg-suggest" hidden></div>
+            </div>
+            <button type="button" id="regionHere" class="btn btn-outline-success"><i class="ti ti-current-location" aria-hidden="true"></i> Der jeg er nå</button>
+            <button type="button" class="btn btn-outline-success rg-dashed" data-pick="@Heimevernet_Prosjekt.Services.RegionList.All"><i class="ti ti-world" aria-hidden="true"></i> Hele Norge</button>
+        </div>
+        <div id="regionStatus" class="small mt-1" role="status"></div>
+
+        @if (Model.Regions.Count > 0)
+        {
+            <div class="rg-label mt-2">Mest aktive nå</div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                @foreach (var r in Model.Regions.Take(4))
+                {
+                    <button type="button" class="rg-chip" data-pick="@r.Name">@r.Name<span class="rg-count">@r.Needs</span></button>
+                }
+                @if (Model.Regions.Count > 4)
+                {
+                    <button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#regionMore" aria-expanded="false" aria-controls="regionMore">+ @(Model.Regions.Count - 4) til ▾</button>
+                }
+            </div>
+            @if (Model.Regions.Count > 4)
+            {
+                <div id="regionMore" class="collapse">
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        @foreach (var r in Model.Regions.Skip(4))
+                        {
+                            <button type="button" class="rg-chip" data-pick="@r.Name">@r.Name<span class="rg-count">@r.Needs</span></button>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </section>
+</div>
+<script src="~/js/region-picker.js" asp-append-version="true" defer></script>

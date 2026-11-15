@@ -1,5 +1,5 @@
 ﻿// The need page (help with AI): the overview of the lines, one line at a time («Finn ▸» / «Vis ▸»), «+ Spør» / «✓ Valgt»,
-// the send button, the small map, "Info til innbyggere" quick texts, and the side panel on the main map.
+// the send button, the small map, "Info til innbyggere" quick texts, the back button, and the side panel on the main map.
 // Moved here from the bottom of Views/ResourceNeed/Index.cshtml. The page gives the data in data-* attributes.
 // Docs: Leaflet API reference (Circle, DivIcon, Polyline, Tooltip) - https://leafletjs.com/reference.html
 // Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
@@ -14,6 +14,29 @@
     const storeKey = 'need-open-line-' + page.dataset.needId;
     const picks = () => [...document.querySelectorAll('#requestForm .pick')];
     let openLine = null; // the section of the open line, or null = the overview
+
+    // ---- «← Oversikt» / «← Alle behov» (help with AI): from Oversikt (?from=overview, or the page came from there) it goes back
+    // to Oversikt, and that is remembered for this need while forms are sent. From the Behov list it goes back with the same filter
+    // Docs: Window.sessionStorage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/sessionStorage
+    const back = document.getElementById('npBack');
+    if (back) {
+        const fromKey = 'need-from-' + page.dataset.needId;
+        const fromQuery = new URLSearchParams(location.search).get('from');
+        const fromList = document.referrer.includes('/ResourceNeed/List');
+        let from = null;
+        try {
+            if (fromQuery === 'overview' || document.referrer.includes('/ResourceNeed/Overview')) sessionStorage.setItem(fromKey, 'overview');
+            else if (fromList) sessionStorage.removeItem(fromKey);
+            from = sessionStorage.getItem(fromKey);
+        } catch { from = fromQuery; }
+        if (from === 'overview') {
+            back.href = back.dataset.overview;
+            back.querySelector('span').textContent = 'Oversikt';
+        }
+        back.addEventListener('click', e => {
+            if (from !== 'overview' && fromList) { e.preventDefault(); history.back(); }
+        });
+    }
 
     // "Er du sikker?" on the buttons that change much (data-confirm)
     document.addEventListener('click', e => {
@@ -32,13 +55,17 @@
             .replace(/[^a-z0-9æøå]+/g, '-').replace(/^-+|-+$/g, '');
         ResourceExport.download(kind === 'json' ? data : data.Linjer, file, kind);
     }));
-    
-    // ---- "Info til innbyggere": a quick text fills the field, and the cursor goes to the end so the operator can finish it ----
+
+    // ---- "Info til innbyggere": a quick text fills the field (the cursor goes to the end), and the counter "42 / 300" ----
+    const updateField = document.getElementById('updateText');
+    const updateCount = document.getElementById('updateCount');
+    const countUpdate = () => { if (updateField && updateCount) updateCount.textContent = `${updateField.value.length} / 300`; };
+    updateField?.addEventListener('input', countUpdate);
     document.querySelectorAll('[data-quick]').forEach(button => button.addEventListener('click', () => {
-        const field = document.getElementById('updateText');
-        field.value = button.dataset.quick;
-        field.focus();
-        field.setSelectionRange(field.value.length, field.value.length);
+        updateField.value = button.dataset.quick;
+        countUpdate();
+        updateField.focus();
+        updateField.setSelectionRange(updateField.value.length, updateField.value.length);
     }));
 
     // ---- The send button counts what is chosen on all lines, and is off until something is chosen ----
@@ -53,7 +80,6 @@
 
     // ---- One line at a time. The open line is remembered when a form is sent (⋯, «Send», Publiser),
     // so the page opens on it again when it comes back ----
-    // Docs: Window.sessionStorage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/sessionStorage
     function showLine(id, focus) {
         openLine = id ? document.getElementById('np-line-' + id) : null;
         overview.hidden = !!openLine;
@@ -70,6 +96,7 @@
         tellMap();
     }
 
+    // The rows in «Hva trengs» and the «Finn …» buttons in «Neste steg» open a line
     document.querySelectorAll('[data-open-line]').forEach(row =>
         row.addEventListener('click', () => showLine(row.dataset.openLine, true)));
     document.querySelectorAll('[data-close-line]').forEach(button =>
@@ -85,7 +112,7 @@
 
     form?.addEventListener('change', () => { updateSend(); drawDots(); tellMap(); });
 
-    // ---- The small map: the need, the circle, ⚑ kontaktpunkt with a dashed line, and the open line's free resources ----
+    // ---- The small map: the need, the circle, ⚑ kontaktpunkt with a dashed line, and the free resources ----
     const mapDiv = document.getElementById('detailMap');
     let detailMap = null;
     let circle = null;
@@ -157,32 +184,40 @@
 
     if (detailMap) drawDots(true);
 
-    // The dots for the open line; a click on a dot chooses or unchooses it, same as «+ Spør».
+    // The dots (help with AI). A line is open: its free resources, and a click chooses or unchooses, same as «+ Spør».
+    // The overview: the free resources of every line that misses something (each resource once), and a click opens its line.
     // fit: move the map (only when a line is opened or closed, not on every choice). It shows the circle, the flag,
-    // the free resources inside the circle and the chosen ones - or the 3 nearest when none are inside (help with AI)
+    // the free ones inside the circle and the chosen ones - or, in an open line with none inside, the 3 nearest
     function drawDots(fit) {
         if (!detailMap) return;
         dotLayer.clearLayers();
         const bounds = circle.getBounds();
         if (meetingMarker) bounds.extend(meetingMarker.getLatLng());
-        if (openLine) {
-            const insideOnly = openLine.classList.contains('inside-only');
-            const boxes = [...openLine.querySelectorAll('.pick')].filter(box => box.dataset.lat);
-            const anyInside = boxes.some(box => box.dataset.inside === 'true');
-            boxes.forEach((box, i) => {
-                if (insideOnly && box.dataset.inside !== 'true') return;
-                const pos = [parseFloat(box.dataset.lat), parseFloat(box.dataset.lng)];
-                const marker = L.marker(pos, { icon: dotIcon(box), title: box.dataset.name, keyboard: true })
-                    .bindTooltip(escapeHtml(box.dataset.name) + (box.checked ? ' · valgt' : ''));
-                marker.on('click', () => {
-                    box.checked = !box.checked;
-                    box.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-                dotLayer.addLayer(marker);
-                // The list is nearest first, so i < 3 = the 3 nearest
-                if (box.checked || box.dataset.inside === 'true' || (!anyInside && i < 3)) bounds.extend(pos);
+        const insideOnly = openLine ? openLine.classList.contains('inside-only') : false;
+        const seen = new Set();
+        const boxes = (openLine ? [...openLine.querySelectorAll('.pick')] : picks())
+            .filter(box => box.dataset.lat)
+            .filter(box => {
+                const id = box.value.split(':')[1];
+                if (seen.has(id)) return false;
+                seen.add(id);
+                return true;
             });
-        }
+        const anyInside = boxes.some(box => box.dataset.inside === 'true');
+        boxes.forEach((box, i) => {
+            if (insideOnly && box.dataset.inside !== 'true') return;
+            const pos = [parseFloat(box.dataset.lat), parseFloat(box.dataset.lng)];
+            const label = escapeHtml(box.dataset.name) + (openLine ? '' : ' · ' + escapeHtml(box.dataset.type)) + (box.checked ? ' · valgt' : '');
+            const marker = L.marker(pos, { icon: dotIcon(box), title: box.dataset.name, keyboard: true }).bindTooltip(label);
+            marker.on('click', () => {
+                if (!openLine) { showLine(box.closest('.np-line').dataset.line, true); return; }
+                box.checked = !box.checked;
+                box.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            dotLayer.addLayer(marker);
+            // The list is nearest first, so i < 3 = the 3 nearest
+            if (box.checked || box.dataset.inside === 'true' || (openLine && !anyInside && i < 3)) bounds.extend(pos);
+        });
         if (fit) detailMap.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
     }
 

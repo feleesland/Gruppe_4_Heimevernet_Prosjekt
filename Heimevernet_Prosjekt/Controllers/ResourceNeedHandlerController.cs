@@ -132,7 +132,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (!string.IsNullOrEmpty(publicText))
             {
                 if (publicText.Length > 300) publicText = publicText[..300];
-                _resourceNeedRepository.AddUpdate(need.Id, ownerId, User.Identity?.Name ?? "Ukjent", publicText);
+                _resourceNeedRepository.SetUpdate(need.Id, ownerId, User.Identity?.Name ?? "Ukjent", publicText);
                 Log(need.Id, $"Publiserte info til innbyggere: «{publicText}»");
             }
             return DoneOrRedirect(need.Id);
@@ -497,10 +497,90 @@ namespace Heimevernet_Prosjekt.Controllers
             return BackToNeed(needId);
         }
 
-        // "Publiser" in "Info til innbyggere": a short public update, shown on the front page and the map (help with AI)
+        // "Publiser" in "Info til innbyggere": a short public message, shown on the front page and the map (help with AI).
+        // One message per need: a new one replaces the old. «Angre» in the green message puts the old one back
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> PublishUpdate(int needId, string? updateText)
+        {
+            var denied = await CheckNeedAsync(needId);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            updateText = updateText?.Trim();
+            if (string.IsNullOrEmpty(updateText))
+            {
+                TempData["Error"] = "Skriv en kort melding først.";
+                return BackToNeed(needId);
+            }
+            if (updateText.Length > 300) updateText = updateText[..300];
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+            var previous = _resourceNeedRepository.SetUpdate(needId, userId, User.Identity?.Name ?? "Ukjent", updateText);
+            TempData["Message"] = previous == null ? "Publisert på forsiden." : "Meldingen på forsiden er byttet.";
+            TempData["UndoText"] = previous ?? string.Empty; // empty = «Angre» removes it again
+            Log(needId, previous == null ? $"Publiserte info til innbyggere: «{updateText}»" : $"Byttet info til innbyggere: «{updateText}»");
+            return BackToNeed(needId);
+        }
+
+        // «Fjern» in "Info til innbyggere": the need is no longer on the front page (help with AI)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveUpdate(int needId)
+        {
+            var denied = await CheckNeedAsync(needId);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            var removed = _resourceNeedRepository.RemoveUpdates(needId);
+            if (removed == null)
+            {
+                TempData["Error"] = "Ingenting er publisert.";
+            }
+            else
+            {
+                TempData["Message"] = "Fjernet fra forsiden.";
+                TempData["UndoText"] = removed;
+                Log(needId, $"Fjernet info til innbyggere: «{removed}»");
+            }
+            return BackToNeed(needId);
+        }
+
+        // «Angre» after Publiser or Fjern: puts back the text that was there before (empty = nothing was there)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UndoUpdate(int needId, string? restoreText)
+        {
+            var denied = await CheckNeedAsync(needId);
+            if (denied != null)
+            {
+                return denied;
+            }
+
+            restoreText = restoreText?.Trim();
+            if (string.IsNullOrEmpty(restoreText))
+            {
+                _resourceNeedRepository.RemoveUpdates(needId);
+                TempData["Message"] = "Angret. Behovet er ikke på forsiden lenger.";
+                Log(needId, "Angret: fjernet info til innbyggere");
+            }
+            else
+            {
+                if (restoreText.Length > 300) restoreText = restoreText[..300];
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+                _resourceNeedRepository.SetUpdate(needId, userId, User.Identity?.Name ?? "Ukjent", restoreText);
+                TempData["Message"] = "Angret. Den forrige meldingen er tilbake på forsiden.";
+                Log(needId, $"Angret: info til innbyggere er «{restoreText}» igjen");
+            }
+            return BackToNeed(needId);
+        }
+
+        // The need must exist, be active, and the user must be allowed to change it
+        private async Task<IActionResult?> CheckNeedAsync(int needId)
         {
             var need = _resourceNeedRepository.GetById(needId);
             if (need == null)
@@ -512,25 +592,12 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 return Forbid();
             }
-
-            updateText = updateText?.Trim();
             if (need.ClosedAt != null)
             {
                 TempData["Error"] = "Behovet er avsluttet.";
+                return BackToNeed(needId);
             }
-            else if (string.IsNullOrEmpty(updateText))
-            {
-                TempData["Error"] = "Skriv en kort oppdatering først.";
-            }
-            else
-            {
-                if (updateText.Length > 300) updateText = updateText[..300];
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-                _resourceNeedRepository.AddUpdate(needId, userId, User.Identity?.Name ?? "Ukjent", updateText);
-                TempData["Message"] = "Info til innbyggere er publisert.";
-                Log(needId, $"Publiserte info til innbyggere: «{updateText}»");
-            }
-            return BackToNeed(needId);
+            return null;
         }
         // The request must belong to this need, and the user must be allowed to change the need
         private async Task<IActionResult?> CheckRequestAsync(int needId, int requestId)
@@ -815,11 +882,6 @@ namespace Heimevernet_Prosjekt.Controllers
         // Back to the need page. From the side panel on the map (embed=1) it stays in the panel (help with AI)
         private IActionResult BackToNeed(int needId)
         {
-            // From "Oversikt": back to the overview instead of the need page
-            if (Request.HasFormContentType && Request.Form["back"] == "overview")
-            {
-                return RedirectToAction("Overview", "ResourceNeed");
-            }
             if (Request.HasFormContentType && Request.Form["embed"] == "1")
             {
                 return RedirectToAction("Index", "ResourceNeed", new { id = needId, embed = 1 });

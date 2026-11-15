@@ -327,6 +327,11 @@
                     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
                     : choice;
                 root.setAttribute('data-bs-theme', theme);
+                                // The side panel on the map is its own page (iframe): give it the new theme too (help with AI)
+                // Docs: HTMLIFrameElement.contentDocument (MDN) - https://developer.mozilla.org/docs/Web/API/HTMLIFrameElement/contentDocument
+                document.querySelectorAll('iframe').forEach(function (frame) {
+                    try { frame.contentDocument.documentElement.setAttribute('data-bs-theme', theme); } catch (e) { }
+                });
             }
 
             // ✓ on the chosen ones

@@ -111,7 +111,11 @@ namespace Heimevernet_Prosjekt.DataAccess
         public IReadOnlyCollection<ResourceNeed> GetActiveAt(double latitude, double longitude)
             => throw new NotSupportedException("Bruk EfResourceNeedRepository.");
 
-
+        // Added so the class still matches IResourceNeedRepository (help with AI). This in-memory class is not used by the app
+        // (EfResourceNeedRepository is), so "Info til innbyggere" is not supported here
+        public string? SetUpdate(int needId, string userId, string userName, string text) => throw new NotSupportedException();
+        public string? RemoveUpdates(int needId) => throw new NotSupportedException();
     }
+
 
 }

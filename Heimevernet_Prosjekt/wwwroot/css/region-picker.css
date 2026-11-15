@@ -1,0 +1,195 @@
+﻿/* The area picker (help with AI), shared by Oversikt, Ressurser and Behov (Views/Shared/_RegionPicker.cshtml).
+   Moved here from overview.css. Colours from Bootstrap variables, so light and dark mode both work
+   Docs: Bootstrap CSS variables - https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+
+/* The area: a green line over the whole width, and the picker */
+.rg-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .75rem;
+    padding: .6rem 1rem;
+    margin-bottom: .75rem;
+    border: 1px solid var(--bs-success-border-subtle);
+    border-radius: .6rem;
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+}
+
+    .rg-bar b {
+        font-size: 1.2rem;
+    }
+
+.rg-ask {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem .9rem;
+    margin-bottom: .75rem;
+    border: 1px solid var(--bs-info-border-subtle);
+    border-radius: .6rem;
+    background: var(--bs-info-bg-subtle);
+    color: var(--bs-info-text-emphasis);
+}
+
+.rg-picker {
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 2px solid var(--bs-success);
+    border-radius: .75rem;
+    background: var(--bs-success-bg-subtle);
+}
+
+    .rg-picker h2 {
+        color: var(--bs-success-text-emphasis);
+    }
+
+.rg-label {
+    margin-bottom: .35rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--bs-secondary-color);
+}
+
+.rg-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: .5rem;
+}
+
+.rg-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: .6rem .9rem;
+    border: 1px solid var(--bs-success);
+    border-radius: .6rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    text-align: left;
+}
+
+    .rg-card b {
+        font-size: 1.1rem;
+    }
+
+    .rg-card.is-current {
+        border-width: 2px;
+    }
+
+    .rg-card:hover {
+        background: var(--bs-tertiary-bg);
+    }
+
+.rg-search {
+    position: relative;
+    flex: 1 1 16rem;
+}
+
+.rg-suggest {
+    position: absolute;
+    z-index: 20;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    max-height: 16rem;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .2);
+}
+
+    .rg-suggest button {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        width: 100%;
+        padding: .45rem .75rem;
+        border: 0;
+        background: none;
+        color: var(--bs-body-color);
+        text-align: left;
+    }
+
+        .rg-suggest button:hover,
+        .rg-suggest button:focus {
+            background: var(--bs-secondary-bg);
+            outline: none;
+        }
+
+.rg-chip {
+    padding: .2rem .75rem;
+    border: 1px solid var(--bs-success);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: .875rem;
+}
+
+.rg-count {
+    margin-left: .4rem;
+    padding: 0 .4rem;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg);
+    color: var(--bs-secondary-color);
+    font-size: .75rem;
+}
+
+.rg-dashed {
+    border-style: dashed;
+}
+
+/* The lists (Ressurser, Behov): the area at the start of the list bar, which is green while an area is chosen.
+   The picker opens as a box under «Bytt område» */
+.list-bar.is-region:not(.is-filtered) {
+    border-color: var(--bs-success-border-subtle);
+    background: var(--bs-success-bg-subtle);
+    color: var(--bs-success-text-emphasis);
+}
+
+.rg-wrap.is-compact {
+    position: relative;
+}
+
+    .rg-wrap.is-compact .rg-bar {
+        margin: 0;
+        padding: 0 .5rem 0 0;
+        border: 0;
+        background: none;
+        gap: .5rem;
+    }
+
+        .rg-wrap.is-compact .rg-bar b {
+            font-size: 1.1rem;
+        }
+
+    .rg-wrap.is-compact .rg-picker {
+        position: absolute;
+        left: 0;
+        top: calc(100% + .6rem);
+        z-index: 1050;
+        width: min(36rem, calc(100vw - 2rem));
+        margin-bottom: 0;
+        color: var(--bs-body-color);
+        box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .25);
+    }
+
+/* Every row would say the same kommune as the area: hidden (the distance from a point stays) */
+.hide-place .res-place-name,
+.hide-place .res-sub-place {
+    display: none;
+}
+
+/* Phones: the area gets its own line in the bar, and the box is as wide as the bar */
+@media (max-width: 767.98px) {
+    .list-bar .rg-wrap.is-compact {
+        flex-basis: 100%;
+    }
+
+    .rg-wrap.is-compact .rg-picker {
+        right: 0;
+        width: auto;
+    }
+}

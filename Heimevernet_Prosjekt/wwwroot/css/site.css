@@ -394,91 +394,6 @@ footer.footer {
         background: #495057;
         color: #e9ecef;
     }
-    /* Behov: one box each for Akutt, Planlagt and Løst, with a coloured edge and the number (icon + text, not colour alone) */
-    .need-group {
-        background: var(--bs-tertiary-bg);
-        border: 1px solid var(--bs-border-color);
-        border-left-width: 5px;
-        border-radius: 10px;
-        margin: 1rem 0;
-        overflow: hidden;
-    }
-
-    .need-group-akutt {
-        border-left-color: #E24B4A;
-    }
-
-    .need-group-planlagt {
-        border-left-color: #378ADD;
-    }
-
-    .need-group-lost {
-        border-left-color: #6c757d;
-    }
-
-    .need-group-head {
-        padding: 10px 14px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-
-    .need-group-count {
-        margin-left: 6px;
-        border-radius: 999px;
-        padding: 0 9px;
-        background: var(--bs-secondary-bg);
-        font-size: .85rem;
-    }
-
-.need-table {
-    --bs-table-bg: transparent;
-    table-layout: fixed; /* the same column widths in every box (Akutt, Planlagt, Løst) */
-}
-    .need-table td {
-        overflow-wrap: anywhere;
-    }
-
-.need-col-name {
-    width: 30%;
-}
-
-.need-col-status {
-    width: 150px;
-}
-
-.need-col-actions {
-    width: 90px;
-}
-
-        .need-table th {
-            font-size: .8rem;
-            color: var(--bs-secondary-color);
-            font-weight: 600;
-        }
-    /* The whole row can be clicked: it lights up, the name is bold without underline, and › shows it opens */
-    .need-row {
-        cursor: pointer;
-    }
-
-        .need-row:hover > td {
-            background: var(--bs-secondary-bg);
-        }
-
-    .need-name {
-        font-weight: 600;
-        color: var(--bs-body-color);
-        text-decoration: none;
-    }
-
-        .need-name:hover, .need-name:focus-visible {
-            text-decoration: underline;
-        }
-
-    .need-arrow {
-        font-size: 1.3rem;
-        color: var(--bs-secondary-color);
-        vertical-align: middle;
-    }
 
 
 /* "Ny ressurs" wizard: the layout, the step line, the cards, "Din ressurs" and the button bar (help with AI).
@@ -1226,31 +1141,7 @@ footer.footer {
         background: var(--bs-secondary-bg);
     }
 
-/* "Sted": small headings, a line with text in the middle, the "Fra" list and the chosen place as a green tag (help with AI) */
-.rf-sub {
-    margin-bottom: .25rem;
-    font-size: .85rem;
-    font-weight: 600;
-    color: var(--bs-secondary-color);
-}
-
-.rf-divider {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    margin: .75rem 0 .5rem;
-    font-size: .85rem;
-    font-weight: 600;
-    color: var(--bs-secondary-color);
-}
-
-    .rf-divider::before,
-    .rf-divider::after {
-        content: "";
-        flex: 1;
-        border-top: 1px solid var(--bs-border-color);
-    }
-
+/* "Avstand fra et punkt": the "Fra" field, its list and the chosen place as a green tag (help with AI) */
 .rf-from {
     position: relative;
 }
@@ -1322,17 +1213,78 @@ footer.footer {
         background: var(--bs-success-border-subtle);
     }
 
-/* "Flere avstander" */
-.rf-more {
-    color: var(--bs-body-color);
+/* "Avstand fra et punkt" (help with AI): ⌖ inside the field, the links under it, the distances as chips and the warning */
+.rf-field {
+    position: relative;
+}
+
+    .rf-field .form-control {
+        padding-right: 2.25rem;
+    }
+
+.rf-field-btn {
+    position: absolute;
+    top: 50%;
+    right: .25rem;
+    transform: translateY(-50%);
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 0;
+    border-radius: .35rem;
+    background: none;
+    color: var(--bs-success-text-emphasis);
+}
+
+    .rf-field-btn:hover {
+        background: var(--bs-secondary-bg);
+    }
+
+.rf-link {
+    color: var(--bs-success-text-emphasis);
     font-weight: 600;
     text-decoration: none;
 }
 
-/* The distances are grey until a place is chosen ("Velg et sted først" says why) */
-.rf-disabled {
-    opacity: .5;
+.rf-km-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin-top: .6rem;
 }
+
+    .rf-km-list[hidden] {
+        display: none;
+    }
+
+.rf-km {
+    padding: .15rem .65rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 999px;
+    background: none;
+    color: var(--bs-body-color);
+    font-size: .85rem;
+}
+
+    .rf-km small {
+        margin-left: .15rem;
+        color: var(--bs-secondary-color);
+    }
+
+    .rf-km:hover {
+        background: var(--bs-secondary-bg);
+    }
+
+    .rf-km.is-on {
+        border-color: var(--bs-success-border-subtle);
+        background: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+        font-weight: 600;
+    }
+
+.rf-warn {
+    color: var(--bs-warning-text-emphasis);
+}
+
 #rfRadiusCustom[hidden] {
     display: none !important; /* d-flex would otherwise win over hidden */
 }
@@ -1742,9 +1694,6 @@ footer.footer {
     border: 1px solid #7A5AF8;
 }
 
-.need-group.need-group-return {
-    border-left-color: #7A5AF8;
-}
 /* The small purple flag next to text: the map legend and «Mine forespørsler» (help with AI) */
 .meeting-flag.meeting-flag-xs {
     display: inline-flex;
@@ -1754,4 +1703,107 @@ footer.footer {
     border-width: 1px;
     vertical-align: -4px;
     margin-right: 6px;
+}
+/* Behov (help with AI): the same boxes and rows as Ressursoversikt, with a red Akutt box and a yellow Planlagt box */
+.res-group-akutt {
+    border-left-color: #E24B4A;
+}
+
+    .res-group-akutt > .res-group-head {
+        background: var(--bs-danger-bg-subtle);
+        color: var(--bs-danger-text-emphasis);
+        border-bottom-color: #E24B4A;
+    }
+
+.res-group-planlagt {
+    border-left-color: #E69500;
+}
+
+    .res-group-planlagt > .res-group-head {
+        background: var(--bs-warning-bg-subtle);
+        color: var(--bs-warning-text-emphasis);
+        border-bottom-color: #E69500;
+    }
+
+.list-icon-akutt {
+    background: #E24B4A;
+}
+
+.list-icon-planlagt {
+    background: #E69500;
+}
+
+/* The name and "meldt for 3 d siden" under it; both get "…" when they are too long */
+.need-list .res-name {
+    white-space: normal;
+}
+
+    .need-list .res-name .list-name {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+.need-when {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .8rem;
+    color: color-mix(in srgb, var(--bs-body-color) 70%, transparent);
+}
+
+/* Rediger and ⋯ need a little more room than Rediger alone */
+@media (min-width: 1400px) {
+    .need-list .res-row {
+        grid-template-columns: 2.4rem minmax(9rem, 16rem) minmax(0, 24rem) 1fr 11rem 9rem;
+    }
+}
+
+/* "Nullstill alt" at the top of the filter (Behov, Ressursoversikt and Kart): a small link, grey while nothing is chosen */
+.rf-reset-link {
+    padding: 0;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--hv-link);
+}
+
+    .rf-reset-link:disabled {
+        color: var(--bs-secondary-color);
+        opacity: .6;
+    }
+
+/* The Behov filter: the same look as the resource filter (#rfPanel) */
+#needFilter .form-check-input:checked {
+    border-color: var(--bs-success);
+    background-color: var(--bs-success);
+}
+
+#needFilter .is-picked > label {
+    font-weight: 600;
+}
+
+#needFilter .rf-pill {
+    flex-shrink: 0;
+    align-self: center;
+    line-height: 1.35rem;
+    font-weight: 600;
+}
+
+#needFilter .is-picked .rf-pill {
+    background: var(--bs-success);
+    color: #fff;
+}
+/* "· 2/4" next to the status of a need */
+.need-cover {
+    margin-left: .25rem;
+    font-size: .85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: color-mix(in srgb, var(--bs-body-color) 75%, transparent);
+}
+
+.res-status {
+    white-space: nowrap;
 }

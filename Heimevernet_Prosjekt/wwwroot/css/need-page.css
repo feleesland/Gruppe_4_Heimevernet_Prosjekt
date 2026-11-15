@@ -547,3 +547,94 @@
         break-inside: avoid;
     }
 }
+
+/* ---- «Neste steg» at the top (help with AI): the same words as on Oversikt. Red = do something now,
+   yellow = wait for answers, green = all covered. Clear red in light mode, the softer one in dark mode ---- */
+.np-next {
+    margin-bottom: .75rem;
+    padding: .6rem .8rem;
+    border: 2px solid var(--bs-border-color);
+    border-radius: .75rem;
+}
+
+    .np-next.is-hot {
+        border-color: #c62828;
+        background: #fdecec;
+    }
+
+    .np-next.is-wait {
+        border-color: var(--bs-warning-border-subtle);
+        background: var(--bs-warning-bg-subtle);
+    }
+
+    .np-next.is-ok {
+        padding: .4rem .8rem;
+        border-width: 1px;
+        border-color: var(--bs-success-border-subtle);
+        background: var(--bs-success-bg-subtle);
+        color: var(--bs-success-text-emphasis);
+        font-size: .9rem;
+    }
+
+.np-next-title {
+    font-weight: 600;
+}
+
+.np-next-why {
+    font-size: .875rem;
+}
+
+.np-next.is-hot .np-next-title,
+.np-next.is-hot .np-next-why {
+    color: #c62828;
+}
+
+[data-bs-theme="dark"] .np-next.is-hot {
+    border-color: var(--bs-danger-border-subtle);
+    background: var(--bs-danger-bg-subtle);
+}
+
+    [data-bs-theme="dark"] .np-next.is-hot .np-next-title,
+    [data-bs-theme="dark"] .np-next.is-hot .np-next-why {
+        color: var(--bs-danger-text-emphasis);
+    }
+
+.np-next-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-top: .5rem;
+}
+
+/* One owner to call: name, owner, phone and +30 min */
+.np-next-call {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .25rem .6rem;
+    padding: .4rem 0;
+    border-top: 1px solid var(--bs-border-color);
+    font-size: .875rem;
+}
+
+    .np-next-call:first-of-type {
+        margin-top: .4rem;
+    }
+
+    .np-next-call form {
+        margin: 0 0 0 auto;
+    }
+
+/* A line in «Hva trengs» that still misses something: a light red background (the badge says how much) */
+.np-row.is-missing {
+    background: rgba(198, 40, 40, .06);
+}
+
+[data-bs-theme="dark"] .np-row.is-missing {
+    background: rgba(234, 134, 143, .08);
+}
+
+.np-row.is-missing:hover,
+.np-row.is-missing:focus-visible {
+    background: var(--bs-tertiary-bg);
+}
