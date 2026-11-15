@@ -171,7 +171,7 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             return NotFound();
         }
 
-        // The link was already used (often the e-mail service opens it once to check it, then the user clicks):
+        // The link was already used (often the e-mail service opens it once to check it, then the user clicks): kult
         // the e-mail is confirmed, so go to login instead of showing an error (help with AI)
         if (user.EmailConfirmed)
         {
