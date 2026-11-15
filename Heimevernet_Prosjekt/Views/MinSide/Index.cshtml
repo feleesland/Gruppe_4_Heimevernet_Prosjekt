@@ -1,4 +1,5 @@
 ﻿@using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.Security.Authorization
 @model ApplicationUser
 @{
     ViewData["Title"] = "Min side";
@@ -46,6 +47,17 @@
 
         <dt class="col-sm-4">Rolle</dt>
         <dd class="col-sm-8">@ViewData["Roles"]</dd>
+        @if (!User.IsInRole(RoleNames.Admin))
+        {
+            <dt class="col-sm-4">@(User.IsInRole(RoleNames.Operator) ? "Etat" : "Jeg er")</dt>
+            <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorKind) ? "Ikke valgt" : Model.ActorKind)</dd>
+
+        @if (!User.IsInRole(RoleNames.Operator))
+            {
+                <dt class="col-sm-4">Kan bidra som</dt>
+                <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorSkills) ? "Ikke valgt" : string.Join(", ", ActorTypes.Split(Model.ActorSkills)))</dd>
+            }
+        }
     </dl>
 
     <div class="d-flex flex-wrap gap-2">

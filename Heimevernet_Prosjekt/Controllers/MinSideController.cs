@@ -44,9 +44,12 @@ public class MinSideController : Controller
     {
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Challenge();
+
         var model = new Models.ViewModels.Account.EditProfileViewModel
         {
-            Phone = user.PhoneNumber
+            Phone = user.PhoneNumber,
+            ActorKind = user.ActorKind,
+            SelectedSkills = ActorTypes.Split(user.ActorSkills).ToList()
         };
         return View(model);
     }
@@ -54,12 +57,22 @@ public class MinSideController : Controller
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> EditProfile(Models.ViewModels.Account.EditProfileViewModel model)
     {
+        var isOperator = User.IsInRole(RoleNames.Operator);
+
+        var actorError = ActorTypes.Validate(model.ActorKind, model.SelectedSkills, isOperator);
+        if (actorError != null) ModelState.AddModelError(string.Empty, actorError);
+
         if (!ModelState.IsValid) return View(model);
 
         var user = await _userManager.GetUserAsync(User);
         if (user == null) return Challenge();
 
         user.PhoneNumber = model.Phone;
+        user.ActorKind = string.IsNullOrEmpty(model.ActorKind) ? null : model.ActorKind;
+        user.ActorSkills = isOperator || model.SelectedSkills.Count == 0
+            ? null
+            : string.Join(";", model.SelectedSkills.Distinct());
+
         var result = await _userManager.UpdateAsync(user);
         if (!result.Succeeded)
         {
@@ -74,7 +87,7 @@ public class MinSideController : Controller
         return RedirectToAction("Index");
     }
 
-    
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> RequestPasswordReset()
     {
@@ -133,4 +146,5 @@ public class MinSideController : Controller
         await _signInManager.SignOutAsync();
         return RedirectToAction("Index", "Home");
     }
+
 }

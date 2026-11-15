@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations;
 
 namespace Heimevernet_Prosjekt.Models.Entities
 {
@@ -11,5 +12,11 @@ namespace Heimevernet_Prosjekt.Models.Entities
 
         [PersonalData]
         public string LastName { get; set; } = string.Empty;
+
+        [StringLength(60)]
+        public string? ActorKind { get; set; }
+
+        [StringLength(200)]
+        public string? ActorSkills { get; set; }  
     }
 }

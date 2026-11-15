@@ -183,11 +183,14 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
         }
 
         // Came from "Ny ressurs": straight to login, and then back to the draft
-        if (result.Succeeded && Url.IsLocalUrl(returnUrl))
+        if (result.Succeeded)
         {
-            TempData["Message"] = "E-posten er bekreftet. Logg inn for å fortsette der du slapp.";
-            return RedirectToAction(nameof(Login), new { returnUrl });
+            TempData["Message"] = "E-posten er bekreftet. Du kan nå logge inn.";
+            return Url.IsLocalUrl(returnUrl)
+                ? RedirectToAction(nameof(Login), new { returnUrl })
+                : RedirectToAction(nameof(Login));
         }
+
         return View();
     }
 
