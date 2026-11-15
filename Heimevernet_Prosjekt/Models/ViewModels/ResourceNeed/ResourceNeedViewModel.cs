@@ -35,6 +35,14 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         public double RadiusKm { get; set; }
         public DateTime? NeededFrom { get; set; }
         public DateTime? NeededTo { get; set; }
+
+        // Kontaktpunkt (empty = the same place as the need)
+        public string? MeetingPointName { get; set; }
+        public double? MeetingLatitude { get; set; }
+        public double? MeetingLongitude { get; set; }
+        // Who reported the need, from the account (shown as «Meldt … av Ola · ☎ …») (help with AI)
+        public string? ReportedByName { get; set; }
+        public string? ReportedByPhone { get; set; }
         public DateTime? ClosedAt { get; set; }
         // Ny, Vurderes, Tildelt or Løst (worked out in the controller)
         public NeedStatus Status { get; set; }

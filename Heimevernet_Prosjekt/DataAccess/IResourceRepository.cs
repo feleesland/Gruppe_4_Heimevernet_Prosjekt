@@ -15,6 +15,8 @@ namespace Heimevernet_Prosjekt.DataAccess
         int DeleteAllByOwner(string ownerId);
         bool SetStatus(int id, string status);
         bool SetUnavailable(int id, string? reason, DateTime? untilUtc);
+        // "Endre" on Tilgjengelig: the kind and the times. Ends "Ikke tilgjengelig" (help with AI)
+        void SetAvailability(int id, AvailabilityKind kind, TimeSpan? fromTime, TimeSpan? toTime, int days, DateTime? fromDate, DateTime? toDate);
 
         // The answers to the type's questions (step 2 in "Ny ressurs")
         IReadOnlyList<ResourceAttributeValue> GetAnswers(int resourceId);

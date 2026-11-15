@@ -4,13 +4,15 @@
 @{
     ViewData["Title"] = "Behov";
 
-    // Three boxes: Akutt (oldest first, it has waited longest), Planlagt (nearest date first) and Løst (newest first, closed by default)
+    // Four boxes: Akutt (oldest first, it has waited longest), Planlagt (nearest date first),
+    // Lever tilbake (closed, but resources are still out; oldest first) and Løst (newest first, closed by default)
     var akutt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Akutt).OrderBy(n => n.CreatedAt).ToList();
     var planlagt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Planlagt).OrderBy(n => n.NeededFrom).ToList();
-    var lost = Model.Where(n => n.ClosedAt != null).OrderByDescending(n => n.ClosedAt).ToList();
+    var giveBack = Model.Where(n => n.Status == NeedStatus.LeverTilbake).OrderBy(n => n.ClosedAt).ToList();
+    var lost = Model.Where(n => n.ClosedAt != null && n.Status != NeedStatus.LeverTilbake).OrderByDescending(n => n.ClosedAt).ToList();
 
     // The filter: the statuses and the places, each with how many needs it has
-    var statuses = new[] { (NeedStatus.Ny, "🆕 Ny"), (NeedStatus.Vurderes, "🔎 Vurderes"), (NeedStatus.Tildelt, "✅ Tildelt"), (NeedStatus.Lost, "🏁 Løst") };
+    var statuses = new[] { (NeedStatus.Ny, "🆕 Ny"), (NeedStatus.Vurderes, "🔎 Vurderes"), (NeedStatus.Tildelt, "✅ Tildelt"), (NeedStatus.LeverTilbake, "↩︎ Lever tilbake"), (NeedStatus.Lost, "🏁 Løst") };
     var places = Model.Select(Place).Where(p => p != "").GroupBy(p => p).OrderBy(g => g.Key).ToList();
 }
 
@@ -18,6 +20,17 @@
     // Times are saved as UTC and shown in Norwegian time
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
     private static string OsloDate(DateTime? utc) => utc == null ? "" : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, Oslo).ToString("dd.MM.");
+    private static string OsloFull(DateTime? utc) => utc == null ? "" : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, Oslo).ToString("dd.MM.yyyy HH:mm");
+
+    // The status as plain text for Eksporter (no icons)
+    private static string StatusLabel(NeedStatus s) => s switch
+    {
+        NeedStatus.Vurderes => "Vurderes",
+        NeedStatus.Tildelt => "Tildelt",
+        NeedStatus.LeverTilbake => "Lever tilbake",
+        NeedStatus.Lost => "Løst",
+        _ => "Ny"
+    };
 
     // How long ago: "12 min", "3 t", "2 d"
     private static string Ago(DateTime? utc)
@@ -39,7 +52,8 @@
     // The grey line under the name: place, and when it was reported / is needed / was closed
     private static string SubText(ResourceNeedViewModel n)
     {
-        var when = n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
+        var when = n.Status == NeedStatus.LeverTilbake ? $"avsluttet {OsloDate(n.ClosedAt)} · ikke alt er levert tilbake"
+                 : n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
                  : n.Urgency == NeedUrgency.Planlagt ? $"trengs {OsloDate(n.NeededFrom)}"
                  : $"meldt for {Ago(n.CreatedAt)} siden";
         return Place(n) == "" ? when : $"📍 {Place(n)} · {when}";
@@ -48,7 +62,9 @@
 
 <h1>@ViewData["Title"]</h1>
 
-<a class="button" asp-controller="ResourceNeedHandler" asp-action="Create">+ Opprett nytt behov</a>
+<a class="button no-print" asp-controller="ResourceNeedHandler" asp-action="Create">
+    + Opprett nytt behov
+</a>
 
 @{
     // One box: a coloured edge, the number, and a table inside. <details> can be opened and closed without JavaScript (help with AI)
@@ -70,7 +86,7 @@
                                 <th scope="col" class="need-col-name">Navn</th>
                                 <th scope="col" class="need-col-status">Status</th>
                                 <th scope="col">Hva trengs</th>
-                                <th scope="col" class="need-col-actions"><span class="visually-hidden">Handlinger</span></th>
+                                    <th scope="col" class="need-col-actions no-print"><span class="visually-hidden">Handlinger</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -79,14 +95,17 @@
                                 @* The whole row opens the need (script below). The name is still a link, so Tab + Enter works.
                                    data-status/-place/-text are used by the filter *@
                                 <tr class="need-row" data-status="@n.Status" data-place="@Place(n)"
-                                    data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())">
+                                    data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())"
+                                    data-name="@n.Name" data-status-label="@StatusLabel(n.Status)" data-urgency="@n.Urgency"
+                                    data-items="@string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}"))" data-created="@OsloFull(n.CreatedAt)"
+                                    data-needed="@OsloFull(n.NeededFrom)" data-closed="@OsloFull(n.ClosedAt)" data-href="@Url.Action("Index", "ResourceNeed", new { id = n.Id })">
                                     <td>
                                         <a class="need-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
                                         <div class="small text-body-secondary">@SubText(n)</div>
                                     </td>
                                     <td><partial name="_NeedStatusBadge" model="n.Status" /></td>
                                     <td>@(n.Items.Count == 0 ? n.Type : string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}")))</td>
-                                    <td class="text-end text-nowrap">
+                                        <td class="text-end text-nowrap no-print">
                                         @* One small menu instead of two buttons - Docs: Bootstrap Dropdowns *@
                                         <div class="dropdown d-inline-block">
                                             <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
@@ -124,7 +143,7 @@ else
 {
     <div class="row g-4 mt-1">
         @* The filter on the left: search, status and place. Rows are hidden right away, without reloading (script below) *@
-        <aside class="col-lg-3 col-xxl-2" aria-label="Filter">
+            <aside class="col-lg-3 col-xxl-2 no-print" aria-label="Filter">
             <h2 class="h5">Filter</h2>
             <label for="needSearch" class="form-label small">Søk</label>
             <input id="needSearch" type="search" class="form-control mb-4" placeholder="Navn eller hva som trengs …" />
@@ -162,7 +181,23 @@ else
             <div class="d-flex flex-wrap align-items-center gap-2">
                 <strong id="needCount" aria-live="polite"></strong>
                 <div id="needChips" class="rf-chips" hidden></div>
+                @* Eksporter: the needs that are shown with the filter (help with AI) *@
+                    <div class="dropdown ms-auto no-print">
+                    <button type="button" class="btn btn-sm rf-reset dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="ti ti-download" aria-hidden="true"></i> Eksporter
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button type="button" class="dropdown-item" data-need-list-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
+                        <li><button type="button" class="dropdown-item" data-need-list-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+                        <li><button type="button" class="dropdown-item" data-need-list-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+                    </ul>
+                </div>
             </div>
+                @* Only on paper: title, what is filtered and when it was printed (.print-only in site.css) *@
+                <div class="print-only mb-3">
+                    <h2 class="h4 mb-1">Behov – Heimevernet</h2>
+                    <div id="needPrintInfo" class="small"></div>
+                </div>
             <p id="needNone" class="text-body-secondary mt-3" hidden>Ingen behov passer filteret.</p>
 
             @{
@@ -170,6 +205,10 @@ else
             }
             @{
                 await RenderGroup("📅 Planlagt", "need-group-planlagt", planlagt, true);
+            }
+            @if (giveBack.Count > 0)
+            {
+                await RenderGroup("↩︎ Lever tilbake", "need-group-return", giveBack, true);
             }
             @{
                 await RenderGroup("🏁 Løst", "need-group-lost", lost, false);
@@ -179,6 +218,7 @@ else
 }
 
 @section Scripts {
+    <script src="~/js/resource-export.js" asp-append-version="true"></script>
     <script>
         // A click anywhere on a row opens the need, like Gmail. Not when the click is on the ⋯ menu or another link/button (help with AI)
         document.querySelectorAll('.need-row').forEach(function (row) {
@@ -269,5 +309,35 @@ else
             document.getElementById('needReset').addEventListener('click', function () { reset(); apply(); });
             apply();
         })();
+
+        // Eksporter on Behov (help with AI): only the rows the filter shows, also in closed boxes (Løst)
+        document.querySelectorAll('[data-need-list-export]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                        // Skriv ut / PDF: a line with what is filtered and when, every box opened (Løst too), then the print window
+                        if (button.dataset.needListExport === 'print') {
+                            var shown = Array.from(document.querySelectorAll('.need-row')).filter(function (row) { return !row.hidden; }).length;
+                            var chipsText = Array.from(document.querySelectorAll('#needChips .rf-chip:not(.rf-chip-reset)'))
+                                .map(function (c) { return c.textContent.replace(' ✕', ''); }).join(' · ');
+                            document.getElementById('needPrintInfo').textContent = shown + ' behov'
+                                + (chipsText ? ' · ' + chipsText : '')
+                                + ' · Skrevet ut ' + new Date().toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+                            document.querySelectorAll('.need-group').forEach(function (g) { g.open = true; });
+                            window.print();
+                            return;
+                        }
+                var rows = Array.from(document.querySelectorAll('.need-row'))
+                    .filter(function (row) { return !row.hidden && !row.closest('.need-group').hidden; })
+                    .map(function (row) {
+                        var d = row.dataset;
+                        return {
+                            Navn: d.name, Status: d.statusLabel, Hastegrad: d.urgency, Sted: d.place,
+                            'Hva trengs': d.items, Meldt: d.created, 'Trengs fra': d.needed, Avsluttet: d.closed,
+                            Lenke: location.origin + d.href
+                        };
+                    });
+                ResourceExport.download(rows, 'behov', button.dataset.needListExport);
+            });
+        });
+
     </script>
 }

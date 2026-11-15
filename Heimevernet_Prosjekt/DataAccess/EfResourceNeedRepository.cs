@@ -148,6 +148,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             RadiusKm = model.RadiusKm,
             NeededFrom = model.NeededFrom,
             NeededTo = model.NeededTo,
+            MeetingPointName = model.MeetingPointName ?? string.Empty,
+            MeetingLatitude = model.MeetingLatitude,
+            MeetingLongitude = model.MeetingLongitude,
 
             Items = model.Lines
                 .Select(line => new ResourceNeedItem { Type = line.Type, Quantity = line.Quantity })
@@ -278,6 +281,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.RadiusKm = model.RadiusKm;
         need.NeededFrom = model.NeededFrom;
         need.NeededTo = model.NeededTo;
+        need.MeetingPointName = model.MeetingPointName ?? string.Empty;
+        need.MeetingLatitude = model.MeetingLatitude;
+        need.MeetingLongitude = model.MeetingLongitude;
 
         foreach (var item in need.Items.ToList())
         {
@@ -310,6 +316,35 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.Type = need.Items.FirstOrDefault()?.Type ?? need.Type;
         dbContext.SaveChanges();
         return true;
+    }
+
+    // "Ofte brukt": count how many need lines each type has, and take the most used (help with AI)
+    // The database does the counting - Docs: Complex query operators (GroupBy) - https://learn.microsoft.com/ef/core/querying/complex-query-operators
+    public IReadOnlyList<string> GetPopularTypes(int count)
+    {
+        return dbContext.ResourceNeedItems
+            .Where(item => item.Type != null && item.Type != "")
+            .GroupBy(item => item.Type)
+            .OrderByDescending(group => group.Count())
+            .Select(group => group.Key)
+            .Take(count)
+            .ToList();
+    }
+
+    // "Info til innbyggere": one public update (help with AI)
+    public void AddUpdate(int needId, string userId, string userName, string text)
+    {
+        dbContext.NeedUpdates.Add(new NeedUpdate { ResourceNeedId = needId, UserId = userId, UserName = userName, Text = text });
+        dbContext.SaveChanges();
+    }
+
+    public IReadOnlyList<NeedUpdate> GetUpdates(int needId)
+    {
+        return dbContext.NeedUpdates
+            .AsNoTracking()
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
     }
 
 }

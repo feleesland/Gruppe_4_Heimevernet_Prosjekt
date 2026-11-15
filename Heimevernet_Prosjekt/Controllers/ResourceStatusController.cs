@@ -2,6 +2,8 @@
 using Heimevernet_Prosjekt.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using Heimevernet_Prosjekt.Models.Entities;
 
 namespace Heimevernet_Prosjekt.Controllers;
 
@@ -10,7 +12,8 @@ namespace Heimevernet_Prosjekt.Controllers;
 [Authorize]
 public class ResourceStatusController : Controller
 {
-    private static readonly string[] Allowed = { "Ledig", "Opptatt", "Ugyldig" };
+    // Gyldig (= "Ledig") or Ugyldig. "I bruk" and "Lever tilbake" come from the needs, "Ikke tilgjengelig" from SetUnavailable
+    private static readonly string[] Allowed = { "Ledig", "Ugyldig" };
 
     private readonly IResourceRepository _resourceRepository;
     private readonly IResourceRequestRepository _requestRepository;
@@ -103,6 +106,53 @@ public class ResourceStatusController : Controller
 
         _resourceRepository.SetUnavailable(id, reason, untilUtc);
         TempData["Message"] = "Ressursen er satt til «Ikke tilgjengelig».";
+        return RedirectToAction("Index", "Resource", new { id });
+    }
+    // "Endre" on Tilgjengelig (help with AI): Hele tiden, faste tider (also over midnight, e.g. 16:00-08:00) or a period.
+    // Only the owner: the times belong to them. Admin can set "Ikke tilgjengelig" (SetUnavailable) or "Ugyldig" (Set)
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetAvailability(int id, AvailabilityKind kind, TimeSpan? fromTime, TimeSpan? toTime,
+        List<int>? days, DateTime? fromDate, DateTime? toDate)
+    {
+        var resource = _resourceRepository.GetById(id);
+        if (resource == null)
+        {
+            return NotFound();
+        }
+
+        if (resource.OwnerId != User.FindFirstValue(ClaimTypes.NameIdentifier))
+        {
+            return Forbid();
+        }
+
+        if (_requestRepository.GetResourceIdsInUse().Contains(id))
+        {
+            TempData["Message"] = "Ressursen er utlånt til et behov. Tidene kan endres når den er levert tilbake.";
+            return RedirectToAction("Index", "Resource", new { id });
+        }
+
+        // Only real weekdays (1, 2, 4 ... 64), added together to one number
+        var dayBits = (days ?? new List<int>()).Where(d => d is >= 1 and <= 64 && (d & (d - 1)) == 0).Distinct().Sum();
+
+        if (kind == AvailabilityKind.Weekly && (fromTime == null || toTime == null || dayBits == 0))
+        {
+            TempData["Message"] = "Velg fra, til og minst én dag.";
+            return RedirectToAction("Index", "Resource", new { id });
+        }
+        if (kind == AvailabilityKind.Period && (fromDate == null || toDate == null || toDate < fromDate))
+        {
+            TempData["Message"] = "Velg en periode der «til» er etter «fra».";
+            return RedirectToAction("Index", "Resource", new { id });
+        }
+
+        _resourceRepository.SetAvailability(id, kind,
+            kind == AvailabilityKind.Weekly ? fromTime : null,
+            kind == AvailabilityKind.Weekly ? toTime : null,
+            kind == AvailabilityKind.Weekly ? dayBits : 127,
+            kind == AvailabilityKind.Period ? fromDate : null,
+            kind == AvailabilityKind.Period ? toDate : null);
+        TempData["Message"] = "Tilgjengeligheten er lagret.";
         return RedirectToAction("Index", "Resource", new { id });
     }
 }

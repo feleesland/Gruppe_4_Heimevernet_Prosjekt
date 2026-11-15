@@ -16,6 +16,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
     public DbSet<ResourceNeedItem> ResourceNeedItems => Set<ResourceNeedItem>();
     public DbSet<ResourceRequest> ResourceRequests => Set<ResourceRequest>();
     public DbSet<ResourceNeedLog> ResourceNeedLogs => Set<ResourceNeedLog>();
+    public DbSet<NeedUpdate> NeedUpdates => Set<NeedUpdate>();
     public DbSet<ResourceCategory> ResourceCategories => Set<ResourceCategory>();
     public DbSet<ResourceAttribute> ResourceAttributes => Set<ResourceAttribute>();
     public DbSet<ResourceAttributeValue> ResourceAttributeValues => Set<ResourceAttributeValue>();
@@ -84,6 +85,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             // Existing needs get 2 km in the migration; new needs get what the operator picks in the form
             entity.Property(resourceneed => resourceneed.RadiusKm)
                 .HasDefaultValue(2.0);
+            entity.Property(resourceneed => resourceneed.MeetingPointName).HasMaxLength(200); // Kontaktpunkt
 
             // One need has many lines; deleting a need deletes its lines - Docs: Relationships (one-to-many)
             // https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many
@@ -176,6 +178,61 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
                 .HasForeignKey(value => value.ResourceAttributeId)
                 .OnDelete(DeleteBehavior.Restrict); // questions are hidden, not deleted, so answers are kept
         });
+        // "Info til innbyggere": public updates on a need, newest first (help with AI)
+        modelBuilder.Entity<NeedUpdate>(entity =>
+        {
+            entity.ToTable("NeedUpdates");
+            entity.Property(update => update.Text).HasMaxLength(300).IsRequired();
+            entity.Property(update => update.UserName).HasMaxLength(256);
+            entity.HasIndex(update => update.ResourceNeedId);
+        });
+
+        // "Ny ressurs" step by step: categories -> types -> questions -> answers (help with AI)
+        // Docs: Relationships (one-to-many) - https://learn.microsoft.com/ef/core/modeling/relationships/one-to-many
+        modelBuilder.Entity<ResourceCategory>(entity =>
+        {
+            entity.ToTable("ResourceCategories");
+            entity.Property(category => category.Name).HasMaxLength(100).IsRequired();
+            entity.Property(category => category.Icon).HasMaxLength(50);
+            entity.HasMany(category => category.Types)
+                .WithOne(type => type.Category)
+                .HasForeignKey(type => type.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull); // deleting a category keeps its types
+        });
+
+        modelBuilder.Entity<ResourceAttribute>(entity =>
+        {
+            entity.ToTable("ResourceAttributes");
+            entity.Property(attribute => attribute.Label).HasMaxLength(100).IsRequired();
+            entity.Property(attribute => attribute.Options).HasMaxLength(500);
+            entity.Property(attribute => attribute.Unit).HasMaxLength(20);
+            entity.Property(attribute => attribute.Kind).HasConversion<string>().HasMaxLength(20); // "YesNo" in the database, easy to read
+            entity.HasOne(attribute => attribute.ResourceType)
+                .WithMany(type => type.Attributes)
+                .HasForeignKey(attribute => attribute.ResourceTypeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Answers of a soft-deleted resource are hidden too, otherwise EF warns about the query filter
+        modelBuilder.Entity<ResourceAttributeValue>().HasQueryFilter(value => !value.Resource.IsDeleted);
+
+        modelBuilder.Entity<ResourceAttributeValue>(entity =>
+        {
+            entity.ToTable("ResourceAttributeValues");
+            entity.Property(value => value.Value).HasMaxLength(200).IsRequired();
+            // One answer per question per resource
+            entity.HasIndex(value => new { value.ResourceId, value.ResourceAttributeId }).IsUnique();
+            entity.HasOne(value => value.Resource)
+                .WithMany()
+                .HasForeignKey(value => value.ResourceId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(value => value.ResourceAttribute)
+                .WithMany()
+                .HasForeignKey(value => value.ResourceAttributeId)
+                .OnDelete(DeleteBehavior.Restrict); // questions are hidden, not deleted, so answers are kept
+        });
+
+
         modelBuilder.Entity<PermanentMapMarker>(entity =>
         {
             entity.ToTable("PermanentMapMarkers");
@@ -203,6 +260,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 1,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Kristiansand Politistasjon",
                 Type = "Politi",
                 IconType = "police",
@@ -214,6 +272,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 2,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Kristiansand Brannstasjon",
                 Type = "Brann",
                 IconType = "firestation",
@@ -225,6 +284,7 @@ public class HeimevernetDbContext(DbContextOptions<HeimevernetDbContext> options
             new PermanentMapMarker
             {
                 Id = 3,
+                CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, DateTimeKind.Utc), // fixed date: DateTime.UtcNow in seed data changes the model on every start (help with AI)
                 Name = "Sørlandet Sykehus Kristiansand",
                 Type = "Sykehus",
                 IconType = "hospital",

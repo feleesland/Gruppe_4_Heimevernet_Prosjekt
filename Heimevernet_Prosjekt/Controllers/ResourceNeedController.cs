@@ -36,52 +36,70 @@ namespace Heimevernet_Prosjekt.Controllers
 
         // "Oversikt": the operator's main page. Built from needs and their requests (help with AI)
         [HttpGet]
-        public IActionResult Overview()
+        public async Task<IActionResult> Overview()
         {
             var now = DateTime.UtcNow;
             var model = new OverviewViewModel();
-            var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-            string Time(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, oslo).ToString("dd.MM HH:mm");
-            string ResourceName(int id) => _resourceRepository.GetById(id)?.Name ?? $"Ressurs #{id}";
-            // One row for the "Ute nå" list: resource, owner and need
-            OverviewLoanRow Loan(int needId, string needName, bool needClosed, ResourceRequest r)
+            var resources = _resourceRepository.GetAll();
+            var resourcesById = resources.ToDictionary(resource => resource.Id);
+            var inUse = _requestRepository.GetResourceIdsInUse();
+            string ResourceName(int id) => resourcesById.TryGetValue(id, out var r) ? r.Name : $"Ressurs #{id}";
+
+            // Owners are looked up once each - Docs: Introduction to Identity on ASP.NET Core
+            // https://learn.microsoft.com/aspnet/core/security/authentication/identity
+            var owners = new Dictionary<string, ApplicationUser?>();
+            async Task<ApplicationUser?> OwnerAsync(string? ownerId)
             {
-                var resource = _resourceRepository.GetById(r.ResourceId);
-                var owner = string.IsNullOrEmpty(resource?.OwnerId) ? null : _userManager.Users.FirstOrDefault(u => u.Id == resource.OwnerId);
-                var ownerName = owner == null ? "Ukjent eier" : $"{owner.FirstName} {owner.LastName}".Trim();
+                if (string.IsNullOrEmpty(ownerId)) return null;
+                if (!owners.TryGetValue(ownerId, out var owner))
+                {
+                    owner = await _userManager.FindByIdAsync(ownerId);
+                    owners[ownerId] = owner;
+                }
+                return owner;
+            }
+
+            // One row for the "Ute nå" box: resource, owner and need
+            async Task<OverviewLoanRow> LoanAsync(ResourceNeed need, ResourceRequest r, DateTime? since)
+            {
+                resourcesById.TryGetValue(r.ResourceId, out var resource);
+                var owner = await OwnerAsync(resource?.OwnerId);
+                var ownerName = owner == null ? string.Empty : $"{owner.FirstName} {owner.LastName}".Trim();
                 return new OverviewLoanRow
                 {
-                    NeedId = needId,
-                    NeedName = needName,
-                    NeedClosed = needClosed,
+                    RequestId = r.Id,
+                    NeedId = need.Id,
+                    NeedName = need.Name,
                     ResourceId = r.ResourceId,
                     ResourceName = resource?.Name ?? $"Ressurs #{r.ResourceId}",
                     OwnerName = ownerName.Length > 0 ? ownerName : owner?.Email ?? "Ukjent eier",
-                    OwnerPhone = owner?.PhoneNumber,
-                    DeliveredAt = r.DeliveredAt,
-                    ReturnedAt = r.ReturnedAt
+                    OwnerPhone = owner?.PhoneNumber ?? resource?.OwnerTelephoneNumber,
+                    Since = since
                 };
             }
 
             foreach (var need in _resourceNeedRepository.GetAll())
             {
                 var requests = _requestRepository.GetForNeed(need.Id);
-                // Everything that has been delivered: still out, or returned
-                foreach (var r in requests.Where(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt != null))
-                {
-                    var row = Loan(need.Id, need.Name, need.ClosedAt != null, r);
-                    if (r.ReturnedAt == null) model.OutLoans.Add(row);
-                    else model.ReturnedLoans.Add(row);
-                }
 
-                // Resources that are out right now - also on closed needs, so nothing is forgotten
-                foreach (var r in requests.Where(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt != null && r.ReturnedAt == null))
+                // Said yes and not back yet - also on closed needs, so nothing is forgotten
+                foreach (var r in requests.Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
                 {
-                    model.OutNow++;
                     if (need.ClosedAt != null)
                     {
-                        model.Attention.Add(new AttentionItem(need.Id, "📦",
-                            $"«{ResourceName(r.ResourceId)}» er fortsatt ute. «{need.Name}» ble avsluttet {Time(need.ClosedAt.Value)}.", need.ClosedAt));
+                        model.GiveBack.Add(await LoanAsync(need, r, need.ClosedAt));
+                    }
+                    else if (r.DeliveredAt == null)
+                    {
+                        // A planned need: count from when it starts, not from the yes
+                        var since = need.Urgency == NeedUrgency.Planlagt && need.NeededFrom > r.AnsweredAt ? need.NeededFrom : r.AnsweredAt;
+                        var row = await LoanAsync(need, r, since);
+                        row.Late = since != null && since <= now.AddHours(-2);
+                        model.NotDelivered.Add(row);
+                    }
+                    else
+                    {
+                        model.InUse.Add(await LoanAsync(need, r, r.DeliveredAt));
                     }
                 }
 
@@ -90,61 +108,108 @@ namespace Heimevernet_Prosjekt.Controllers
                     continue;
                 }
 
-                var waiting = requests.Count(r => r.Status == RequestStatus.Sendt && !r.IsUnanswered(now));
+                var waiting = requests.Where(r => r.Status == RequestStatus.Sendt && !r.IsUnanswered(now)).ToList();
                 var overdue = requests.Where(r => r.IsUnanswered(now)).ToList();
+                var declined = requests.Where(r => r.Status == RequestStatus.Avslatt && r.AnsweredAt > now.AddHours(-24)).ToList();
 
-                foreach (var r in requests.Where(r => r.Status == RequestStatus.Sendt && !r.IsUnanswered(now)))
+                foreach (var r in waiting)
                 {
-                    model.WaitingList.Add(new AttentionItem(need.Id, "⏳",
-                        $"«{ResourceName(r.ResourceId)}» · «{need.Name}» – svar innen {Time(r.AnswerBy)}", r.AnswerBy));
+                    model.WaitingList.Add(new OverviewRequestRow(r.Id, need.Id, need.Name, ResourceName(r.ResourceId), r.AnswerBy));
                 }
-                foreach (var r in overdue)
+                if (overdue.Count > 0)
                 {
-                    model.OverdueList.Add(new AttentionItem(need.Id, "⏱",
-                        $"«{ResourceName(r.ResourceId)}» · «{need.Name}» – fristen gikk {Time(r.AnswerBy)}", r.AnswerBy));
+                    model.Overdue.Add(new OverviewRequestGroup(need.Id, need.Name,
+                        overdue.Select(r => ResourceName(r.ResourceId)).ToList(), overdue.Min(r => r.AnswerBy)));
+                }
+                if (declined.Count > 0)
+                {
+                    model.Declined.Add(new OverviewRequestGroup(need.Id, need.Name,
+                        declined.Select(r => ResourceName(r.ResourceId)).ToList(), declined.Max(r => r.AnsweredAt!.Value)));
                 }
 
-                // Covered per line, never more than the line asks for
-                var covered = need.Items.Sum(item => Math.Min(item.Quantity,
-                    requests.Count(r => r.ResourceNeedItemId == item.Id && r.Status == RequestStatus.Godtatt)));
-                var quantity = need.Items.Sum(item => item.Quantity);
+                // Covered per line (never more than the line asks for), and free resources inside the need's radius
+                // for the lines that still miss something. No radius set: 2 km, like the map
+                var radius = need.RadiusKm > 0 ? need.RadiusKm : 2;
+                var asked = requests
+                    .Where(r => r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Sendt)
+                    .Select(r => r.ResourceId)
+                    .ToHashSet();
+                int covered = 0, quantity = 0;
+                var noneNearby = false;
+                var checkedNearby = false;
+                var nearbyIds = new HashSet<int>();
+                foreach (var item in need.Items)
+                {
+                    var itemRequests = requests.Where(r => r.ResourceNeedItemId == item.Id).ToList();
+                    covered += Math.Min(item.Quantity, itemRequests.Count(r => r.Status == RequestStatus.Godtatt));
+                    quantity += item.Quantity;
 
-                model.ActiveNeeds++;
+                    // Enough said yes or are being asked, or the need has no place: nothing to look for
+                    var open = itemRequests.Count(r => r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Sendt);
+                    if (open >= item.Quantity || need.Latitude == null || need.Longitude == null) continue;
+
+                    checkedNearby = true;
+                    var free = resources
+                        .Where(res => res.Type == item.Type
+                            && (string.IsNullOrEmpty(res.Status) || res.Status == "Ledig")
+                            && !inUse.Contains(res.Id)
+                            && !asked.Contains(res.Id)
+                            && res.Latitude != null && res.Longitude != null
+                            && GeoDistance.Km(need.Latitude.Value, need.Longitude.Value, res.Latitude.Value, res.Longitude.Value) <= radius)
+                        .Select(res => res.Id)
+                        .ToList();
+                    if (free.Count == 0) noneNearby = true;
+                    nearbyIds.UnionWith(free);
+                }
+
+                var missing = quantity - covered;
+                var startsSoon = need.Urgency == NeedUrgency.Planlagt && need.NeededFrom != null
+                                 && need.NeededFrom <= now.AddHours(24) && missing > 0;
+                var urgent = need.Urgency == NeedUrgency.Akutt || startsSoon;
+                var nobodyAsked = missing > 0 && waiting.Count == 0 && overdue.Count == 0;
+
                 if (need.Urgency == NeedUrgency.Akutt) model.ActiveAkutt++;
-                model.Waiting += waiting;
-                model.Overdue += overdue.Count;
-
-                foreach (var r in overdue)
-                {
-                    model.Attention.Add(new AttentionItem(need.Id, "⏱",
-                        $"«{ResourceName(r.ResourceId)}» har ikke svart på «{need.Name}». Fristen gikk {Time(r.AnswerBy)}.", r.AnswerBy));
-                }
-
-                // Not covered, and nobody is being asked: the operator must send more requests
-                if (covered < quantity && waiting == 0)
-                {
-                    model.Attention.Add(new AttentionItem(need.Id, need.Urgency == NeedUrgency.Akutt ? "⏰" : "📅",
-                        $"«{need.Name}»: {covered} av {quantity} dekket, ingen venter på svar.", need.CreatedAt));
-                }
+                else model.ActivePlanned++;
+                model.Waiting += waiting.Count;
 
                 model.Needs.Add(new OverviewNeedRow
                 {
                     Id = need.Id,
                     Name = need.Name,
+                    City = need.City,
                     Urgency = need.Urgency,
+                    CreatedAt = need.CreatedAt,
                     NeededFrom = need.NeededFrom,
+                    RadiusKm = (double)radius,
                     Covered = covered,
                     Quantity = quantity,
-                    Waiting = waiting
+                    Delivered = requests.Count(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt != null),
+                    Waiting = waiting.Count,
+                    NextAnswerBy = waiting.Count > 0 ? waiting.Min(r => r.AnswerBy) : null,
+                    Overdue = overdue.Count,
+                    NobodyAsked = nobodyAsked,
+                    NoneNearby = noneNearby,
+                    FreeNearby = checkedNearby ? nearbyIds.Count : null,
+                    StartsSoon = startsSoon,
+                    Level = overdue.Count > 0 || (urgent && (nobodyAsked || noneNearby)) ? 2 : startsSoon ? 1 : 0
                 });
             }
 
-            // Akutt first, then the oldest
-            model.Needs = model.Needs.OrderBy(n => n.Urgency).ThenBy(n => n.Id).ToList();
-            model.Attention = model.Attention.OrderBy(a => a.When).ToList();
-            model.OutLoans = model.OutLoans.OrderBy(l => l.DeliveredAt).ToList();
-            model.ReturnedLoans = model.ReturnedLoans.OrderByDescending(l => l.ReturnedAt).Take(20).ToList();
-            model.WaitingList = model.WaitingList.OrderBy(a => a.When).ToList();
+            model.OutNow = model.NotDelivered.Count + model.GiveBack.Count + model.InUse.Count;
+
+            // Red first, then orange, then Akutt before Planlagt, oldest first
+            model.Needs = model.Needs
+                .OrderByDescending(n => n.Level)
+                .ThenBy(n => n.Urgency)
+                .ThenBy(n => n.CreatedAt)
+                .ToList();
+            // Longest out first
+            model.NotDelivered = model.NotDelivered.OrderBy(l => l.Since).ToList();
+            model.GiveBack = model.GiveBack.OrderBy(l => l.Since).ToList();
+            model.InUse = model.InUse.OrderBy(l => l.Since).ToList();
+            model.Overdue = model.Overdue.OrderBy(g => g.When).ToList();
+            model.WaitingList = model.WaitingList.OrderBy(r => r.AnswerBy).ToList();
+            model.Declined = model.Declined.OrderByDescending(g => g.When).ToList();
             return View(model);
         }
 
@@ -191,11 +256,23 @@ namespace Heimevernet_Prosjekt.Controllers
                 RadiusKm = need.RadiusKm,
                 NeededFrom = need.NeededFrom,
                 NeededTo = need.NeededTo,
+                MeetingPointName = need.MeetingPointName,
+                MeetingLatitude = need.MeetingLatitude,
+                MeetingLongitude = need.MeetingLongitude,
                 ClosedAt = need.ClosedAt,
                 Status = NeedStatusRules.For(need, _requestRepository.GetForNeed(need.Id)),
                 Items = need.Items.OrderBy(item => item.CreatedAt).ToList()
             };
+            // Who reported the need, so the operators can call them (help with AI). Name and phone from the account
+            var reporter = string.IsNullOrEmpty(need.OwnerId) ? null : await _userManager.FindByIdAsync(need.OwnerId);
+            if (reporter != null)
+            {
+                var reporterName = $"{reporter.FirstName} {reporter.LastName}".Trim();
+                viewModel.ReportedByName = reporterName.Length > 0 ? reporterName : reporter.Email;
+                viewModel.ReportedByPhone = reporter.PhoneNumber;
+            }
             ViewData["Log"] = _resourceNeedRepository.GetLog(id.Value);
+            ViewData["Updates"] = _resourceNeedRepository.GetUpdates(id.Value); // "Info til innbyggere"
             viewModel.Lines = await BuildLinesAsync(need, viewModel.Items);
             return View(viewModel);
         }

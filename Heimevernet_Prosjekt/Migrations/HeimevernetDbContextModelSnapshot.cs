@@ -102,6 +102,41 @@ namespace Heimevernet_Prosjekt.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.NeedUpdate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("ResourceNeedId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceNeedId");
+
+                    b.ToTable("NeedUpdates", (string)null);
+                });
+
             modelBuilder.Entity("Heimevernet_Prosjekt.Models.Entities.PermanentMapMarker", b =>
                 {
                     b.Property<int>("Id")
@@ -146,7 +181,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(4921),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Politistasjon",
                             IconType = "police",
                             Latitude = 58.146000000000001,
@@ -157,7 +192,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 2,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6351),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Brannstasjon",
                             IconType = "firestation",
                             Latitude = 58.168999999999997,
@@ -168,7 +203,7 @@ namespace Heimevernet_Prosjekt.Migrations
                         new
                         {
                             Id = 3,
-                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 486, DateTimeKind.Utc).AddTicks(6353),
+                            CreatedAt = new DateTime(2026, 11, 12, 20, 18, 56, 0, DateTimeKind.Utc),
                             Description = "Akuttsykehus",
                             IconType = "hospital",
                             Latitude = 58.155999999999999,
@@ -423,6 +458,17 @@ namespace Heimevernet_Prosjekt.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("double");
+
+                    b.Property<double?>("MeetingLatitude")
+                        .HasColumnType("double");
+
+                    b.Property<double?>("MeetingLongitude")
+                        .HasColumnType("double");
+
+                    b.Property<string>("MeetingPointName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
 
                     b.Property<string>("Municipality")
                         .IsRequired()

@@ -7,6 +7,7 @@
         Ny,        // nobody asked yet
         Vurderes,  // requests sent, waiting for an answer
         Tildelt,   // at least one said yes
+        LeverTilbake, // closed, but resources are not returned yet
         Lost       // closed ("Løst")
     }
 
@@ -14,10 +15,13 @@
     {
         public static NeedStatus For(ResourceNeed need, IEnumerable<ResourceRequest> requests)
         {
-            if (need.ClosedAt != null) return NeedStatus.Lost;
+            // Closed: «Løst» only when everything is back with the owners
+            if (need.ClosedAt != null)
+                return requests.Any(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null) ? NeedStatus.LeverTilbake : NeedStatus.Lost;
             if (requests.Any(r => r.Status == RequestStatus.Godtatt)) return NeedStatus.Tildelt;
             if (requests.Any(r => r.Status == RequestStatus.Sendt)) return NeedStatus.Vurderes;
             return NeedStatus.Ny;
+
         }
     }
 }

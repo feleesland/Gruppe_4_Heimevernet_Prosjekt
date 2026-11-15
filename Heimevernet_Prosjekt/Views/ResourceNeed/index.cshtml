@@ -1,43 +1,105 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 @using Heimevernet_Prosjekt.Models.Entities
+@using System.Globalization
 @model ResourceNeedViewModel
 @inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
 @{
     ViewData["Title"] = Model.Name;
     var planned = Model.Urgency == NeedUrgency.Planlagt;
-    // In the side panel on the map (?embed=1): no menu
+    var active = Model.ClosedAt == null;
+    var updates = ViewData["Updates"] as IReadOnlyList<NeedUpdate> ?? new List<NeedUpdate>(); // "Info til innbyggere", newest first
+    var log = ViewData["Log"] as IReadOnlyList<ResourceNeedLog> ?? new List<ResourceNeedLog>();
+    // Resources reported as wrong ("feil info"): shown as ⚑ in the suggestions, so the operator can choose another (fetched once)
+    var openReports = ReportRepository.CountOpenByResource();
+    var hasMeeting = Model.MeetingLatitude != null && Model.MeetingLongitude != null;
+    var meetingKm = hasMeeting && Model.Latitude != null && Model.Longitude != null
+        ? DistanceKm(Model.Latitude.Value, Model.Longitude.Value, Model.MeetingLatitude!.Value, Model.MeetingLongitude!.Value)
+        : (double?)null;
+    var anySuggestions = active && Model.Lines.Any(l => !l.IsCovered && l.Suggestions.Count > 0);
+    // In the side panel on the map (?embed=1): no menu, and no small map (the big map shows the dots)
     var embed = Context.Request.Query["embed"] == "1";
     if (embed)
     {
         Layout = "_EmbedLayout";
     }
+    var showMap = !embed && Model.Latitude != null && Model.Longitude != null;
 }
 
 @functions {
     // Times are saved as UTC and shown in Norwegian time - Docs: Converting times between time zones
     // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static readonly CultureInfo Norwegian = CultureInfo.GetCultureInfo("nb-NO");
     private static string OsloTime(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM.yyyy HH:mm");
     private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+    private static string Invariant(double value) => value.ToString(CultureInfo.InvariantCulture);
 
     // Request status as text + colour (not colour alone). The "when" lines must come before plain Godtatt
     private static (string Text, string Css) StatusBadge(RequestRowViewModel r) => r.Status switch
     {
         RequestStatus.Sendt when r.Unanswered => ("Ikke svart", "text-bg-secondary"),
-        RequestStatus.Sendt => ($"Venter · svar innen {OsloShort(r.AnswerBy)}", "text-bg-warning"),
-        RequestStatus.Godtatt when r.ReturnedAt != null => ($"↩ Levert tilbake {OsloShort(r.ReturnedAt.Value)}", "text-bg-light"),
+        RequestStatus.Sendt => ($"⏳ Venter · svar innen {OsloShort(r.AnswerBy)}", "text-bg-warning"),
+        RequestStatus.Godtatt when r.ReturnedAt != null => ($"↩︎ Levert tilbake {OsloShort(r.ReturnedAt.Value)}", "text-bg-light"),
         RequestStatus.Godtatt when r.DeliveredAt != null => ($"📦 Levert {OsloShort(r.DeliveredAt.Value)} · i bruk", "text-bg-info"),
         RequestStatus.Godtatt => ((r.Delivery == DeliveryMethod.Hentes ? "✓ Godtatt · må hentes" : "✓ Godtatt · leverer") + (r.ConfirmedByPhone ? " · ☎" : ""), "text-bg-success"),
-        RequestStatus.Avslatt => ("Avslått" + (r.ConfirmedByPhone ? " · ☎" : ""), "text-bg-secondary"),
+        RequestStatus.Avslatt => ("✗ Avslått" + (r.ConfirmedByPhone ? " · ☎" : ""), "text-bg-secondary"),
         RequestStatus.IkkeLengerNodvendig => ("Ikke lenger nødvendig", "text-bg-light"),
         _ => ("Avbrutt", "text-bg-secondary")
     };
 
-    // "1,2 km", "4,6 km · utenfor" or "ukjent avstand"
+    // The line's state on the overview, icon + text (help with AI)
+    private static (string Text, string Css) LineBadge(NeedLineViewModel line) =>
+        line.IsCovered ? ("✓ Dekket", "text-bg-success")
+        : line.Accepted > 0 ? ($"◐ {line.Accepted} av {line.Quantity}", "text-bg-warning")
+        : line.Requests.Any(r => r.Status == RequestStatus.Sendt) ? ($"⏳ 0 av {line.Quantity}", "text-bg-warning")
+        : ($"○ 0 av {line.Quantity}", "text-bg-danger");
+
+    // A short text under the line: who has said yes, how many we wait for, and how many are free (help with AI)
+    private static string LineNote(NeedLineViewModel line, bool active)
+    {
+        var parts = new List<string>();
+        var yes = line.Requests.Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null).ToList();
+        if (yes.Count == 1)
+        {
+            var r = yes[0];
+            parts.Add(r.DeliveredAt != null ? $"{r.OwnerName}: levert" : r.Delivery == DeliveryMethod.Hentes ? $"{r.OwnerName}: må hentes" : $"{r.OwnerName} leverer");
+        }
+        else if (yes.Count > 1)
+        {
+            parts.Add(string.Join(", ", yes.Take(2).Select(r => r.OwnerName)) + (yes.Count > 2 ? $" +{yes.Count - 2}" : "") + " har sagt ja");
+        }
+        var waiting = line.Requests.Count(r => r.Status == RequestStatus.Sendt && !r.Unanswered);
+        var unanswered = line.Requests.Count(r => r.Status == RequestStatus.Sendt && r.Unanswered);
+        if (waiting > 0) parts.Add($"venter på {waiting}");
+        if (unanswered > 0) parts.Add($"{unanswered} ikke svart");
+        if (active && !line.IsCovered && line.Requests.Count == 0)
+        {
+            parts.Add(line.Suggestions.Count == 0 ? "ingen ledige" : $"{line.Suggestions.Count} ledige");
+        }
+        return parts.Count == 0 ? "" : string.Join(" · ", parts);
+    }
+
+    // Distance in km between two points (the haversine formula)
+    private static double DistanceKm(double lat1, double lng1, double lat2, double lng2)
+    {
+        static double Rad(double d) => d * Math.PI / 180;
+        var a = Math.Pow(Math.Sin(Rad(lat2 - lat1) / 2), 2)
+              + Math.Cos(Rad(lat1)) * Math.Cos(Rad(lat2)) * Math.Pow(Math.Sin(Rad(lng2 - lng1) / 2), 2);
+        return 6371 * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+    }
+
+    private static string KmText(double km) => km < 1 ? $"{Math.Round(km * 100) * 10:0} m" : km.ToString("0.0", Norwegian) + " km";
+
+    // How long the need lasted: "40 min", "5 t" or "3 d" (help with AI)
+    private static string DurationText(TimeSpan t) =>
+        t.TotalHours < 1 ? $"{(int)t.TotalMinutes} min" : t.TotalHours < 48 ? $"{(int)t.TotalHours} t" : $"{(int)t.TotalDays} d";
+
+    // "1,2 km", "4,6 km · utenfor sirkelen" or "ukjent avstand"
     private static string DistanceText(SuggestionViewModel s) =>
-        s.DistanceKm == null ? "ukjent avstand"
-        : s.DistanceKm.Value.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")) + " km" + (s.InsideCircle ? "" : " · utenfor");
+        s.DistanceKm == null ? "ukjent avstand" : KmText(s.DistanceKm.Value) + (s.InsideCircle ? "" : " · utenfor sirkelen");
 }
+
+<link rel="stylesheet" href="~/css/need-page.css" asp-append-version="true" />
 
 @if (TempData["Message"] != null)
 {
@@ -51,498 +113,682 @@
 @* Back to the list. From the Behov list: back with the same filter (history.back); otherwise to the list (help with AI) *@
 @if (!embed)
 {
-    <a asp-controller="ResourceNeed" asp-action="List" class="btn btn-link px-0 mb-2"
+    <a asp-controller="ResourceNeed" asp-action="List" class="np-back np-noprint"
        onclick="if (document.referrer.includes('/ResourceNeed/List')) { history.back(); return false; }">
-        ‹ Tilbake til Behov
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> Alle behov
     </a>
 }
-<div class="d-flex flex-wrap align-items-center gap-2 mb-2"> 
-    <h1 class="mb-0">@ViewData["Title"]</h1>
-    @* Icon + text, not colour alone *@
-    @if (planned)
-    {
-        <span class="badge text-bg-primary fs-6">📅 Planlagt</span>
-    }
-    else
-    {
-        <span class="badge text-bg-danger fs-6">⏰ Akutt</span>
-    }
-    <partial name="_NeedStatusBadge" model="Model.Status" />
-</div>
 
-@if (!string.IsNullOrWhiteSpace(Model.Description))
-{
-    <p>@Model.Description</p>
-}
-
-<dl class="row mb-3">
-    <dt class="col-sm-3">Når</dt>
-    <dd class="col-sm-9">
-        @if (planned && Model.NeededFrom != null)
+@* The top: name and badges, and the actions on the right (they wrap under on small screens) *@
+<div class="np-head">
+    <div class="np-title">
+        <h1 class="mb-0 @(embed ? "h4" : "h3")">@Model.Name</h1>
+        @* Icon + text, not colour alone *@
+        @if (planned)
         {
-            <text>Fra @OsloTime(Model.NeededFrom.Value)</text>
-            @if (Model.NeededTo != null)
-            {
-                <text> til @OsloTime(Model.NeededTo.Value)</text>
-            }
+            <span class="badge text-bg-warning">📅 Planlagt</span>
         }
         else
         {
-            <text>Nå</text>
-            @if (Model.NeededTo != null)
-            {
-                <text> – innen @OsloTime(Model.NeededTo.Value)</text>
-            }
+            <span class="badge text-bg-danger">⏰ Akutt</span>
         }
-    </dd>
+        <partial name="_NeedStatusBadge" model="Model.Status" />
+    </div>
+    <div class="np-actions np-noprint">
+        @* Export: print / PDF now; CSV and JSON come later *@
+        <div class="dropdown">
+            <button type="button" class="btn btn-sm rf-reset dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Eksporter">
+                <i class="ti ti-download" aria-hidden="true"></i> @(embed ? "" : "Eksporter")
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><button type="button" class="dropdown-item" data-need-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
+                <li><button type="button" class="dropdown-item" data-need-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+                <li><button type="button" class="dropdown-item" data-need-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+            </ul>
+        </div>
+        @if (active && Model.Latitude != null && Model.Longitude != null)
+        {
+            <a class="btn btn-sm btn-primary"
+               asp-controller="ResourceNeedHandler" asp-action="Create"
+               asp-route-lat="@Invariant(Model.Latitude.Value)" asp-route-lng="@Invariant(Model.Longitude.Value)"
+               asp-route-embed="@(embed ? "1" : null)">
+                <i class="ti ti-plus" aria-hidden="true"></i> @(embed ? "Mer" : "Legg til mer")
+            </a>
+        }
+        @if (active)
+        {
+            <a class="btn btn-sm rf-reset" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@Model.Id" asp-route-embed="@(embed ? "1" : null)">
+                <i class="ti ti-pencil" aria-hidden="true"></i> Rediger
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#closeModal">
+                <i class="ti ti-circle-check" aria-hidden="true"></i> Avslutt
+            </button>
+        }
+    </div>
+</div>
 
-    <dt class="col-sm-3">Hvor</dt>
-    <dd class="col-sm-9">
-        @(string.IsNullOrEmpty(Model.Address) ? "Valgt i kartet" : $"{Model.Address}, {Model.ZipCode} {Model.City}")
-        · radius @(Model.RadiusKm < 1 ? $"{Model.RadiusKm * 1000:0} m" : $"{Model.RadiusKm:0.#} km")
-    </dd>
-
-    @if (Model.CreatedAt != null)
-    {
-        <dt class="col-sm-3">Meldt</dt>
-        <dd class="col-sm-9">
-            @OsloTime(Model.CreatedAt.Value)
-            @if (Model.OwnerRemoved)
-            {
-                <span class="text-warning">· den som meldte er fjernet fra systemet</span>
-            }
-        </dd>
-    }
-</dl>
-
-@{
-    var log = ViewData["Log"] as IReadOnlyList<ResourceNeedLog> ?? new List<ResourceNeedLog>();
-
-    // The log is drawn by one small function, so it can be shown in two places:
-    // at the top (open) when the need is closed, at the bottom (closed) while it is active (help with AI)
-    // Docs: Razor syntax - templated local functions https://learn.microsoft.com/aspnet/core/mvc/views/razor
-    void RenderLog(bool open)
-    {
-        <details class="mt-3 mb-4" open="@open">
-            <summary class="h5">📋 Logg (@log.Count)</summary>
-            @if (log.Count == 0)
-            {
-                <p class="text-muted small mt-2">Ingenting er logget ennå.</p>
-            }
-            else
-            {
-                <ul class="list-group list-group-flush mt-2">
-                    @foreach (var entry in log)
+<div class="np-layout @(showMap ? "has-map" : "")">
+    <div class="np-main">
+        @* Four short facts. 2×2 on phones and in the side panel *@
+        <div class="np-facts">
+            <div class="np-fact">
+                <div class="np-fact-label"><i class="ti ti-clock" aria-hidden="true"></i> Når</div>
+                <div class="np-fact-value">
+                    @if (planned && Model.NeededFrom != null)
                     {
-                        <li class="list-group-item small">
-                            <span class="text-muted">@OsloShort(entry.At)</span>
-                            · <strong>@entry.UserName</strong>
-                            · @entry.Text
-                        </li>
-                    }
-                </ul>
-            }
-        </details>
-    }
-}
-@if (Model.ClosedAt != null)
-{
-    RenderLog(true);
-}
-
-<h2 class="h4">Hva trengs</h2>
-@* Resources reported as wrong ("feil info"): shown as ⚑ in the suggestions, so the operator can choose another (fetched once) *@
-@{
-    var openReports = ReportRepository.CountOpenByResource();
-}
-@if (Model.Lines.Count == 0)
-{
-    <p class="text-muted">Ingen behov ennå.</p>
-}
-
-@* One form for all lines, so the operator ticks on several lines and sends once *@
-<form asp-controller="ResourceNeedHandler" asp-action="SendRequests" method="post" id="requestForm">
-    <input type="hidden" name="needId" value="@Model.Id" />
-    @if (embed)
-    {
-        <input type="hidden" name="embed" value="1" />
-    }
-
-    @foreach (var line in Model.Lines)
-    {
-        <section class="card mb-3" aria-labelledby="line-@line.ItemId">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h3 id="line-@line.ItemId" class="h5 mb-0">@line.Quantity × @line.Type</h3>
-                    <span class="badge @(line.IsCovered ? "text-bg-success" : "text-bg-warning")">
-                        @(line.IsCovered ? "✓ Dekket" : $"{line.Accepted} av {line.Quantity} dekket")
-                    </span>
-                </div>
-
-                @* Requests already sent for this line *@
-                @if (line.Requests.Count > 0)
-                {
-                    <div class="table-responsive mt-2">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Ressurs</th>
-                                    <th scope="col">Eier</th>
-                                    <th scope="col">Status</th>
-                                    <th scope="col">Sendt</th>
-                                    <th scope="col"><span class="visually-hidden">Handlinger</span></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var r in line.Requests)
-                                {
-                                    var badge = StatusBadge(r);
-                                    <tr>
-                                        <td>@r.ResourceName</td>
-                                        <td>
-                                            @r.OwnerName
-                                            @if (!string.IsNullOrEmpty(r.OwnerPhone))
-                                            {
-                                                <br /><a href="tel:@r.OwnerPhone">☎ @r.OwnerPhone</a>
-                                            }
-                                        </td>
-                                        <td>
-                                            <span class="badge @badge.Css">@badge.Text</span>
-                                            @* Only answers the operator registered by phone can be undone (a misclick), not after delivery *@
-                                            @if (r.ConfirmedByPhone && (r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Avslatt) && Model.ClosedAt == null && r.DeliveredAt == null)
-                                            {
-                                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0 ms-1"
-                                                        formaction="@Url.Action("UndoAnswer", "ResourceNeedHandler")"
-                                                        name="undo" value="@r.Id"
-                                                        data-confirm="Angre svaret som ble registrert på telefon? Forespørselen venter på svar igjen."
-                                                        onclick="return confirm(this.dataset.confirm);">
-                                                    ↩ Angre
-                                                </button>
-                                            }
-                                            @* Say clearly that the operator registered the answer, not the owner in the app *@
-                                            @if (r.ConfirmedByPhone && (r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Avslatt))
-                                            {
-                                                <div class="small text-muted">☎ Svaret ble registrert av en operatør etter en telefonsamtale.</div>
-                                            }
-                                            @if (!string.IsNullOrEmpty(r.Comment))
-                                            {
-                                                <div class="small text-muted">«@r.Comment»</div>
-                                            }
-                                        </td>
-                                        <td class="text-muted small">@OsloShort(r.SentAt)</td>
-                                        <td class="text-end">
-                                            @* One small menu instead of many buttons. Every choice that changes much asks "Er du sikker?" - Docs: Bootstrap Dropdowns *@
-                                            @* strategy fixed: the menu isn't cut off by the scrolling table *@
-                                            @if ((r.Status == RequestStatus.Sendt && Model.ClosedAt == null) || (r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
-                                            {
-                                                <div class="dropdown">
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
-                                                            data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
-                                                            aria-label="Flere valg for @r.ResourceName">
-                                                        ⋯
-                                                    </button>
-                                                    <div class="dropdown-menu dropdown-menu-end">
-                                                        @if (r.Status == RequestStatus.Sendt)
-                                                        {
-                                                            <h6 class="dropdown-header">Eieren svarte på telefon:</h6>
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
-                                                                    name="phoneAnswer" value="@r.Id:leverer"
-                                                                    data-confirm="Registrere at eieren av @r.ResourceName sa ja på telefon og leverer selv?"
-                                                                    onclick="return confirm(this.dataset.confirm);">
-                                                                ✓ Ja – eieren leverer selv
-                                                            </button>
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
-                                                                    name="phoneAnswer" value="@r.Id:hentes"
-                                                                    data-confirm="Registrere at eieren av @r.ResourceName sa ja på telefon, og at vi må hente den?"
-                                                                    onclick="return confirm(this.dataset.confirm);">
-                                                                ✓ Ja – vi må hente den
-                                                            </button>
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
-                                                                    name="phoneAnswer" value="@r.Id:nei"
-                                                                    data-confirm="Registrere at eieren av @r.ResourceName sa nei på telefon?"
-                                                                    onclick="return confirm(this.dataset.confirm);">
-                                                                ✗ Nei – eieren kan ikke
-                                                            </button>
-
-                                                            <div class="dropdown-divider"></div>
-                                                            <h6 class="dropdown-header">Gi mer tid:</h6>
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("ExtendDeadline", "ResourceNeedHandler")"
-                                                                    name="extend" value="@r.Id:30">
-                                                                +30 min
-                                                            </button>
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("ExtendDeadline", "ResourceNeedHandler")"
-                                                                    name="extend" value="@r.Id:60">
-                                                                +1 time
-                                                            </button>
-
-                                                            <div class="dropdown-divider"></div>
-                                                            <button type="submit" class="dropdown-item text-danger"
-                                                                    formaction="@Url.Action("CancelRequest", "ResourceNeedHandler")"
-                                                                    name="cancel" value="@r.Id"
-                                                                    data-confirm="Trekke tilbake forespørselen til @r.ResourceName? Eieren kan ikke svare på den lenger."
-                                                                    onclick="return confirm(this.dataset.confirm);">
-                                                                Trekk tilbake forespørselen til «@r.ResourceName»
-                                                            </button>
-                                                        }
-                                                        else
-                                                        {
-                                                            @* Accepted: delivered, returned, or cancel the yes (only before delivery) *@
-                                                            @if (r.DeliveredAt == null && Model.ClosedAt == null)
-                                                            {
-                                                                <button type="submit" class="dropdown-item"
-                                                                        formaction="@Url.Action("MarkDelivered", "ResourceNeedHandler")"
-                                                                        name="delivered" value="@r.Id">
-                                                                    📦 Marker som levert
-                                                                </button>
-                                                            }
-                                                            <button type="submit" class="dropdown-item"
-                                                                    formaction="@Url.Action("MarkReturned", "ResourceNeedHandler")"
-                                                                    name="returned" value="@r.Id"
-                                                                    data-confirm="Er @r.ResourceName levert tilbake til eieren? Den blir ledig igjen."
-                                                                    onclick="return confirm(this.dataset.confirm);">
-                                                                ↩ Marker som levert tilbake
-                                                            </button>
-                                                            @if (r.DeliveredAt == null && Model.ClosedAt == null)
-                                                            {
-                                                                <div class="dropdown-divider"></div>
-                                                                <button type="submit" class="dropdown-item text-danger"
-                                                                        formaction="@Url.Action("CancelRequest", "ResourceNeedHandler")"
-                                                                        name="cancel" value="@r.Id"
-                                                                        data-confirm="Avbryte bekreftelsen? @r.ResourceName blir ledig igjen, og behovet blir ikke dekket av den."
-                                                                        onclick="return confirm(this.dataset.confirm);">
-                                                                    Avbryt bekreftelsen fra «@r.ResourceName»
-                                                                </button>
-                                                            }
-                                                        }
-                                                    </div>
-                                                </div>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-
-                @* Suggestions: free resources of the same type, nearest first *@
-                @if (!line.IsCovered && Model.ClosedAt == null)
-                {
-                    @if (line.Suggestions.Count == 0)
-                    {
-                        <p class="text-muted small mt-2 mb-0">Ingen ledige ressurser av typen «@line.Type».</p>
+                        <text>@OsloShort(Model.NeededFrom.Value)</text>
+                        @if (Model.NeededTo != null)
+                        {
+                            <text> – @OsloShort(Model.NeededTo.Value)</text>
+                        }
                     }
                     else
                     {
-                        <p class="small text-muted mt-3 mb-1">
-                            Forslag – ledige, nærmest først. Spør gjerne flere enn @line.Quantity; de første som sier ja får oppdraget.
-                        </p>
-                        <div class="list-group">
-                            @foreach (var s in line.Suggestions)
-                            {
-                                <label class="list-group-item d-flex gap-2 align-items-center">
-                                    <input class="form-check-input mt-0 pick" type="checkbox" name="picks" value="@line.ItemId:@s.ResourceId"
-                                           data-name="@s.Name" data-type="@line.Type"
-                                           data-lat="@(s.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture))"
-                                           data-lng="@(s.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture))" />
-                                    <span class="flex-grow-1">
-                                        @s.Name <span class="text-muted small">· @s.OwnerName · @DistanceText(s)</span>
-                                        @if (openReports.TryGetValue(s.ResourceId, out var reportCount))
-                                        {
-                                            @* Icon + text, not colour alone *@
-                                            <span class="badge text-bg-warning ms-1" title="Admin er varslet om feil i denne ressursen">⚑ meldt som feil</span>
-                                        }
-                                    </span>
-                                    @if (!string.IsNullOrEmpty(s.OwnerPhone))
-                                    {
-                                        <span class="small text-muted">☎ @s.OwnerPhone</span>
-                                    }
-                                </label>
-                            }
-                        </div>
+                        <text>Nå</text>
+                        @if (Model.NeededTo != null)
+                        {
+                            <text> · innen @OsloShort(Model.NeededTo.Value)</text>
+                        }
                     }
+                </div>
+                @if (Model.CreatedAt != null)
+                {
+                    <div class="np-fact-small">
+                        Meldt @OsloShort(Model.CreatedAt.Value)
+                        @if (Model.OwnerRemoved)
+                        {
+                            <span class="text-warning-emphasis">· den som meldte er fjernet</span>
+                        }
+                        else if (!string.IsNullOrEmpty(Model.ReportedByName))
+                        {
+                            <text>av @Model.ReportedByName</text>
+                            @if (!string.IsNullOrEmpty(Model.ReportedByPhone))
+                            {
+                                <text>·</text> <a href="tel:@Model.ReportedByPhone" class="np-link">☎ @Model.ReportedByPhone</a>
+                            }
+                        }
+                    </div>
                 }
             </div>
-        </section>
-    }
 
-    @* One button for everything that is ticked, with one deadline *@
-    @if (Model.ClosedAt == null && Model.Lines.Any(l => l.Suggestions.Count > 0))
-    {
-        <div class="d-flex gap-2 align-items-center flex-wrap mb-3">
-            <button type="submit" id="sendButton" class="btn btn-primary" style="min-height: 44px;" disabled>Velg ressurser over</button>
-            <label class="small mb-0" for="answerMinutes">Svarfrist</label>
-            <select id="answerMinutes" name="answerMinutes" class="form-select form-select-sm" style="width: auto;">
-                <option value="30" selected="@(!planned)">30 min</option>
-                <option value="60">1 time</option>
-                <option value="180">3 timer</option>
-                <option value="1440" selected="@planned">1 døgn</option>
-                <option value="2880">2 døgn</option>
-            </select>
-            <span class="small text-muted">Du kan også klikke på de grønne prikkene i kartet.</span>
+            <div class="np-fact">
+                <div class="np-fact-label"><i class="ti ti-map-pin" aria-hidden="true"></i> Hvor</div>
+                <div class="np-fact-value">@(string.IsNullOrEmpty(Model.Address) ? "Valgt i kartet" : Model.Address)</div>
+                <div class="np-fact-small">
+                    @(string.IsNullOrEmpty(Model.City) ? "" : $"{Model.ZipCode} {Model.City} · ")radius @(Model.RadiusKm < 1 ? $"{Model.RadiusKm * 1000:0} m" : Model.RadiusKm.ToString("0.#", Norwegian) + " km")
+                </div>
+            </div>
+
+            <div class="np-fact">
+                <div class="np-fact-label"><span class="meeting-flag np-flag-sm"><i class="ti ti-flag" aria-hidden="true"></i></span> Kontaktpunkt</div>
+                <div class="np-fact-value">@(hasMeeting ? Model.MeetingPointName : "Samme sted som behovet")</div>
+                @if (meetingKm != null)
+                {
+                    <div class="np-fact-small">
+                        @KmText(meetingKm.Value) fra behovet
+                        @if (showMap)
+                        {
+                            <text>·</text>
+                            <button type="button" class="btn btn-link btn-sm p-0 align-baseline np-link" id="showMeeting">Vis på kartet</button>
+                        }
+                    </div>
+                }
+            </div>
+
+            @* The latest "Info til innbyggere". The whole box opens the window with quick texts, Publiser and the history *@
+            <button type="button" class="np-fact np-fact-button @(updates.Count > 0 && active ? "is-public" : "")" data-bs-toggle="modal" data-bs-target="#infoModal">
+                <span class="np-fact-label"><i class="ti ti-world" aria-hidden="true"></i> Forsiden</span>
+                @if (updates.Count > 0)
+                {
+                    <span class="np-fact-value np-clamp">«@updates[0].Text»</span>
+                    <span class="np-fact-small">@OsloShort(updates[0].At) · @(active ? "Oppdater ▸" : "Vis ▸")</span>
+                }
+                else
+                {
+                    <span class="np-fact-value text-body-secondary">Ikke publisert</span>
+                    <span class="np-fact-small">@(active ? "Skriv til innbyggere ▸" : "Ingen info ble publisert")</span>
+                }
+            </button>
         </div>
-    }
-</form>
 
-@if (Model.ClosedAt == null && Model.Latitude != null && Model.Longitude != null)
-{
-    <a class="btn btn-primary mb-3"
-       asp-controller="ResourceNeedHandler" asp-action="Create"
-       asp-route-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-       asp-route-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)">+ Legg til mer</a>
-}
+        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        {
+            <p class="np-description"><i class="ti ti-notes" aria-hidden="true"></i> @Model.Description</p>
+        }
 
-@if (Model.ClosedAt == null)
-{
-    <a class="btn btn-outline-secondary mb-3" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@Model.Id">✎ Rediger</a>
-}
+        @{
+            // The log: collapsed at the bottom with the latest entry while the need is active, open at the top when it is closed
+            // Docs: Razor syntax - templated local functions https://learn.microsoft.com/aspnet/core/mvc/views/razor
+            var latest = log.OrderByDescending(e => e.At).FirstOrDefault();
+            void RenderLog(bool open)
+            {
+                <details class="np-log" open="@open">
+                    <summary>
+                        <span class="fw-semibold">📋 Logg (@log.Count)</span>
+                        @if (latest != null)
+                        {
+                            <span class="np-log-latest">· siste: @OsloShort(latest.At) @latest.UserName · @latest.Text</span>
+                        }
+                    </summary>
+                    @if (log.Count == 0)
+                    {
+                        <p class="text-body-secondary small mt-2 mb-0">Ingenting er logget ennå.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group list-group-flush mt-2">
+                            @foreach (var entry in log)
+                            {
+                                <li class="list-group-item small px-0">
+                                    <span class="text-body-secondary">@OsloShort(entry.At)</span>
+                                    · <strong>@entry.UserName</strong>
+                                    · @entry.Text
+                                </li>
+                            }
+                        </ul>
+                    }
+                </details>
+            }
+        }
+        @if (!active)
+        {
+            // The closed need (help with AI): why, a few numbers, what is still out (oldest first), and the log open.
+            // The reason is read from the log line «Avsluttet behovet: «…»»
+            var closeEntry = log.Where(e => e.Text.StartsWith("Avsluttet behovet")).OrderByDescending(e => e.At).FirstOrDefault();
+            var closeReason = closeEntry == null ? null : closeEntry.Text[(closeEntry.Text.IndexOf('«') + 1)..].TrimEnd('»');
+            var wanted = Model.Lines.Sum(l => l.Quantity);
+            var covered = Model.Lines.Sum(l => Math.Min(l.Accepted, l.Quantity));
+            var asked = Model.Lines.Sum(l => l.Requests.Count);
+            var outList = Model.Lines.SelectMany(l => l.Requests)
+                .Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null)
+                .OrderBy(r => r.DeliveredAt ?? r.SentAt)
+                .ToList();
 
-@if (Model.ClosedAt == null)
-{
-    // The button opens a small box where the reason must be written - Docs: Bootstrap Collapse
-    var stillOut = Model.Lines.SelectMany(l => l.Requests)
-        .Count(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null);
-    <button type="button" class="btn btn-outline-danger mb-3" data-bs-toggle="collapse" data-bs-target="#closeBox"
-            aria-expanded="false" aria-controls="closeBox">
-        ✓ Avslutt behov
-    </button>
+            <section class="mb-3" aria-labelledby="npClosedTitle">
+                <h2 id="npClosedTitle" class="np-section-title">
+                    <i class="ti ti-flag-check" aria-hidden="true"></i> Avsluttet @OsloShort(Model.ClosedAt!.Value)@(closeEntry != null ? $" av {closeEntry.UserName}" : "")
+                </h2>
+                @if (!string.IsNullOrEmpty(closeReason))
+                {
+                    <p class="np-description mb-2">«@closeReason»</p>
+                }
+                <div class="np-stats">
+                    <div class="np-stat"><b>@covered av @wanted</b><span>dekket</span></div>
+                    <div class="np-stat"><b>@asked</b><span>forespørsler sendt</span></div>
+                    <div class="np-stat"><b>@(Model.CreatedAt != null ? DurationText(Model.ClosedAt.Value - Model.CreatedAt.Value) : "–")</b><span>varte</span></div>
+                    <div class="np-stat @(outList.Count > 0 ? "is-out" : "")"><b>@outList.Count</b><span>ikke levert tilbake</span></div>
+                </div>
+            </section>
 
-    <div class="collapse mb-3" id="closeBox">
-        <form asp-controller="ResourceNeedHandler" asp-action="Close" method="post" class="card card-body">
+            @* «↩︎ Lever tilbake»: what is still out, the longest first. Red with ⚠ after 3 days (icon + text, not colour alone) *@
+            @if (outList.Count > 0)
+            {
+                <section class="np-return" aria-labelledby="npReturnTitle">
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <h2 id="npReturnTitle" class="h6 mb-0">↩︎ Lever tilbake (@outList.Count)</h2>
+                        @if (outList.Count > 1)
+                        {
+                            <form asp-controller="ResourceNeedHandler" asp-action="MarkAllReturned" method="post" class="ms-auto np-noprint">
+                                <input type="hidden" name="needId" value="@Model.Id" />
+                                @if (embed)
+                                {
+                                    <input type="hidden" name="embed" value="1" />
+                                }
+                                <button type="submit" class="btn btn-sm np-return-btn" data-confirm="Er alle @outList.Count ressursene levert tilbake til eierne?">↩︎ Marker alle</button>
+                            </form>
+                        }
+                    </div>
+                    <p class="small text-body-secondary mb-2">Behovet blir «Løst» når alt er levert tilbake til eierne.</p>
+                    <div class="np-list">
+                        @foreach (var r in outList)
+                        {
+                            var since = r.DeliveredAt ?? r.SentAt;
+                            var days = (int)(DateTime.UtcNow - since).TotalDays;
+                            <div class="np-req @(days >= 3 ? "is-late" : "")">
+                                <div class="np-req-main">
+                                    <b>@r.ResourceName</b>
+                                    <span class="small text-body-secondary">
+                                        · @r.OwnerName
+                                        @if (!string.IsNullOrEmpty(r.OwnerPhone))
+                                        {
+                                            <text>·</text> <a href="tel:@r.OwnerPhone">☎ @r.OwnerPhone</a>
+                                        }
+                                    </span>
+                                    <div class="small @(days >= 3 ? "text-danger-emphasis fw-semibold" : "text-body-secondary")">
+                                        @(days >= 3 ? "⚠ " : "")@(r.DeliveredAt != null ? "Levert" : "Godtatt") @OsloShort(since) · @(days == 0 ? "ute i dag" : days == 1 ? "1 dag ute" : $"{days} dager ute")
+                                    </div>
+                                </div>
+                                <form asp-controller="ResourceNeedHandler" asp-action="MarkReturned" method="post" class="np-noprint">
+                                    <input type="hidden" name="needId" value="@Model.Id" />
+                                    @if (embed)
+                                    {
+                                        <input type="hidden" name="embed" value="1" />
+                                    }
+                                    <button type="submit" name="returned" value="@r.Id" class="btn btn-sm np-return-btn"
+                                            data-confirm="Er @r.ResourceName levert tilbake til eieren? Den blir ledig igjen.">
+                                        ↩︎ Levert tilbake
+                                    </button>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+            RenderLog(true);
+        }
+
+        @* One form for all lines, so the operator chooses on several lines and sends once *@
+        <form asp-controller="ResourceNeedHandler" asp-action="SendRequests" method="post" id="requestForm">
             <input type="hidden" name="needId" value="@Model.Id" />
             @if (embed)
             {
                 <input type="hidden" name="embed" value="1" />
             }
-            
-            @if (stillOut > 0)
+
+            @* The overview: one row per line. «Finn ▸» / «Vis ▸» opens the line (need-page.js) *@
+            <section id="npOverview" aria-labelledby="npLinesTitle">
+                <h2 id="npLinesTitle" class="np-section-title"><i class="ti ti-package" aria-hidden="true"></i> Hva trengs</h2>
+                @if (Model.Lines.Count == 0)
+                {
+                    <p class="text-body-secondary">Ingen behov ennå.</p>
+                }
+                <div class="np-rows">
+                    @foreach (var line in Model.Lines)
+                    {
+                        var badge = LineBadge(line);
+                        var note = LineNote(line, active);
+                        var find = active && !line.IsCovered;
+                        <button type="button" class="np-row" data-open-line="@line.ItemId" aria-controls="np-line-@line.ItemId">
+                            <span class="np-row-main">
+                                <b>@line.Quantity × @line.Type</b>
+                                @if (note != "")
+                                {
+                                    <span class="np-row-note">@note</span>
+                                }
+                            </span>
+                            <span class="badge @badge.Css">@badge.Text</span>
+                            <span class="np-row-go @(find ? "is-find" : "")">@(find ? "Finn ▸" : "Vis ▸")</span>
+                        </button>
+                    }
+                </div>
+            </section>
+
+            @* One view per line: the requests sent (SPURT) and the free resources (LEDIGE). Only one is shown at a time *@
+            @foreach (var line in Model.Lines)
             {
-                <div class="alert alert-warning py-2 small" role="alert">
-                    ⚠ @stillOut ressurs(er) er ikke markert som levert tilbake. Det kan gjøres etterpå også.
+                var badge = LineBadge(line);
+                <section class="np-line" id="np-line-@line.ItemId" data-line="@line.ItemId" aria-labelledby="np-line-title-@line.ItemId" hidden>
+                    <div class="np-line-head">
+                        <button type="button" class="btn btn-link btn-sm px-0 np-link np-noprint" data-close-line>‹ Alle linjer</button>
+                        <h2 id="np-line-title-@line.ItemId" class="h5 mb-0">@line.Quantity × @line.Type</h2>
+                        <span class="badge @badge.Css">@badge.Text</span>
+                    </div>
+
+                    @if (line.Requests.Count > 0)
+                    {
+                        <h3 class="np-sub">Spurt (@line.Requests.Count)</h3>
+                        <div class="np-list">
+                            @foreach (var r in line.Requests)
+                            {
+                                var status = StatusBadge(r);
+                                <div class="np-req">
+                                    <div class="np-req-main">
+                                        <b>@r.ResourceName</b>
+                                        <span class="small text-body-secondary">
+                                            · @r.OwnerName
+                                            @if (!string.IsNullOrEmpty(r.OwnerPhone))
+                                            {
+                                                <text>·</text> <a href="tel:@r.OwnerPhone">☎ @r.OwnerPhone</a>
+                                            }
+                                        </span>
+                                        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                                            <span class="badge @status.Css">@status.Text</span>
+                                            <span class="small text-body-secondary">sendt @OsloShort(r.SentAt)</span>
+                                            @* Only answers the operator registered by phone can be undone (a misclick), not after delivery *@
+                                            @if (r.ConfirmedByPhone && (r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Avslatt) && active && r.DeliveredAt == null)
+                                            {
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary py-0"
+                                                        formaction="@Url.Action("UndoAnswer", "ResourceNeedHandler")"
+                                                        name="undo" value="@r.Id"
+                                                        data-confirm="Angre svaret som ble registrert på telefon? Forespørselen venter på svar igjen.">
+                                                    ↩︎ Angre
+                                                </button>
+                                            }
+                                        </div>
+                                        @if (r.ConfirmedByPhone && (r.Status == RequestStatus.Godtatt || r.Status == RequestStatus.Avslatt))
+                                        {
+                                            <div class="small text-body-secondary">☎ Svaret ble registrert av en operatør etter en telefonsamtale.</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(r.Comment))
+                                        {
+                                            <div class="small text-body-secondary">«@r.Comment»</div>
+                                        }
+                                    </div>
+
+                                    @* One small menu instead of many buttons. Every choice that changes much asks "Er du sikker?" - Docs: Bootstrap Dropdowns
+                                       strategy fixed: the menu isn't cut off by the scrolling column *@
+                                    @if ((r.Status == RequestStatus.Sendt && active) || (r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
+                                    {
+                                        <div class="dropdown np-noprint">
+                                            <button type="button" class="btn btn-sm rf-reset" data-bs-toggle="dropdown"
+                                                    data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false"
+                                                    aria-label="Flere valg for @r.ResourceName">
+                                                ⋯
+                                            </button>
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                @if (r.Status == RequestStatus.Sendt)
+                                                {
+                                                    <h6 class="dropdown-header">Eieren svarte på telefon:</h6>
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
+                                                            name="phoneAnswer" value="@r.Id:leverer"
+                                                            data-confirm="Registrere at eieren av @r.ResourceName sa ja på telefon og leverer selv?">
+                                                        ✓ Ja – eieren leverer selv
+                                                    </button>
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
+                                                            name="phoneAnswer" value="@r.Id:hentes"
+                                                            data-confirm="Registrere at eieren av @r.ResourceName sa ja på telefon, og at vi må hente den?">
+                                                        ✓ Ja – vi må hente den
+                                                    </button>
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("ConfirmByPhone", "ResourceNeedHandler")"
+                                                            name="phoneAnswer" value="@r.Id:nei"
+                                                            data-confirm="Registrere at eieren av @r.ResourceName sa nei på telefon?">
+                                                        ✗ Nei – eieren kan ikke
+                                                    </button>
+
+                                                    <div class="dropdown-divider"></div>
+                                                    <h6 class="dropdown-header">Gi mer tid:</h6>
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("ExtendDeadline", "ResourceNeedHandler")"
+                                                            name="extend" value="@r.Id:30">
+                                                        +30 min
+                                                    </button>
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("ExtendDeadline", "ResourceNeedHandler")"
+                                                            name="extend" value="@r.Id:60">
+                                                        +1 time
+                                                    </button>
+
+                                                    <div class="dropdown-divider"></div>
+                                                    <button type="submit" class="dropdown-item text-danger"
+                                                            formaction="@Url.Action("CancelRequest", "ResourceNeedHandler")"
+                                                            name="cancel" value="@r.Id"
+                                                            data-confirm="Trekke tilbake forespørselen til @r.ResourceName? Eieren kan ikke svare på den lenger.">
+                                                        Trekk tilbake forespørselen
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    @* Accepted: delivered, returned, or cancel the yes (only before delivery) *@
+                                                    @if (r.DeliveredAt == null && active)
+                                                    {
+                                                        <button type="submit" class="dropdown-item"
+                                                                formaction="@Url.Action("MarkDelivered", "ResourceNeedHandler")"
+                                                                name="delivered" value="@r.Id">
+                                                            📦 Marker som levert
+                                                        </button>
+                                                    }
+                                                    <button type="submit" class="dropdown-item"
+                                                            formaction="@Url.Action("MarkReturned", "ResourceNeedHandler")"
+                                                            name="returned" value="@r.Id"
+                                                            data-confirm="Er @r.ResourceName levert tilbake til eieren? Den blir ledig igjen.">
+                                                        ↩︎ Marker som levert tilbake
+                                                    </button>
+                                                    @if (r.DeliveredAt == null && active)
+                                                    {
+                                                        <div class="dropdown-divider"></div>
+                                                        <button type="submit" class="dropdown-item text-danger"
+                                                                formaction="@Url.Action("CancelRequest", "ResourceNeedHandler")"
+                                                                name="cancel" value="@r.Id"
+                                                                data-confirm="Avbryte bekreftelsen? @r.ResourceName blir ledig igjen, og behovet blir ikke dekket av den.">
+                                                            Avbryt bekreftelsen
+                                                        </button>
+                                                    }
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @* LEDIGE: free resources of the same type, nearest first. A row is a toggle «+ Spør» / «✓ Valgt» (a hidden checkbox) *@
+                    @if (!line.IsCovered && active)
+                    {
+                        <div class="np-sub-row">
+                            <h3 class="np-sub mb-0">Ledige · nærmest først</h3>
+                            @if (line.Suggestions.Any(s => !s.InsideCircle))
+                            {
+                                <button type="button" class="np-chip ms-auto" data-inside-only aria-pressed="false">
+                                    <i class="ti ti-circle-dashed" aria-hidden="true"></i> Bare innenfor sirkelen
+                                </button>
+                            }
+                        </div>
+                        @if (line.Suggestions.Count == 0)
+                        {
+                            <p class="text-body-secondary small mb-0">Ingen ledige ressurser av typen «@line.Type».</p>
+                        }
+                        else
+                        {
+                            <p class="small text-body-secondary mb-2">Spør gjerne flere enn @line.Quantity – de første som sier ja får oppdraget.</p>
+                            <div class="np-list">
+                                @foreach (var s in line.Suggestions)
+                                {
+                                    <label class="np-sug @(s.InsideCircle ? "" : "is-outside")">
+                                        <input class="pick visually-hidden" type="checkbox" name="picks" value="@line.ItemId:@s.ResourceId"
+                                               data-name="@s.Name" data-type="@line.Type" data-inside="@(s.InsideCircle ? "true" : "false")"
+                                               data-lat="@(s.Latitude == null ? "" : Invariant(s.Latitude.Value))"
+                                               data-lng="@(s.Longitude == null ? "" : Invariant(s.Longitude.Value))" />
+                                        <span class="np-sug-main">
+                                            <b>@s.Name</b>
+                                            @if (openReports.ContainsKey(s.ResourceId))
+                                            {
+                                                @* Icon + text, not colour alone *@
+                                                <span class="badge text-bg-warning ms-1" title="Admin er varslet om feil i denne ressursen">⚑ meldt som feil</span>
+                                            }
+                                            <span class="np-row-note">
+                                                @s.OwnerName · @DistanceText(s)
+                                                @if (!string.IsNullOrEmpty(s.OwnerPhone))
+                                                {
+                                                    <text>· ☎ @s.OwnerPhone</text>
+                                                }
+                                            </span>
+                                        </span>
+                                        <span class="np-ask" aria-hidden="true"><span class="np-ask-off">+ Spør</span><span class="np-ask-on">✓ Valgt</span></span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    }
+                    else if (line.IsCovered)
+                    {
+                        <p class="small text-success-emphasis mt-2 mb-0"><i class="ti ti-circle-check" aria-hidden="true"></i> Linjen er dekket.</p>
+                    }
+                </section>
+            }
+
+            @* One button for everything that is chosen, with one deadline. Shown in a line view, or when something is chosen *@
+            @if (anySuggestions)
+            {
+                <div id="npSendBar" class="np-send np-noprint" hidden>
+                    <button type="submit" id="sendButton" class="btn btn-primary" disabled>Velg ressurser</button>
+                    <label class="small mb-0" for="answerMinutes">Svarfrist</label>
+                    <select id="answerMinutes" name="answerMinutes" class="form-select form-select-sm w-auto">
+                        <option value="30" selected="@(!planned)">30 min</option>
+                        <option value="60">1 time</option>
+                        <option value="180">3 timer</option>
+                        <option value="1440" selected="@planned">1 døgn</option>
+                        <option value="2880">2 døgn</option>
+                    </select>
                 </div>
             }
-            <label for="closeNote" class="form-label">Hvorfor avsluttes behovet? <span class="text-danger">*</span></label>
-            <textarea id="closeNote" name="closeNote" class="form-control mb-2" rows="2" maxlength="400" required
-                      placeholder="F.eks. «Flommen er over, alle har fått hjelp»"></textarea>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-danger">Avslutt behov</button>
-                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#closeBox">Avbryt</button>
-            </div>
         </form>
+
+        @if (active)
+        {
+            RenderLog(false);
+        }
+    </div>
+
+    @* The map: the need, the circle, the ⚑ kontaktpunkt and the open line's free resources (need-page.js) *@
+    @if (showMap)
+    {
+        <div class="np-map-col">
+            <div id="detailMap" class="np-map rounded"
+                 data-lat="@Invariant(Model.Latitude!.Value)"
+                 data-lng="@Invariant(Model.Longitude!.Value)"
+                 data-radius="@Invariant(Model.RadiusKm)"
+                 data-planned="@(planned ? "true" : "false")"
+                 data-meeting-lat="@(hasMeeting ? Invariant(Model.MeetingLatitude!.Value) : "")"
+                 data-meeting-lng="@(hasMeeting ? Invariant(Model.MeetingLongitude!.Value) : "")"
+                 data-meeting-name="@Model.MeetingPointName"></div>
+            @* Icon + text, not colour alone *@
+            <div class="np-legend small">
+                <span><i class="ti ti-map-pin-filled" aria-hidden="true"></i> Behovet</span>
+                <span><span class="meeting-flag np-flag-sm"><i class="ti ti-flag" aria-hidden="true"></i></span> Kontaktpunkt</span>
+                <span><span class="np-dot is-free"></span> Ledig</span>
+                <span><span class="np-dot is-picked">✓</span> Valgt</span>
+                <span><span class="np-dot is-outside"></span> Utenfor sirkelen</span>
+            </div>
+        </div>
+    }
+</div>
+
+@* "Info til innbyggere" (help with AI): short public updates, newest first. Shown on the front page and the map for everyone,
+   without the resources. No updates = the need is not public - Docs: Bootstrap Modal https://getbootstrap.com/docs/5.3/components/modal/ *@
+<div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="infoModalTitle"><i class="ti ti-world" aria-hidden="true"></i> Info til innbyggere</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Lukk"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-body-secondary">Vises på forsiden og kartet for alle, uten ressursene.</p>
+                @if (active)
+                {
+                    <form asp-controller="ResourceNeedHandler" asp-action="PublishUpdate" method="post">
+                        <input type="hidden" name="needId" value="@Model.Id" />
+                        @if (embed)
+                        {
+                            <input type="hidden" name="embed" value="1" />
+                        }
+                        @* Quick texts fill the field; the operator writes the rest *@
+                        <div class="d-flex flex-wrap gap-1 mb-2">
+                            @foreach (var quick in new[] { ("Unngå området", "Unngå området rundt "), ("Veien er stengt", "Veien er stengt. Bruk omkjøring via "), ("Evakuering", "Evakuerte kan møte på "), ("Strømbrudd", "Strømbrudd i området. "), ("Øvelse", "Heimevernet øver i området. ") })
+                            {
+                                <button type="button" class="btn btn-sm rf-reset rounded-pill" data-quick="@quick.Item2">@quick.Item1</button>
+                            }
+                        </div>
+                        <label for="updateText" class="visually-hidden">Kort oppdatering</label>
+                        <textarea id="updateText" name="updateText" class="form-control mb-2" rows="2" maxlength="300" required placeholder="Skriv en kort oppdatering …"></textarea>
+                        <button type="submit" class="btn btn-success w-100">Publiser</button>
+                    </form>
+                }
+                @if (updates.Count == 0)
+                {
+                    <p class="small text-body-secondary mt-3 mb-0"><i class="ti ti-info-circle" aria-hidden="true"></i> Ingen oppdateringer ennå. Behovet vises ikke på forsiden før noe er publisert.</p>
+                }
+                else
+                {
+                    <ol class="np-timeline mt-3">
+                        @foreach (var update in updates)
+                        {
+                            <li>
+                                <span class="small text-body-secondary">@OsloShort(update.At) · @update.UserName</span>
+                                <div>@update.Text</div>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (active)
+{
+    // "Avslutt": the reason must be written. Warns when resources are still out
+    var stillOut = Model.Lines.SelectMany(l => l.Requests).Count(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null);
+    <div class="modal fade" id="closeModal" tabindex="-1" aria-labelledby="closeModalTitle" aria-hidden="true">
+        <div class="modal-dialog">
+            <form asp-controller="ResourceNeedHandler" asp-action="Close" method="post" class="modal-content">
+                <input type="hidden" name="needId" value="@Model.Id" />
+                @if (embed)
+                {
+                    <input type="hidden" name="embed" value="1" />
+                }
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="closeModalTitle">Avslutt behov</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Lukk"></button>
+                </div>
+                <div class="modal-body">
+                    @if (stillOut > 0)
+                    {
+                        <div class="alert alert-warning py-2 small" role="alert">
+                            ⚠ @stillOut ressurs(er) er ikke markert som levert tilbake. Det kan gjøres etterpå også.
+                        </div>
+                    }
+                    <label for="closeNote" class="form-label">Hvorfor avsluttes behovet? <span class="text-danger">*</span></label>
+                    <textarea id="closeNote" name="closeNote" class="form-control" rows="3" maxlength="400" required
+                              placeholder="F.eks. «Flommen er over, alle har fått hjelp»"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn rf-reset" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-danger">Avslutt behov</button>
+                </div>
+            </form>
+        </div>
     </div>
 }
 
-@if (!embed && Model.Latitude != null && Model.Longitude != null)
-{
-    <div id="detailMap" style="height: 300px;" class="rounded"
-         data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-         data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-         data-radius="@Model.RadiusKm.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-         data-planned="@(planned ? "true" : "false")"></div>
+@* Eksporter (help with AI): one row per request (a line without requests gets one row of its own).
+   CSV gets the rows; JSON gets the need with the rows inside. Made in the browser by resource-export.js *@
+@{
+    string? Time(DateTime? utc) => utc == null ? null : OsloTime(utc.Value);
+    var exportRows = Model.Lines.SelectMany(line =>
+        (line.Requests.Count == 0 ? new RequestRowViewModel?[] { null } : line.Requests.Select(r => (RequestRowViewModel?)r))
+        .Select(r => new Dictionary<string, object?>
+        {
+            ["Linje"] = line.Type,
+            ["Antall"] = line.Quantity,
+            ["Dekket"] = $"{Math.Min(line.Accepted, line.Quantity)} av {line.Quantity}",
+            ["Ressurs"] = r?.ResourceName,
+            ["Eier"] = r?.OwnerName,
+            ["Telefon"] = r?.OwnerPhone,
+            ["Status"] = r == null ? "Ikke spurt" : StatusBadge(r).Text,
+            ["Sendt"] = Time(r?.SentAt),
+            ["Levert"] = Time(r?.DeliveredAt),
+            ["Levert tilbake"] = Time(r?.ReturnedAt)
+        })).ToList();
+    var exportData = new Dictionary<string, object?>
+    {
+        ["Behov"] = Model.Name,
+        ["Id"] = Model.Id,
+        ["Hastegrad"] = planned ? "Planlagt" : "Akutt",
+        ["Status"] = Model.Status.ToString(),
+        ["Adresse"] = string.Join(", ", new[] { Model.Address, Model.ZipCode, Model.City }.Where(s => !string.IsNullOrWhiteSpace(s))),
+        ["Radius (km)"] = Model.RadiusKm,
+        ["Kontaktpunkt"] = hasMeeting ? Model.MeetingPointName : "Samme sted som behovet",
+        ["Meldt"] = Time(Model.CreatedAt),
+        ["Trengs fra"] = Time(Model.NeededFrom),
+        ["Trengs til"] = Time(Model.NeededTo),
+        ["Avsluttet"] = Time(Model.ClosedAt),
+        ["Linjer"] = exportRows
+    };
 }
-@if (Model.ClosedAt == null)
-{
-    RenderLog(false);
-}
+<script type="application/json" id="needExport">@Json.Serialize(exportData)</script>
+
+@* Data for need-page.js *@
+<div id="needPage" hidden data-need-id="@Model.Id" data-need-name="@Model.Name"
+     data-meeting-name="@Model.MeetingPointName"
+     data-meeting-lat="@(hasMeeting ? Invariant(Model.MeetingLatitude!.Value) : "")"
+     data-meeting-lng="@(hasMeeting ? Invariant(Model.MeetingLongitude!.Value) : "")"></div>
+
 @section Scripts {
-    <script>
-        // The send button counts what is ticked, and is off until something is chosen
-        const sendButton = document.getElementById('sendButton');
-        if (sendButton) {
-            const update = () => {
-                const n = document.querySelectorAll('#requestForm .pick:checked').length;
-                sendButton.disabled = n === 0;
-                sendButton.textContent = n === 0 ? 'Velg ressurser over'
-                    : n === 1 ? 'Send 1 forespørsel' : `Send ${n} forespørsler`;
-            };
-            document.getElementById('requestForm').addEventListener('change', update);
-            update();
-        }
-
-        // The need's place and circle on a small map - Docs: Leaflet API reference (Circle)
-        // https://leafletjs.com/reference.html
-        const mapDiv = document.getElementById('detailMap');
-        if (mapDiv) {
-            const lat = parseFloat(mapDiv.dataset.lat);
-            const lng = parseFloat(mapDiv.dataset.lng);
-            const planned = mapDiv.dataset.planned === 'true';
-            const detailMap = L.map('detailMap').setView([lat, lng], 13);
-            addMapPictures(detailMap);
-            L.marker([lat, lng]).addTo(detailMap);
-            const circle = L.circle([lat, lng], {
-                radius: parseFloat(mapDiv.dataset.radius) * 1000,
-                color: planned ? '#378ADD' : '#E24B4A',
-                dashArray: planned ? '2 6' : '8 6',
-                fillOpacity: 0.08
-            }).addTo(detailMap);
-
-            // Choose in the map: each suggestion is a dot; a click ticks or unticks it, same as the checkbox (help with AI)
-            // Docs: Leaflet DivIcon and Tooltip - https://leafletjs.com/reference.html
-            function escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text || '';
-                return div.innerHTML;
-            }
-            function pickIcon(on) {
-                return L.divIcon({
-                    className: '',
-                    iconSize: [22, 22],
-                    iconAnchor: [11, 11],
-                    html: `<div style="width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);`
-                        + `background:${on ? '#378ADD' : '#639922'};color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center">${on ? '✓' : ''}</div>`
-                });
-            }
-
-            const bounds = circle.getBounds();
-            document.querySelectorAll('#requestForm .pick[data-lat]').forEach(box => {
-                const pos = [parseFloat(box.dataset.lat), parseFloat(box.dataset.lng)];
-                const marker = L.marker(pos, { icon: pickIcon(box.checked), title: box.dataset.name, keyboard: true })
-                    .bindTooltip(escapeHtml(box.dataset.name) + ' · ' + escapeHtml(box.dataset.type))
-                    .addTo(detailMap);
-                marker.on('click', () => {
-                    box.checked = !box.checked;
-                    box.dispatchEvent(new Event('change', { bubbles: true }));
-                });
-                box.addEventListener('change', () => marker.setIcon(pickIcon(box.checked)));
-                bounds.extend(pos);
-            });
-            detailMap.fitBounds(bounds, { padding: [20, 20] });
-        }
-
-        // In the side panel on the map: tell the map which resources can be chosen and which are ticked,
-        // and tick a resource when the map asks (help with AI) - Docs: Window.postMessage (MDN)
-        // https://developer.mozilla.org/docs/Web/API/Window/postMessage
-        if (window.parent !== window) {
-            const needName = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Name));
-            const picks = () => [...document.querySelectorAll('#requestForm .pick')];
-            const idOf = box => parseInt(box.value.split(':')[1], 10);
-
-            function tellMap() {
-                parent.postMessage({
-                    type: 'need-open',
-                    name: needName,
-                    suggestions: picks().map(idOf),
-                    picked: picks().filter(b => b.checked).map(idOf)
-                }, location.origin);
-            }
-
-            window.addEventListener('message', e => {
-                if (e.origin !== location.origin || !e.data || e.data.type !== 'need-pick') return;
-                const box = picks().find(b => idOf(b) === e.data.resourceId);
-                if (box) {
-                    box.checked = !box.checked;
-                    box.dispatchEvent(new Event('change', { bubbles: true }));
-                    box.scrollIntoView({ block: 'center', behavior: 'smooth' });
-                }
-            });
-
-            document.getElementById('requestForm')?.addEventListener('change', tellMap);
-            tellMap();
-        }
-    </script>
+    <script src="~/js/need-page.js" asp-append-version="true"></script>
+    <script src="~/js/resource-export.js" asp-append-version="true"></script>
 }

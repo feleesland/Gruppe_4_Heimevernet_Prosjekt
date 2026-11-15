@@ -54,6 +54,7 @@ async function fillAddress(lat, lng) {
         document.getElementById('Address').value = a.adressetekst ?? '';
         document.getElementById('ZipCode').value = a.postnummer ?? '';
         document.getElementById('City').value = a.poststed ?? '';
+        document.getElementById('Address').dispatchEvent(new Event('input')); // the summary in "Meld behov" updates
         setMunicipality(a.kommunenavn);
     } catch {
         // Ingen adresse funnet, koordinatene lagres uansett
@@ -63,6 +64,7 @@ async function fillAddress(lat, lng) {
 
 // Måte A: klikk på kartet
 pickMap.on('click', (e) => {
+    if (window.pickingMeeting) return; // "Meld behov" is choosing the Kontaktpunkt (need-form.js)
     setPosition(e.latlng.lat, e.latlng.lng);
     fillAddress(e.latlng.lat, e.latlng.lng);                             
     statusText.textContent = 'Plassering valgt på kartet.';

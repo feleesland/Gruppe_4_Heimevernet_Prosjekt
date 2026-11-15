@@ -59,6 +59,16 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.Resource
         // "Ledig fra 16:00" in the list, when it is free later (worked out in ResourceController.ShownStatus)
         public string? FreeFrom { get; set; }
 
+        // For the table on Ressursoversikt (set in ResourceController.List): the type's icon and category,
+        // and the need it is lent to ("I bruk: Flom Vennesla")
+        public string? Icon { get; set; }
+        public string? Category { get; set; }
+        public string? UsedByNeedName { get; set; }
+        // The resource page: the status people see now ("I bruk", "Lever tilbake", "Ledig senere") and the need it is lent to
+        // (Status above is what is saved: "Ledig", "Ikke tilgjengelig", "Ugyldig") (help with AI)
+        public string? ShownStatus { get; set; }
+        public int? UsedByNeedId { get; set; }
+
         // Address (used to find the position on the map)
         [Display(Name = "Adresse")]
         public string? Address { get; set; }

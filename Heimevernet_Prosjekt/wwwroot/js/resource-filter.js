@@ -3,7 +3,7 @@
 // The choices are kept in the URL (types, status, kommune, where, lat, lng, radius) through site.js, so Kart and Ressursoversikt show the same
 // Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
 window.ResourceFilter = (function () {
-    var statuses = ['Ledig', 'Opptatt', 'Ikke tilgjengelig', 'Ugyldig'];
+    var statuses = ['Ledig', 'Ledig senere', 'I bruk', 'Lever tilbake', 'Ikke tilgjengelig', 'Ugyldig']; // as ResourceController.ShownStatus sends them
     var radiusMain = ['1', '2', '5', '10'];   // always shown
     var radiusMore = ['20', '50', '100'];     // under "Flere avstander"
     var allTypes = null; // the categories with their types from the server
@@ -54,6 +54,7 @@ window.ResourceFilter = (function () {
         if (skip !== 'status' && chosenStatus.length > 0 && !chosenStatus.includes(resource.status || 'Ledig')) return false;
         if (skip !== 'kommune' && kommuner.length > 0 && !kommuner.includes(titleCase(resource.municipality))) return false;
         if (skip !== 'radius' && params.lat && params.lng && !within(resource, params, radiusKm(params))) return false;
+        if (skip !== 'reports' && params.reports === '1' && !(resource.reports > 0)) return false;
         return true;
     }
 
@@ -188,6 +189,16 @@ window.ResourceFilter = (function () {
         });
     }
 
+    // "Feilmeldinger" (admin and operator, Kart and Ressursoversikt): only resources with open "feil info" messages
+    function renderReports(resources, params) {
+        var box = document.getElementById('rfReports');
+        if (!box) return; // not admin/operator
+        var count = resources.filter(function (r) { return matches(r, params, 'reports') && r.reports > 0; }).length;
+        box.replaceChildren(checkRow('rfReportsOnly', '⚑ Kun med åpne feilmeldinger', count, params.reports === '1', function (checked) {
+            setParams(function (p) { if (checked) p.reports = '1'; else delete p.reports; });
+        }));
+    }
+
     // "2" -> "2 km", "0.5" -> "500 m"
     function radiusText(km) {
         return parseFloat(km) < 1 ? Math.round(parseFloat(km) * 1000) + ' m' : String(km).replace('.', ',') + ' km';
@@ -306,11 +317,12 @@ window.ResourceFilter = (function () {
         list(params.types).forEach(function (t) { chips.push([t, without('types', t)]); });
         list(params.status).forEach(function (s) { chips.push([s, without('status', s)]); });
         list(params.kommune).forEach(function (k) { chips.push([k + ' kommune', without('kommune', k)]); });
+        if (params.reports === '1') chips.push(['Kun med feilmeldinger', function (p) { delete p.reports; }]);
         if (params.lat) {
             chips.push(['Innen ' + radiusText(radiusKm(params)) + ' fra ' + (params.where || 'valgt punkt'),
             function (p) { delete p.lat; delete p.lng; delete p.where; delete p.radius; }]);
         }
-        list(params.hide).forEach(function (h) { chips.push([h === 'needs' ? 'Behov skjult' : 'Ressurser skjult', without('hide', h)]); });
+        list(params.hide).forEach(function (h) { chips.push([h === 'needs' ? 'Behov skjult' : h === 'actors' ? 'Offentlige aktører skjult' : 'Ressurser skjult', without('hide', h)]); });
 
         var box = document.getElementById('rfChips');
         if (box) {
@@ -337,6 +349,7 @@ window.ResourceFilter = (function () {
         renderTypeGroups(allTypes, countBy(resources, params, 'types', 'type'), list(params.types));
         renderGroup('rfStatus', 'status', statuses, countBy(resources, params, 'status', 'status'), list(params.status));
         renderPlace(resources, params);
+        renderReports(resources, params);
 
         // "Vis X treff", or "Vis kartet" while the resources are hidden on the map
         var hitCount = resources.filter(function (r) { return matches(r, params); }).length;
@@ -350,6 +363,9 @@ window.ResourceFilter = (function () {
             badge.textContent = active;
             badge.hidden = active === 0;
         }
+        // The same number on the Filter tab in the side panel on Kart
+        var tabBadge = document.getElementById('tabFilterCount');
+        if (tabBadge) { tabBadge.textContent = active; tabBadge.hidden = active === 0; }
     }
 
     // The "Fra" field: places from Kartverket while you type (the same search as in the menu) (help with AI)
@@ -481,5 +497,5 @@ window.ResourceFilter = (function () {
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
-    return { matches: matches, render: render };
+    return { matches: matches, render: render, distanceKm: distanceKm };
 })();

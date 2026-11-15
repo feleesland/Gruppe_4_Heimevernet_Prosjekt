@@ -1,177 +1,218 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.Resource
 @using Heimevernet_Prosjekt.Security.Authorization
-@inject Heimevernet_Prosjekt.DataAccess.IResourceReportRepository ReportRepository
-@inject Heimevernet_Prosjekt.DataAccess.IResourceRequestRepository RequestRepository
 @using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.DataAccess
+@using System.Globalization
+@using System.Security.Claims
+@inject IResourceReportRepository ReportRepository
+@inject IResourceRequestRepository RequestRepository
+@inject IResourceRepository ResourceRepository
 @model ResourceViewModel
 @{
-    ViewData["Title"] = "Ressurs";
-    // In the side panel on the map (?embed=1): no menu, and the name on top
+    ViewData["Title"] = Model.Name;
+    // In the side panel on the map (?embed=1): no menu and no small map (the big map shows where it is)
     var embed = Context.Request.Query["embed"] == "1";
     if (embed)
     {
         Layout = "_EmbedLayout";
     }
+    var isStaff = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+    // Utlån: only the owner (CanEdit), operator and admin see them
+    IReadOnlyList<ResourceLoan> loans = Model.Id != null && (Model.CanEdit || isStaff)
+        ? RequestRepository.GetLoansForResource(Model.Id.Value)
+        : new List<ResourceLoan>();
+    var activeLoan = loans.FirstOrDefault(l => l.ReturnedAt == null);
+    // Egenskaper: the answers from step 2 in "Ny ressurs" (hidden questions are left out)
+    var answers = Model.Id != null
+        ? ResourceRepository.GetAnswers(Model.Id.Value).Where(a => !a.ResourceAttribute.IsHidden && !string.IsNullOrWhiteSpace(a.Value)).ToList()
+        : new List<ResourceAttributeValue>();
+    var shown = Model.ShownStatus ?? Model.Status ?? "Ledig";
+    var unavailable = Model.Status == "Ikke tilgjengelig";
+    var invalid = Model.Status == "Ugyldig";
+    // Owner and admin can change status. Only the owner can change the times; admin only "Ikke tilgjengelig" (help with AI)
+    var canChange = Model.CanEdit && activeLoan == null && Model.Id != null;
+    var isOwner = Model.OwnerId != null && Model.OwnerId == User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    var showMap = !embed && Model.Latitude != null && Model.Longitude != null;
+    var icon = string.IsNullOrEmpty(Model.Icon) ? "ti-map-pin" : Model.Icon.StartsWith("ti-") ? Model.Icon : "ti-" + Model.Icon;
+    var look = StatusLook(shown);
+    var statusText = Model.FreeFrom ?? (Model.UsedByNeedName != null ? $"{shown}: {Model.UsedByNeedName}" : shown);
+
+    // Tilgjengelig: "Hele tiden", "16:00–08:00" with the days under, a period, or "Ikke tilgjengelig" with why and until when
+    string[] dayShort = ["man", "tir", "ons", "tor", "fre", "lør", "søn"];
+    var dayBits = Model.AvailableDayBits;
+    var daySum = dayBits.Sum();
+    var dayText = daySum == 127 || daySum == 0 ? "alle dager" : daySum == 31 ? "man–fre" : daySum == 96 ? "helg"
+        : string.Join(", ", Enumerable.Range(0, 7).Where(i => dayBits.Contains(1 << i)).Select(i => dayShort[i]));
+    var fromText = Model.AvailableFromTime?.ToString(@"hh\:mm") ?? "00:00";
+    var toText = Model.AvailableToTime?.ToString(@"hh\:mm") ?? "00:00";
+    var overnight = Model.AvailableFromTime > Model.AvailableToTime;
+    var availValue = unavailable ? "Ikke tilgjengelig"
+        : Model.AvailabilityKind == AvailabilityKind.Weekly ? (fromText == toText ? "Hele døgnet" : $"{fromText}–{toText}")
+        : Model.AvailabilityKind == AvailabilityKind.Period ? $"{Model.AvailableFromDate:dd.MM.yyyy}–{Model.AvailableToDate:dd.MM.yyyy}"
+        : "Hele tiden";
+    var availSmall = unavailable
+        ? (string.IsNullOrEmpty(Model.UnavailableReason) ? "" : Model.UnavailableReason + " · ")
+          + (Model.UnavailableUntil != null ? "ledig igjen " + OsloTime(Model.UnavailableUntil.Value) : "ukjent når")
+        : activeLoan != null ? "ledig når den er levert tilbake"
+        : (Model.AvailabilityKind == AvailabilityKind.Weekly ? dayText + (overnight ? " · over natta" : "") + " · " : "")
+          + (Model.FreeFrom ?? (shown == "Ledig" ? "ledig nå" : shown.ToLower()));
+    var kindNow = unavailable ? "unavailable" : Model.AvailabilityKind.ToString();
 }
 
-@if (embed)
-{
-    <h2 class="h4 mb-0">@Model.Name</h2>
-    <div class="small text-body-secondary mb-3">@Model.Type · @Model.Status</div>
-}
+@functions {
+    // Times are saved as UTC and shown in Norwegian time - Docs: Converting times between time zones
+    // https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+    private static string OsloTime(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM.yyyy HH:mm");
+    private static string OsloShort(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, Oslo).ToString("dd.MM HH:mm");
+    private static string? When(DateTime? utc) => utc == null ? null : OsloTime(utc.Value);
 
-@* Rediger/Slett only show when the user is allowed (CanEdit/CanDelete set in ResourceController.Index) *@
-@if (Model.CanEdit || Model.CanDelete)
-{
-    @if (!embed)
+    // The status as a badge: icon + text, the same as on Ressursoversikt (status-* in site.css)
+    private static (string Icon, string Css) StatusLook(string? status) => status switch
     {
-        <h1>@ViewData["Title"]</h1>
-    }
-    <div class="d-flex flex-wrap gap-2 mb-3">
+        "Ledig" => ("ti-circle-check", "status-ok"),
+        "Ledig senere" => ("ti-clock", "status-grey"),
+        "I bruk" => ("ti-hourglass", "status-grey"),
+        "Lever tilbake" => ("ti-arrow-back-up", "status-return"),
+        "Ikke tilgjengelig" => ("ti-ban", "status-grey"),
+        "Ugyldig" => ("ti-alert-triangle", "status-bad"),
+        _ => ("ti-circle", "status-grey")
+    };
+
+    // One answer as a short chip (help with AI): "✓ Hengerfeste", "Effekt: 5 kW", "Førerkort: BE"
+    private static (string Icon, string Text) AnswerChip(ResourceAttributeValue a) => a.ResourceAttribute.Kind switch
+    {
+        AttributeKind.YesNo => ("ti-check", a.ResourceAttribute.Label),
+        AttributeKind.Number => ("ti-hash", $"{a.ResourceAttribute.Label}: {a.Value}{(string.IsNullOrEmpty(a.ResourceAttribute.Unit) ? "" : " " + a.ResourceAttribute.Unit)}"),
+        AttributeKind.Choice => ("ti-circle-dot", $"{a.ResourceAttribute.Label}: {a.Value}"),
+        _ => ("ti-pencil", $"{a.ResourceAttribute.Label}: {a.Value}")
+    };
+}
+
+<link rel="stylesheet" href="~/css/need-page.css" asp-append-version="true" />
+<link rel="stylesheet" href="~/css/resource-page.css" asp-append-version="true" />
+
+@* «← Alle ressurser»: back with the same filter (history.back) when we came from the list (help with AI) *@
+@if (!embed)
+{
+    <a asp-controller="Resource" asp-action="List" class="np-back np-noprint"
+       onclick="if (document.referrer.includes('/Resource/List')) { history.back(); return false; }">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> Alle ressurser
+    </a>
+}
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-info py-2" role="status">@TempData["Message"]</div>
+}
+
+@* The top: icon, name, type and status; the actions on the right (they wrap under on small screens) *@
+<div class="np-head">
+    <div class="np-title">
+        <span class="rp-icon @(shown == "Lever tilbake" ? "is-return" : shown == "Ledig" ? "" : "is-busy")"><i class="ti @icon" aria-hidden="true"></i></span>
+        <div>
+            <h1 class="mb-0 @(embed ? "h4" : "h3")">@Model.Name</h1>
+            <div class="small text-body-secondary d-flex flex-wrap align-items-center gap-2">
+                <span>@Model.Type@(string.IsNullOrEmpty(Model.Category) ? "" : " · " + Model.Category)</span>
+                <span class="status-badge @look.Css"><i class="ti @look.Icon" aria-hidden="true"></i> @statusText</span>
+            </div>
+        </div>
+    </div>
+    <div class="np-actions np-noprint">
+        <div class="dropdown">
+            <button type="button" class="btn btn-sm rf-reset dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Eksporter">
+                <i class="ti ti-download" aria-hidden="true"></i> @(embed ? "" : "Eksporter")
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><button type="button" class="dropdown-item" data-res-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
+                <li><button type="button" class="dropdown-item" data-res-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+                <li><button type="button" class="dropdown-item" data-res-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+            </ul>
+        </div>
+        @if (!embed && Model.Latitude != null && Model.Longitude != null)
+        {
+            <a class="btn btn-sm rf-reset" asp-controller="Home" asp-action="Map" asp-route-focus="@Model.Id"><i class="ti ti-map" aria-hidden="true"></i> Vis på kartet</a>
+        }
         @if (Model.CanEdit)
         {
-            <a class="btn btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id" asp-route-embed="@(embed ? "1" : null)">Rediger</a>
+            <a class="btn btn-sm rf-reset" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id" asp-route-embed="@(embed ? "1" : null)">
+                <i class="ti ti-pencil" aria-hidden="true"></i> Rediger
+            </a>
         }
-        @if (Model.CanDelete)
+        @* ⋯: what is used seldom. Slett (owner/admin), and «Meld feil til admin» for an operator who can't edit *@
+        @if (Model.CanDelete || (!Model.CanEdit && isStaff))
         {
-            <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@Model.Id" method="post" class="m-0" target="_top">
-                <button type="submit" class="btn btn-danger"
-                        onclick="return confirm('Er du sikker på at du vil slette denne ressursen?');">
-                    Slett
-                </button>
-            </form>
+            <div class="dropdown">
+                <button type="button" class="btn btn-sm rf-reset" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Flere valg">⋯</button>
+                <div class="dropdown-menu dropdown-menu-end">
+                    @if (!Model.CanEdit && isStaff)
+                    {
+                        <button type="button" class="dropdown-item" data-bs-toggle="collapse" data-bs-target="#reportForm">⚑ Meld feil til admin</button>
+                    }
+                    @if (Model.CanDelete)
+                    {
+                        <form asp-controller="ResourceHandler" asp-action="Delete" asp-route-id="@Model.Id" method="post" class="m-0" target="_top">
+                            <button type="submit" class="dropdown-item text-danger" data-confirm="Er du sikker på at du vil slette denne ressursen?">
+                                <i class="ti ti-trash" aria-hidden="true"></i> Slett
+                            </button>
+                        </form>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* Lent out right now: blue «I bruk», or purple «Skal leveres tilbake» when the need is closed (icon + text, not colour alone) *@
+@if (activeLoan != null)
+{
+    var returning = shown == "Lever tilbake";
+    <div class="@(returning ? "np-return" : "rp-inuse") d-flex flex-wrap align-items-center gap-2">
+        <i class="ti @(returning ? "ti-arrow-back-up" : "ti-hourglass") rp-box-icon" aria-hidden="true"></i>
+        <div class="flex-grow-1">
+            <b>@(returning ? "Skal leveres tilbake" : "I bruk")</b> hos «@activeLoan.NeedName»@(returning ? ", som er avsluttet" : "")
+            <div class="small text-body-secondary">
+                @(activeLoan.Delivery == DeliveryMethod.Hentes ? "Hentes" : "Eieren leverer")@(activeLoan.AnsweredAt != null ? $" · sa ja {OsloShort(activeLoan.AnsweredAt.Value)}" : "")@(activeLoan.DeliveredAt != null ? $" · levert {OsloShort(activeLoan.DeliveredAt.Value)}" : " · ikke levert ennå")
+            </div>
+        </div>
+        @if (isStaff)
+        {
+            <a class="btn btn-sm @(returning ? "np-return-btn" : "rp-inuse-btn") np-noprint" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@activeLoan.NeedId">Åpne behovet ▸</a>
         }
     </div>
 }
-@* Status with one click: icon + text, not colour alone. Only those who may edit (owner, admin) *@
-@if (Model.CanEdit && Model.Id != null)
+
+@* Operator on a resource they can't edit: a message to admin (e.g. "wrong address"). Opened from ⋯ *@
+@if (!Model.CanEdit && isStaff)
 {
-    var activeLoan = RequestRepository.GetLoansForResource(Model.Id.Value).FirstOrDefault(l => l.ReturnedAt == null);
-    var unavailable = Model.Status == "Ikke tilgjengelig";
-    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-
-    if (activeLoan != null)
-    {
-        <div class="alert alert-info py-2 mb-3">
-            📦 Utlånt til «@activeLoan.NeedName». Den blir ledig når den er markert som levert tilbake.
-        </div>
-    }
-    else
-    {
-        <form asp-controller="ResourceStatus" asp-action="Set" method="post" class="mb-2">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <div class="small text-body-secondary mb-1">Status</div>
-            <div class="btn-group flex-wrap" role="group" aria-label="Status">
-                <button type="submit" name="status" value="Ledig"
-                        class="btn @(Model.Status == "Ledig" ? "btn-success" : "btn-outline-success")"
-                        aria-pressed="@(Model.Status == "Ledig" ? "true" : "false")">
-                    ✓ Ledig
-                </button>
-                <button type="submit" name="status" value="Opptatt"
-                        class="btn @(Model.Status == "Opptatt" ? "btn-warning" : "btn-outline-warning")"
-                        aria-pressed="@(Model.Status == "Opptatt" ? "true" : "false")">
-                    ● Opptatt
-                </button>
-                @* Opens the small form below instead of saving straight away *@
-                <button type="button" data-bs-toggle="collapse" data-bs-target="#unavailableForm"
-                        aria-expanded="false" aria-controls="unavailableForm"
-                        class="btn @(unavailable ? "btn-secondary" : "btn-outline-secondary")"
-                        aria-pressed="@(unavailable ? "true" : "false")">
-                    ⏸ Ikke tilgjengelig
-                </button>
-                <button type="submit" name="status" value="Ugyldig"
-                        class="btn @(Model.Status == "Ugyldig" ? "btn-danger" : "btn-outline-danger")"
-                        aria-pressed="@(Model.Status == "Ugyldig" ? "true" : "false")">
-                    ✗ Ugyldig
-                </button>
-            </div>
-        </form>
-
-        @* Why, and when it's free again. The time is Norwegian time *@
-        <div class="collapse mb-3" id="unavailableForm">
-            <form asp-controller="ResourceStatus" asp-action="SetUnavailable" method="post" class="card card-body" style="max-width: 520px;">
-                <input type="hidden" name="id" value="@Model.Id" />
-                <label for="unavailableReason" class="form-label">Hvorfor? <span class="text-body-secondary">(valgfritt)</span></label>
-                <input id="unavailableReason" name="reason" class="form-control mb-3" maxlength="200"
-                       placeholder="F.eks. på verksted" value="@Model.UnavailableReason" />
-
-                <label for="unavailableUntil" class="form-label">Ledig igjen</label>
-                <input id="unavailableUntil" name="until" type="datetime-local" class="form-control mb-2" />
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="unavailableUnknown" name="unknown" value="true"
-                           onchange="document.getElementById('unavailableUntil').disabled = this.checked;" />
-                    <label class="form-check-label" for="unavailableUnknown">Vet ikke når</label>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button type="submit" class="button m-0 border-0">Lagre</button>
-                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#unavailableForm">Avbryt</button>
-                </div>
-            </form>
-        </div>
-
-        @* Shown while it is unavailable: icon + text *@
-        @if (unavailable)
-        {
-            <div class="alert alert-secondary py-2 mb-3">
-                ⏸ Ikke tilgjengelig@(string.IsNullOrEmpty(Model.UnavailableReason) ? "" : $" – {Model.UnavailableReason}").
-                @if (Model.UnavailableUntil != null)
-                {
-                    <text>Ledig igjen @TimeZoneInfo.ConvertTimeFromUtc(Model.UnavailableUntil.Value, oslo).ToString("dd.MM.yyyy 'kl' HH:mm"). Blir ledig av seg selv da.</text>
-                }
-                else
-                {
-                    <text>Ukjent når den er ledig igjen.</text>
-                }
-            </div>
-        }
-    }
-}
-
-@* Confirmation after "Meld til admin" *@
-@if (TempData["Message"] != null)
-{
-    <div class="alert alert-info">@TempData["Message"]</div>
-}
-
-@* Operator on a resource they can't edit: send a message to admin instead (e.g. "wrong address") *@
-@if (!Model.CanEdit && (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)))
-{
-    <button class="btn btn-outline-warning mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#reportForm"
-            aria-expanded="false" aria-controls="reportForm">
-        ⚑ Meld til admin
-    </button>
-
-    <div class="collapse mb-3" id="reportForm">
-        <form asp-controller="ResourceReport" asp-action="Create" method="post">
+    <div class="collapse mb-3 np-noprint" id="reportForm">
+        <form asp-controller="ResourceReport" asp-action="Create" method="post" class="card card-body">
             <input type="hidden" name="resourceId" value="@Model.Id" />
             <label for="reportMessage" class="form-label">Hva bør admin endre eller slette?</label>
             <textarea id="reportMessage" name="message" class="form-control mb-2" rows="3" maxlength="1000" required
                       placeholder="F.eks. feil adresse, traktoren står på Lund"></textarea>
-            <button type="submit" class="btn btn-warning">Send</button>
+            <button type="submit" class="btn btn-warning align-self-start">Send</button>
         </form>
     </div>
 }
 
-
-@* Admin and operator see what has been reported as wrong. Only admin can mark it as resolved - Docs: Dependency injection into views *@
-@* https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection *@
-@if ((User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)) && Model.Id != null)
+@* Admin and operator see what has been reported as wrong. Only admin can mark it as resolved - Docs: Dependency injection into views
+   https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection *@
+@if (isStaff && Model.Id != null)
 {
     var reports = ReportRepository.GetOpenForResource(Model.Id.Value);
     if (reports.Count > 0)
     {
         <div class="alert alert-warning">
-            <h5 class="alert-heading">⚑ Meldt som feil (@reports.Count)</h5>
+            <h2 class="h6 alert-heading">⚑ Meldt som feil (@reports.Count)</h2>
             @if (!User.IsInRole(RoleNames.Admin))
             {
                 <p class="small mb-1">Admin er varslet og retter opp. Vurder om ressursen kan brukes.</p>
             }
             @foreach (var report in reports)
             {
-                var sent = TimeZoneInfo.ConvertTimeFromUtc(report.CreatedAt, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
                 <div class="border-top pt-2 mt-2">
-                    <div class="small">@report.ReporterEmail · @sent.ToString("dd.MM.yyyy HH:mm")</div>
+                    <div class="small">@report.ReporterEmail · @OsloTime(report.CreatedAt)</div>
                     <p class="mb-2">«@report.Message»</p>
                     @if (User.IsInRole(RoleNames.Admin))
                     {
@@ -187,160 +228,289 @@
     }
 }
 
-<p>@Model.Description</p>
-<p>Type: @Model.Type</p>
-@* When it can be used (from "Ny ressurs", step 2), and "Ledig fra 16:00" when it is outside its times right now *@
-@{
-    string[] dayShort = ["man", "tir", "ons", "tor", "fre", "lør", "søn"];
-    var days = Enumerable.Range(0, 7).Where(i => Model.AvailableDayBits.Contains(1 << i)).Select(i => dayShort[i]).ToList();
-    var dayText = days.Count == 7 ? "alle dager" : Model.AvailableDayBits.Sum() == 31 ? "man–fre" : string.Join(", ", days);
-    var availabilityText = Model.AvailabilityKind switch
-    {
-        AvailabilityKind.Weekly => $"{Model.AvailableFromTime?.ToString(@"hh\:mm")}–{Model.AvailableToTime?.ToString(@"hh\:mm")}, {dayText}",
-        AvailabilityKind.Period => $"{Model.AvailableFromDate?.ToString("dd.MM.yyyy")}–{Model.AvailableToDate?.ToString("dd.MM.yyyy")}",
-        _ => "Hele tiden"
-    };
-}
-<p>
-    <i class="ti ti-clock" aria-hidden="true"></i> Tilgjengelig: @availabilityText
-    @if (Model.FreeFrom != null)
-    {
-        <span class="badge text-bg-secondary ms-1">@Model.FreeFrom</span>
-    }
-</p>
-@if (Model.HasImage)
-{
-    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="img-fluid mb-3" style="max-height: 300px;" />
-}
-@if (!string.IsNullOrEmpty(Model.Notes))
-{
-    <p><strong>Merknader:</strong> @Model.Notes</p>
-}
-@if (Model.OwnerRemoved)
-{
-    <p class="text-warning">Eieren er fjernet fra systemet.</p>
-}
-else if (Model.OwnerEmail != null)
-{
-    <div class="card mb-3">
-        <div class="card-body">
-            <h5 class="card-title">Eier</h5>
-            <p class="mb-1">@(string.IsNullOrEmpty(Model.OwnerName) ? "Navn ikke oppgitt" : Model.OwnerName)</p>
-            <p class="mb-1">E-post: <a href="mailto:@Model.OwnerEmail">@Model.OwnerEmail</a></p>
-            <p class="mb-0">
-                Telefon: @if (string.IsNullOrEmpty(Model.OwnerPhone)) {
-                <span>Ikke oppgitt</span>
-            } else
-            {
-                <a href="tel:@Model.OwnerPhone">@Model.OwnerPhone</a>
-            }
-        </p>
-    </div>
-</div>
-}
+<div class="np-layout @(showMap ? "has-map" : "")">
+    <div class="np-main">
+        @* Four short facts. 2×2 on phones and in the side panel. Eier first: it is who the operator calls *@
+        <div class="np-facts">
+            <div class="np-fact">
+                <div class="np-fact-label"><i class="ti ti-user" aria-hidden="true"></i> Eier</div>
+                @if (Model.OwnerRemoved)
+                {
+                    <div class="np-fact-value text-warning-emphasis">Fjernet fra systemet</div>
+                }
+                else
+                {
+                    <div class="np-fact-value">@(string.IsNullOrEmpty(Model.OwnerName) ? (Model.OwnerEmail ?? "Ukjent") : Model.OwnerName)</div>
+                    <div class="np-fact-small">
+                        @if (!string.IsNullOrEmpty(Model.OwnerPhone))
+                        {
+                            <a class="np-link" href="tel:@Model.OwnerPhone">☎ @Model.OwnerPhone</a>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.OwnerEmail))
+                        {
+                            @(string.IsNullOrEmpty(Model.OwnerPhone) ? "" : " · ")
+                            <a class="np-link" href="mailto:@Model.OwnerEmail">e-post</a>
+                        }
+                    </div>
+                }
+            </div>
 
-
-<!-- Address, date and position - Docs: Converting times between time zones -->
-<!-- https://learn.microsoft.com/dotnet/standard/datetime/converting-between-time-zones -->
-<p>Adresse: @(string.IsNullOrEmpty(Model.Address) ? "Ikke oppgitt" : $"{Model.Address}, {Model.ZipCode} {Model.City}")</p>
-
-@if (Model.CreatedAt != null)
-{
-    var osloTime = TimeZoneInfo.ConvertTimeFromUtc(Model.CreatedAt.Value, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo"));
-    <p>Registrert: @osloTime.ToString("dd.MM.yyyy HH:mm")</p>
-}
-
-@* "Utlån": which needs the resource has been lent to. Only operator, admin and the owner (CanEdit) see it *@
-@if (Model.Id != null && (Model.CanEdit || User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator)))
-{
-    var loans = RequestRepository.GetLoansForResource(Model.Id.Value);
-    var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-    string When(DateTime? utc) => utc == null ? "–" : TimeZoneInfo.ConvertTimeFromUtc(utc.Value, oslo).ToString("dd.MM.yyyy HH:mm");
-
-    <h2 class="h5 mt-4">📦 Utlån (@loans.Count)</h2>
-    @if (loans.Count == 0)
-    {
-        <p class="text-body-secondary">Ressursen har ikke vært utlånt ennå.</p>
-    }
-    else
-    {
-        <div class="table-responsive mb-3">
-            <table class="table table-sm align-middle">
-                <thead>
-                    <tr>
-                        <th scope="col">Behov</th>
-                        <th scope="col">Sa ja</th>
-                        <th scope="col">Levert</th>
-                        <th scope="col">Levert tilbake</th>
-                        <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var loan in loans)
+            @* Tilgjengelig: «Endre ▾» opens a small window over the page (a sheet from the bottom on phones). Nothing moves *@
+            <div class="np-fact">
+                <div class="np-fact-label">
+                    <i class="ti ti-clock" aria-hidden="true"></i> Tilgjengelig
+                    @if (canChange)
                     {
-                        <tr>
-                            <td>
-                                @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
+                        <button type="button" id="availToggle" class="btn btn-link btn-sm p-0 ms-auto np-link np-noprint" data-bs-toggle="dropdown"
+                                data-bs-auto-close="outside" aria-expanded="false">
+                            Endre <i class="ti ti-chevron-down" aria-hidden="true"></i>
+                        </button>
+                        <form asp-controller="ResourceStatus" asp-action="SetAvailability" method="post" id="availForm"
+                              class="dropdown-menu dropdown-menu-end p-3 rp-avail-menu" data-unavailable-url="@Url.Action("SetUnavailable", "ResourceStatus")">
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            @* Admin (not the owner): only "Ikke tilgjengelig" - the times belong to the owner *@
+                            <div class="btn-group w-100 mb-3" role="radiogroup" aria-label="Når er den tilgjengelig?" hidden="@(!isOwner)">
+                                @foreach (var (value, label) in new[] { ("Always", "Hele tiden"), ("Weekly", "Faste tider"), ("Period", "Periode"), ("unavailable", "Ikke tilgj.") }
+                                    .Where(o => isOwner || o.Item1 == "unavailable"))
                                 {
-                                    <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@loan.NeedId">@loan.NeedName</a>
+                                    <input type="radio" class="btn-check" name="kind" id="kind-@value" value="@value" checked="@(isOwner ? kindNow == value : true)" />
+                                    <label class="btn btn-outline-success btn-sm" for="kind-@value">@(value == "unavailable" ? "⊘ " : "")@label</label>
                                 }
-                                else
+                            </div>
+
+                            <div data-kind-box="Always">
+                                <p class="small text-body-secondary mb-0">Kan bli spurt når som helst.</p>
+                            </div>
+
+                            <div data-kind-box="Weekly">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <label for="fromTime" class="small">Fra</label>
+                                    <input type="time" id="fromTime" name="fromTime" class="form-control form-control-sm" value="@fromText" />
+                                    <label for="toTime" class="small">til</label>
+                                    <input type="time" id="toTime" name="toTime" class="form-control form-control-sm" value="@toText" />
+                                </div>
+                                <div id="overnightHint" class="small text-body-secondary mb-2" hidden>Over natta: til-tiden er neste dag.</div>
+                                <div class="rp-days mb-2" role="group" aria-label="Dager">
+                                    @for (var i = 0; i < 7; i++)
+                                    {
+                                        var bit = 1 << i;
+                                        <input type="checkbox" class="btn-check" id="day-@bit" name="days" value="@bit" checked="@(daySum == 0 || dayBits.Contains(bit))" />
+                                        <label class="btn btn-outline-success" for="day-@bit">@dayShort[i][..2]</label>
+                                    }
+                                </div>
+                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                    @foreach (var (preset, label) in new[] { ("16:00|08:00|127", "16–08"), ("08:00|16:00|127", "08–16"), ("08:00|16:00|31", "Man–fre"), ("00:00|00:00|96", "Helg") })
+                                    {
+                                        <button type="button" class="np-chip" data-preset="@preset">@label</button>
+                                    }
+                                </div>
+                                @* The day as a bar: green = can be asked. Drawn by resource-page.js *@
+                                <div id="dayBar" class="rp-bar" aria-hidden="true"></div>
+                                <div class="rp-bar-scale" aria-hidden="true"><span>00</span><span>08</span><span>16</span><span>24</span></div>
+                            </div>
+
+                            <div data-kind-box="Period">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label for="fromDate" class="small">Fra</label>
+                                    <input type="date" id="fromDate" name="fromDate" class="form-control form-control-sm" value="@Model.AvailableFromDate?.ToString("yyyy-MM-dd")" />
+                                    <label for="toDate" class="small">til</label>
+                                    <input type="date" id="toDate" name="toDate" class="form-control form-control-sm" value="@Model.AvailableToDate?.ToString("yyyy-MM-dd")" />
+                                </div>
+                            </div>
+
+                            @* Ikke tilgjengelig: sent to SetUnavailable (resource-page.js changes where the form goes) *@
+                            <div data-kind-box="unavailable">
+                                @if (!isOwner)
                                 {
-                                    @loan.NeedName
+                                    <p class="small text-body-secondary">Tidene settes av eieren. Her kan du sette ressursen som ikke tilgjengelig.</p>
                                 }
-                                <div class="small text-body-secondary">@(loan.Delivery == DeliveryMethod.Hentes ? "Hentes" : "Eieren leverer")</div>
-                            </td>
-                            <td class="small">@When(loan.AnsweredAt)</td>
-                            <td class="small">@When(loan.DeliveredAt)</td>
-                            <td class="small">@When(loan.ReturnedAt)</td>
-                            <td>
-                                @if (loan.ReturnedAt != null)
-                                {
-                                    <span class="badge text-bg-secondary">↩ Levert tilbake</span>
-                                }
-                                else if (loan.DeliveredAt != null)
-                                {
-                                    <span class="badge text-bg-info">📦 I bruk</span>
-                                }
-                                else
-                                {
-                                    <span class="badge text-bg-success">✓ Avtalt</span>
-                                }
-                            </td>
-                        </tr>
+                                <label for="unavailableReason" class="form-label small mb-1">Hvorfor? <span class="text-body-secondary">(valgfritt)</span></label>
+                                <input id="unavailableReason" name="reason" class="form-control form-control-sm mb-2" maxlength="200" placeholder="F.eks. på verksted" value="@Model.UnavailableReason" />
+                                <label for="unavailableUntil" class="form-label small mb-1">Ledig igjen</label>
+                                <input id="unavailableUntil" name="until" type="datetime-local" class="form-control form-control-sm mb-1" />
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="unavailableUnknown" name="unknown" value="true" />
+                                    <label class="form-check-label small" for="unavailableUnknown">Vet ikke når</label>
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <button type="button" id="availCancel" class="btn btn-sm rf-reset">Avbryt</button>
+                                <button type="submit" class="btn btn-sm btn-success">Lagre</button>
+                            </div>
+                        </form>
                     }
-                </tbody>
-            </table>
+                </div>
+                <div class="np-fact-value">@availValue</div>
+                <div class="np-fact-small">@availSmall</div>
+            </div>
+
+            <div class="np-fact">
+                <div class="np-fact-label"><i class="ti ti-map-pin" aria-hidden="true"></i> Hvor</div>
+                <div class="np-fact-value">@(string.IsNullOrEmpty(Model.Address) ? "Ikke oppgitt" : Model.Address)</div>
+                <div class="np-fact-small">@Model.ZipCode @Model.City</div>
+            </div>
+
+            <div class="np-fact">
+                <div class="np-fact-label"><i class="ti ti-calendar" aria-hidden="true"></i> Registrert</div>
+                <div class="np-fact-value">@(Model.CreatedAt != null ? TimeZoneInfo.ConvertTimeFromUtc(Model.CreatedAt.Value, TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo")).ToString("dd.MM.yyyy") : "–")</div>
+                @if (Model.CanEdit || isStaff)
+                {
+                    <div class="np-fact-small">@(loans.Count == 0 ? "aldri utlånt" : loans.Count == 1 ? "1 utlån i alt" : $"{loans.Count} utlån i alt")</div>
+                }
+            </div>
+        </div>
+
+        @* Egenskaper (help with AI): the owner's answers from step 2 in "Ny ressurs", as chips. "Nei" is not saved, so only what it has *@
+        @if (answers.Count > 0)
+        {
+            <section class="rp-card" aria-labelledby="rpAttrTitle">
+                <h2 id="rpAttrTitle" class="rp-card-title"><i class="ti ti-list-check" aria-hidden="true"></i> Egenskaper</h2>
+                <div class="rp-chips">
+                    @foreach (var a in answers)
+                    {
+                        var chip = AnswerChip(a);
+                        <span class="rp-chip"><i class="ti @chip.Icon" aria-hidden="true"></i> @chip.Text</span>
+                    }
+                </div>
+            </section>
+        }
+
+        @* Om ressursen: description, notes and the picture together in one card *@
+        @if (!string.IsNullOrWhiteSpace(Model.Description) || !string.IsNullOrWhiteSpace(Model.Notes) || Model.HasImage)
+        {
+            <section class="rp-card rp-about @(Model.HasImage ? "has-image" : "")" aria-labelledby="rpAboutTitle">
+                <div>
+                    <h2 id="rpAboutTitle" class="rp-card-title"><i class="ti ti-notes" aria-hidden="true"></i> Om ressursen</h2>
+                    @if (!string.IsNullOrWhiteSpace(Model.Description))
+                    {
+                        <p class="mb-2 rp-pre">@Model.Description</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(Model.Notes))
+                    {
+                        <div class="small text-body-secondary"><i class="ti ti-info-circle" aria-hidden="true"></i> Merknader</div>
+                        <p class="mb-0 rp-pre">@Model.Notes</p>
+                    }
+                </div>
+                @if (Model.HasImage)
+                {
+                    <img src="@Url.Action("Image", "Resource", new { id = Model.Id })" alt="@Model.Name" class="rp-image" />
+                }
+            </section>
+        }
+
+        @* Status: Gyldig or Ugyldig (owner and admin). "I bruk" and "Lever tilbake" come from the needs, the times are under Tilgjengelig *@
+        @if (canChange)
+        {
+            <section class="rp-card np-noprint" aria-labelledby="rpStatusTitle">
+                <h2 id="rpStatusTitle" class="rp-card-title"><i class="ti ti-adjustments" aria-hidden="true"></i> Status</h2>
+                <form asp-controller="ResourceStatus" asp-action="Set" method="post" class="btn-group mb-1" role="group" aria-label="Status">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" name="status" value="Ledig" class="btn btn-sm @(invalid ? "btn-outline-success" : "btn-success")" aria-pressed="@(!invalid)">✓ Gyldig</button>
+                    <button type="submit" name="status" value="Ugyldig" class="btn btn-sm @(invalid ? "btn-danger" : "btn-outline-danger")" aria-pressed="@invalid">
+                        <i class="ti ti-alert-triangle" aria-hidden="true"></i> Ugyldig
+                    </button>
+                </form>
+                <div class="small text-body-secondary">«Ugyldig» = skal ikke brukes (feil eller ødelagt). «I bruk» og «Lever tilbake» settes av behovet.</div>
+            </section>
+        }
+        else if (Model.CanEdit && activeLoan != null)
+        {
+            <p class="small text-body-secondary"><i class="ti ti-lock" aria-hidden="true"></i> Utlånt til et behov: status og tider kan endres når den er levert tilbake.</p>
+        }
+
+        @* Utlån as a time line, newest first. The dot has the state's colour, and the badge says it in text too *@
+        @if (Model.CanEdit || isStaff)
+        {
+            <section class="rp-card" aria-labelledby="rpLoanTitle">
+                <h2 id="rpLoanTitle" class="rp-card-title"><i class="ti ti-package" aria-hidden="true"></i> Utlån (@loans.Count)</h2>
+                @if (loans.Count == 0)
+                {
+                    <p class="text-body-secondary small mb-0">Ressursen har ikke vært utlånt ennå.</p>
+                }
+                else
+                {
+                    <ol class="rp-timeline">
+                        @foreach (var loan in loans)
+                        {
+                            var state = loan.ReturnedAt != null ? "is-returned" : loan.NeedClosed ? "is-return" : loan.DeliveredAt != null ? "is-inuse" : "is-agreed";
+                            <li class="@state">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    @if (isStaff)
+                                    {
+                                        <a class="np-link fw-semibold" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@loan.NeedId">@loan.NeedName</a>
+                                    }
+                                    else
+                                    {
+                                        <b>@loan.NeedName</b>
+                                    }
+                                    @if (loan.ReturnedAt != null)
+                                    {
+                                        <span class="badge rp-badge-return">↩︎ Levert tilbake @OsloShort(loan.ReturnedAt.Value)</span>
+                                    }
+                                    else if (loan.NeedClosed)
+                                    {
+                                        <span class="badge rp-badge-return">↩︎ Skal leveres tilbake</span>
+                                    }
+                                    else if (loan.DeliveredAt != null)
+                                    {
+                                        <span class="badge text-bg-info">📦 I bruk</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge text-bg-primary">⏳ Avtalt</span>
+                                    }
+                                </div>
+                                <div class="small text-body-secondary">
+                                    @(loan.Delivery == DeliveryMethod.Hentes ? "Hentes" : "Eieren leverer")@(loan.AnsweredAt != null ? $" · ja {OsloShort(loan.AnsweredAt.Value)}" : "")@(loan.DeliveredAt != null ? $" · levert {OsloShort(loan.DeliveredAt.Value)}" : "")
+                                </div>
+                            </li>
+                        }
+                    </ol>
+                }
+            </section>
+        }
+    </div>
+
+    @if (showMap)
+    {
+        <div class="np-map-col">
+            <div id="detailMap" class="np-map rounded" data-name="@Model.Name"
+                 data-lat="@Model.Latitude!.Value.ToString(CultureInfo.InvariantCulture)"
+                 data-lng="@Model.Longitude!.Value.ToString(CultureInfo.InvariantCulture)"></div>
+            <div class="np-legend small"><span><i class="ti ti-map-pin-filled" aria-hidden="true"></i> Ressursen</span></div>
         </div>
     }
-}
-@if (!embed && Model.Latitude != null && Model.Longitude != null)
-{
-    <a class="btn btn-sm btn-outline-secondary mb-2" asp-controller="Home" asp-action="Map" asp-route-focus="@Model.Id">🗺 Vis på hovedkartet</a>
-}
+</div>
 
-@if (!embed && Model.Latitude != null && Model.Longitude != null)
-{
-    <div id="detailMap" style="height: 300px;"
-         data-lat="@Model.Latitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-         data-lng="@Model.Longitude.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"></div>
+@* Eksporter (help with AI): the resource, its answers and its loans. CSV gets one row per loan (or the resource alone), JSON everything *@
+@{
+    var exportData = new Dictionary<string, object?>
+    {
+        ["Ressurs"] = Model.Name,
+        ["Id"] = Model.Id,
+        ["Type"] = Model.Type,
+        ["Kategori"] = Model.Category,
+        ["Status"] = statusText,
+        ["Tilgjengelig"] = availValue + (string.IsNullOrEmpty(availSmall) ? "" : " · " + availSmall),
+        ["Eier"] = Model.OwnerName,
+        ["Telefon"] = Model.OwnerPhone,
+        ["Adresse"] = string.Join(", ", new[] { Model.Address, Model.ZipCode, Model.City }.Where(s => !string.IsNullOrWhiteSpace(s))),
+        ["Registrert"] = When(Model.CreatedAt),
+        ["Egenskaper"] = string.Join(" · ", answers.Select(a => AnswerChip(a).Text)),
+        ["Utlån"] = loans.Select(l => new Dictionary<string, object?>
+        {
+            ["Behov"] = l.NeedName,
+            ["Levering"] = l.Delivery == DeliveryMethod.Hentes ? "Hentes" : "Eieren leverer",
+            ["Sa ja"] = When(l.AnsweredAt),
+            ["Levert"] = When(l.DeliveredAt),
+            ["Levert tilbake"] = When(l.ReturnedAt)
+        }).ToList()
+    };
 }
+<script type="application/json" id="resourceExport">@Json.Serialize(exportData)</script>
 
-@if (embed)
-{
-            <a class="btn btn-secondary" asp-controller="ResourceHandler" asp-action="Edit" asp-route-id="@Model.Id" target="_top">Rediger</a>
-}
 @section Scripts {
-    <script>
-        // Show the resource's position on a small map - Docs: Leaflet API reference
-        // https://leafletjs.com/reference.html
-        const mapDiv = document.getElementById('detailMap');
-        if (mapDiv) {
-            const lat = parseFloat(mapDiv.dataset.lat);
-            const lng = parseFloat(mapDiv.dataset.lng);
-            const detailMap = L.map('detailMap').setView([lat, lng], 15);
-            addMapPictures(detailMap);
-            L.marker([lat, lng]).addTo(detailMap);
-        }
-    </script>
+    <script src="~/js/resource-export.js" asp-append-version="true"></script>
+    <script src="~/js/resource-page.js" asp-append-version="true"></script>
 }

@@ -75,6 +75,7 @@ namespace Heimevernet_Prosjekt.Controllers
         public async Task<IActionResult> Create(ReportNeedViewModel model)
         {
             ValidateNeed(model);
+            CleanMeeting(model);
 
             // "Legg til i ...": the need must exist, be active and the user must be allowed to change it
             ResourceNeed? existing = null;
@@ -122,6 +123,18 @@ namespace Heimevernet_Prosjekt.Controllers
 
             TempData["Message"] = $"«{need.Name}» er meldt med {CountText(model.Lines)}: {Summary(model.Lines)}.";
             Log(need.Id, $"Meldte behovet ({need.Urgency}): {Summary(model.Lines)}");
+            if (!string.IsNullOrEmpty(need.MeetingPointName))
+            {
+                Log(need.Id, $"Satte kontaktpunkt: {need.MeetingPointName}");
+            }
+            // «+ Info til innbyggere» in the form: published as the first update, so the need is on the front page at once (help with AI)
+            var publicText = model.PublicText?.Trim();
+            if (!string.IsNullOrEmpty(publicText))
+            {
+                if (publicText.Length > 300) publicText = publicText[..300];
+                _resourceNeedRepository.AddUpdate(need.Id, ownerId, User.Identity?.Name ?? "Ukjent", publicText);
+                Log(need.Id, $"Publiserte info til innbyggere: «{publicText}»");
+            }
             return DoneOrRedirect(need.Id);
         }
 
@@ -213,6 +226,10 @@ namespace Heimevernet_Prosjekt.Controllers
             var link = Url.Action("Mine", "ResourceRequest", null, Request.Scheme);
             var when = need.Urgency == NeedUrgency.Akutt ? "Det trengs nå." : "Det er et planlagt behov.";
             var html = HtmlEncoder.Default;
+            // Where to deliver or meet: the kontaktpunkt, or the need's address (help with AI)
+            var where = !string.IsNullOrEmpty(need.MeetingPointName)
+                ? $"Kontaktpunkt: {need.MeetingPointName}"
+                : string.Join(", ", new[] { need.Address, need.City }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
             foreach (var resourceId in resourceIds)
             {
@@ -229,6 +246,7 @@ namespace Heimevernet_Prosjekt.Controllers
                         $"Forespørsel: {resource.Name} trengs – {need.Name}",
                         $"<p>Hei!</p>" +
                         $"<p>Heimevernet spør om <strong>{html.Encode(resource.Name)}</strong> kan hjelpe til «{html.Encode(need.Name)}». {when}</p>" +
+                                                (string.IsNullOrEmpty(where) ? "" : $"<p>📍 {html.Encode(where)}</p>") +
                         $"<p><a href=\"{link}\">Svar her</a>: ja, jeg leverer / ja, må hentes / nei.</p>");
                 }
                 catch
@@ -288,7 +306,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return BackToNeed(needId);
         }
 
-        // "↩ Angre": undo an answer the operator registered by phone (back to "Venter")
+        // "↩︎ Angre": undo an answer the operator registered by phone (back to "Venter")
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UndoAnswer(int needId, int undo)
@@ -383,6 +401,42 @@ namespace Heimevernet_Prosjekt.Controllers
 
             return BackToNeed(needId);
         }
+        // "Marker alle" in «↩︎ Lever tilbake» on a closed need: every accepted resource that is still out (help with AI)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> MarkAllReturned(int needId)
+        {
+            var need = _resourceNeedRepository.GetById(needId);
+            if (need == null)
+            {
+                return NotFound();
+            }
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
+            {
+                return Forbid();
+            }
+
+            var names = new List<string>();
+            foreach (var r in _requestRepository.GetForNeed(needId).Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null))
+            {
+                if (_requestRepository.MarkReturned(r.Id))
+                {
+                    names.Add(_resourceRepository.GetById(r.ResourceId)?.Name ?? $"#{r.ResourceId}");
+                }
+            }
+
+            if (names.Count == 0)
+            {
+                TempData["Error"] = "Alt er allerede levert tilbake.";
+            }
+            else
+            {
+                TempData["Message"] = names.Count == 1 ? "1 ressurs er markert som levert tilbake." : $"{names.Count} ressurser er markert som levert tilbake.";
+                Log(needId, $"Markerte alle som levert tilbake: {string.Join(", ", names)}");
+            }
+            return BackToNeed(needId);
+        }
 
         // Close the need. The operator must write why, and the reason is saved in the log
         [HttpPost]
@@ -443,6 +497,41 @@ namespace Heimevernet_Prosjekt.Controllers
             return BackToNeed(needId);
         }
 
+        // "Publiser" in "Info til innbyggere": a short public update, shown on the front page and the map (help with AI)
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> PublishUpdate(int needId, string? updateText)
+        {
+            var need = _resourceNeedRepository.GetById(needId);
+            if (need == null)
+            {
+                return NotFound();
+            }
+            var canUpdate = await _authorizationService.AuthorizeAsync(User, need, ResourceNeedOperations.Update);
+            if (!canUpdate.Succeeded)
+            {
+                return Forbid();
+            }
+
+            updateText = updateText?.Trim();
+            if (need.ClosedAt != null)
+            {
+                TempData["Error"] = "Behovet er avsluttet.";
+            }
+            else if (string.IsNullOrEmpty(updateText))
+            {
+                TempData["Error"] = "Skriv en kort oppdatering først.";
+            }
+            else
+            {
+                if (updateText.Length > 300) updateText = updateText[..300];
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+                _resourceNeedRepository.AddUpdate(needId, userId, User.Identity?.Name ?? "Ukjent", updateText);
+                TempData["Message"] = "Info til innbyggere er publisert.";
+                Log(needId, $"Publiserte info til innbyggere: «{updateText}»");
+            }
+            return BackToNeed(needId);
+        }
         // The request must belong to this need, and the user must be allowed to change the need
         private async Task<IActionResult?> CheckRequestAsync(int needId, int requestId)
         {
@@ -510,6 +599,9 @@ namespace Heimevernet_Prosjekt.Controllers
                 Longitude = need.Longitude,
                 NeededFrom = ToOslo(need.NeededFrom),
                 NeededTo = ToOslo(need.NeededTo),
+                MeetingPointName = need.MeetingPointName,
+                MeetingLatitude = need.MeetingLatitude,
+                MeetingLongitude = need.MeetingLongitude,
                 Lines = need.Items.Select(item => new NeedLineInput
                 {
                     ItemId = item.Id,
@@ -564,7 +656,12 @@ namespace Heimevernet_Prosjekt.Controllers
             model.NeededFrom = ToUtc(model.NeededFrom);
             model.NeededTo = ToUtc(model.NeededTo);
 
+            var oldMeeting = need.MeetingPointName ?? string.Empty;
             _resourceNeedRepository.UpdateWithItems(need.Id, model);
+            if (oldMeeting != (model.MeetingPointName ?? string.Empty))
+            {
+                Log(need.Id, string.IsNullOrEmpty(model.MeetingPointName) ? "Fjernet kontaktpunktet" : $"Endret kontaktpunkt: {model.MeetingPointName}");
+            }
             TempData["Message"] = "Endringene er lagret.";
             Log(need.Id, $"Endret behovet: {Summary(model.Lines)}");
             return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
@@ -637,10 +734,36 @@ namespace Heimevernet_Prosjekt.Controllers
             }
         }
 
+        // Kontaktpunkt: half a position is removed, and a place without a name is called "Kontaktpunkt" (help with AI)
+        private static void CleanMeeting(ReportNeedViewModel model)
+        {
+            model.MeetingPointName = model.MeetingPointName?.Trim();
+            if (model.MeetingLatitude == null || model.MeetingLongitude == null)
+            {
+                model.MeetingLatitude = null;
+                model.MeetingLongitude = null;
+            }
+            if (string.IsNullOrEmpty(model.MeetingPointName) && model.MeetingLatitude != null)
+            {
+                model.MeetingPointName = "Kontaktpunkt";
+            }
+        }
+
         // The types for the dropdowns and chips, same list as resources ("Annet" last)
         private void LoadTypes()
         {
             ViewData["ResourceTypes"] = _typeRepository.GetAll();
+            // The categories with their types and icons, for "Legg til ressurs" (the same as in "Ny ressurs")
+            ViewData["TypeCategories"] = _typeRepository.GetCategories()
+                .Where(category => category.Types.Count > 0)
+                .Select(category => new {
+                    name = category.Name,
+                    icon = category.Icon,
+                    types = category.Types.Select(type => new { name = type.Name, icon = type.Icon ?? category.Icon })
+                })
+                .ToList();
+            // "Ofte brukt": the 6 types used most in needs. need-form.js fills up with a fixed list while there are few needs
+            ViewData["PopularTypes"] = _resourceNeedRepository.GetPopularTypes(6);
         }
 
         private static DateTime? ToUtc(DateTime? norwegianTime)
@@ -692,6 +815,11 @@ namespace Heimevernet_Prosjekt.Controllers
         // Back to the need page. From the side panel on the map (embed=1) it stays in the panel (help with AI)
         private IActionResult BackToNeed(int needId)
         {
+            // From "Oversikt": back to the overview instead of the need page
+            if (Request.HasFormContentType && Request.Form["back"] == "overview")
+            {
+                return RedirectToAction("Overview", "ResourceNeed");
+            }
             if (Request.HasFormContentType && Request.Form["embed"] == "1")
             {
                 return RedirectToAction("Index", "ResourceNeed", new { id = needId, embed = 1 });
