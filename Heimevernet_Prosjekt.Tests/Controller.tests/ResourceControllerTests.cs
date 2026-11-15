@@ -173,10 +173,13 @@ public sealed class ResourceControllerTests
         var reports = new Mock<IResourceReportRepository>();
         reports.Setup(r => r.CountOpenByResource()).Returns(new Dictionary<int, int>());
         // No types or categories in the tests, so List can look up icons without crashing (help with AI)
+        // No types or categories in the tests, so List can look up icons without crashing (help with AI)
         var types = new Mock<IResourceTypeRepository>();
         types.Setup(t => t.GetCategories()).Returns([]);
+        // No needs in the tests: only used for the area picker on Ressurser (admin and operator) (help with AI)
+        var needs = new Mock<IResourceNeedRepository>();
 
-        return new ResourceController(repository.Object, authorization.Object, userManager.Object, types.Object, requests.Object, reports.Object)
+        return new ResourceController(repository.Object, authorization.Object, userManager.Object, types.Object, requests.Object, reports.Object, needs.Object)
         {
 
             ControllerContext = new ControllerContext
