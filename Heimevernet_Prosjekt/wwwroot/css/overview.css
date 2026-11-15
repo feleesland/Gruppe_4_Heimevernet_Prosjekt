@@ -48,13 +48,50 @@
         background: var(--bs-tertiary-bg);
     }
 
-    .ov-stat b {
-        display: block;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--bs-body-color);
-        line-height: 1.2;
+    /* Each number has its colour while it is above 0 (grey at 0), so what needs something stands out (help with AI).
+       Red Akutt, yellow Planlagt and Ikke levert, blue Venter på svar, purple Utlånt (like «Lever tilbake») */
+    .ov-stat.is-red {
+        border-color: var(--bs-danger-border-subtle);
+        background: var(--bs-danger-bg-subtle);
+        color: var(--bs-danger-text-emphasis);
     }
+
+    .ov-stat.is-warn {
+        border-color: var(--bs-warning-border-subtle);
+        background: var(--bs-warning-bg-subtle);
+        color: var(--bs-warning-text-emphasis);
+    }
+
+    .ov-stat.is-blue {
+        border-color: var(--bs-primary-border-subtle);
+        background: var(--bs-primary-bg-subtle);
+        color: var(--bs-primary-text-emphasis);
+    }
+
+    .ov-stat.is-purple {
+        border-color: #7A5AF8;
+        background: rgba(122, 90, 248, .12);
+        color: #5b3fd6;
+    }
+
+[data-bs-theme="dark"] .ov-stat.is-purple {
+    color: #b4a3ff;
+}
+
+.ov-stat.is-red b,
+.ov-stat.is-warn b,
+.ov-stat.is-blue b,
+.ov-stat.is-purple b {
+    color: inherit;
+}
+
+.ov-stat b {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    line-height: 1.2;
+}
 
 /* «Hva betyr kolonnene?» */
 .ov-help {
@@ -195,6 +232,18 @@
         font-size: .8rem;
     }
 
+/* The buttons on a loan row: «📦 Levert» and the map button side by side */
+.ov-loan-act {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .35rem;
+}
+
+    .ov-loan-act form {
+        margin: 0;
+    }
+
 /* The map button: opens Kart at the need or the resource */
 .ov-map {
     display: inline-flex;
@@ -318,7 +367,7 @@
 
 .ov-loan {
     display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem 1rem;
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) auto 1rem;
     gap: .5rem;
     align-items: center;
     padding: .45rem .35rem;
@@ -402,14 +451,14 @@
     }
 
     .ov-loan {
-        grid-template-columns: 4rem minmax(0, 1fr) 2.75rem;
+        grid-template-columns: 4rem minmax(0, 1fr) auto;
     }
 
         .ov-loan > :nth-child(3) {
             grid-column: 2;
         }
 
-        .ov-loan > .ov-map {
+        .ov-loan > .ov-loan-act {
             grid-column: 3;
             grid-row: 1 / span 2;
         }

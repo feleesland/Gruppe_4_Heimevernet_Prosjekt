@@ -510,7 +510,11 @@
 }
 <script type="application/json" id="resourceExport">@Json.Serialize(exportData)</script>
 
+@* «Sist åpnet»: last-opened.js remembers this resource for Ressurser *@
+<div id="lastOpened" hidden data-kind="resource" data-id="@Model.Id" data-name="@Model.Name" data-url="@Url.Action("Index", "Resource", new { id = Model.Id })"></div>
+
 @section Scripts {
     <script src="~/js/resource-export.js" asp-append-version="true"></script>
     <script src="~/js/resource-page.js" asp-append-version="true"></script>
+    <script src="~/js/last-opened.js" asp-append-version="true"></script>
 }

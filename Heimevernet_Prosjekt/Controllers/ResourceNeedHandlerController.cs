@@ -354,7 +354,7 @@ namespace Heimevernet_Prosjekt.Controllers
             return BackToNeed(needId);
         }
 
-        // "Marker som levert": the resource has arrived
+        // "📦 Levert": the resource has arrived. From Oversikt (back=overview) it goes back to Oversikt (help with AI)
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MarkDelivered(int needId, int delivered)
@@ -365,16 +365,21 @@ namespace Heimevernet_Prosjekt.Controllers
                 return denied;
             }
 
+            var name = RequestName(needId, delivered);
             if (_requestRepository.MarkDelivered(delivered))
             {
-                TempData["Message"] = "Markert som levert.";
-                Log(needId, $"Markerte {RequestName(needId, delivered)} som levert");
+                TempData["Message"] = $"{name} er markert som levert.";
+                Log(needId, $"Markerte {name} som levert");
             }
             else
             {
                 TempData["Error"] = "Kan bare markere godtatte forespørsler som levert.";
             }
 
+            if (Request.HasFormContentType && Request.Form["back"] == "overview")
+            {
+                return RedirectToAction("Overview", "ResourceNeed");
+            }
             return BackToNeed(needId);
         }
 
@@ -897,4 +902,4 @@ namespace Heimevernet_Prosjekt.Controllers
             _resourceNeedRepository.AddLog(needId, userId, userName, text);
         }
     }
-}
+}
