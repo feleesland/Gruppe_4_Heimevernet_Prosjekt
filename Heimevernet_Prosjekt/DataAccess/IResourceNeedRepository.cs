@@ -32,8 +32,10 @@ namespace Heimevernet_Prosjekt.DataAccess
         // "Ofte brukt" in "Meld behov": the types that are asked for in the most needs, most first
         IReadOnlyList<string> GetPopularTypes(int count);
 
-        // "Info til innbyggere": public updates on a need, newest first
-        void AddUpdate(int needId, string userId, string userName, string text);
+        // "Info til innbyggere": one message per need. A new one replaces the old; returns the old text (for «Angre») or null
+        string? SetUpdate(int needId, string userId, string userName, string text);
+        // «Fjern»: the need is no longer on the front page. Returns the removed text (for «Angre») or null
+        string? RemoveUpdates(int needId);
         IReadOnlyList<NeedUpdate> GetUpdates(int needId);
     }
 }

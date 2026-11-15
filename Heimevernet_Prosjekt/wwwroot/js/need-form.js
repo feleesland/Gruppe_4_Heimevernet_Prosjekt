@@ -369,14 +369,48 @@
         }
         const lat = parseFloat(latField.value);
         const lng = parseFloat(lngField.value);
-        if (chosen || isNaN(lat) || isNaN(lng)) return;
+        const km = parseFloat(radiusSelect.value);
+        if (chosen || isNaN(lat) || isNaN(lng) || !(km > 0)) return; // nothing typed yet: no circle
         radiusCircle = L.circle([lat, lng], {
-            radius: parseFloat(radiusSelect.value) * 1000,
+            radius: Math.min(km, 50) * 1000,
             color: isPlanned() ? '#E69500' : '#E24B4A',
             dashArray: '8 6',
             fillOpacity: 0.08
         }).addTo(pickMap);
+        fitCircle();
     }
+
+    // ---- The whole circle on the small map (help with AI): when it doesn't fit (a bigger radius, or «Rediger» opens
+    // zoomed in), the map flies out so all of it is seen. It waits 300 ms, so typing 7,5 is one move, not three.
+    // In the side panel the big map does this instead (drawNeedPlace in Views/Home/Map.cshtml)
+    // Docs: Leaflet flyToBounds - https://leafletjs.com/reference.html#map-flytobounds
+    let fitTimer = null;
+    function fitCircle() {
+        if (inPanel) return;
+        clearTimeout(fitTimer);
+        fitTimer = setTimeout(() => {
+            if (!radiusCircle) return;
+            const bounds = radiusCircle.getBounds();
+            if (!pickMap.getBounds().contains(bounds)) pickMap.flyToBounds(bounds, { padding: [20, 20], duration: 0.5 });
+        }, 300);
+    }
+
+    // ---- The radius (help with AI): the list has the usual sizes and «Annen …». A size fills the km box (RadiusKm, the one
+    // that is sent); «Annen …» shows the box so the operator types the size, e.g. 7,5. The circle follows while typing ----
+    const radiusChoice = document.getElementById('radiusChoice');
+    const radiusOtherBox = document.getElementById('radiusOtherBox');
+    radiusChoice.addEventListener('change', () => {
+        const other = radiusChoice.value === 'other';
+        radiusOtherBox.hidden = !other;
+        if (other) {
+            radiusSelect.focus();
+            radiusSelect.select();
+        } else {
+            radiusSelect.value = radiusChoice.value;
+        }
+        drawRadius();
+    });
+    radiusSelect.addEventListener('input', drawRadius);
     radiusSelect.addEventListener('change', drawRadius);
 
     // ---- The bar at the bottom: summary and the button ----
@@ -631,16 +665,28 @@
     // The dashed line follows the need when its pin moves
     latField.addEventListener('change', drawMeeting);
 
-    // ---- «+ Info til innbyggere» (help with AI): an optional short text, published on the front page when the need is created ----
-    const publicLink = document.getElementById('addPublic');
-    if (publicLink) {
+    // ---- «+ Info til innbyggere» (help with AI): an optional short text, published on the front page when the need is created.
+    // «✕ Fjern» closes the box and empties the text, so nothing is published ----
+    const publicButton = document.getElementById('addPublic');
+    if (publicButton) {
         const publicBox = document.getElementById('publicBox');
         const publicField = document.getElementById('PublicText');
-        const openPublic = () => { publicBox.hidden = false; publicLink.hidden = true; };
-        if (publicField.value) openPublic();
-        publicLink.addEventListener('click', () => { openPublic(); publicField.focus(); });
+        const publicCount = document.getElementById('publicCount');
+        const countPublic = () => { publicCount.textContent = `${publicField.value.length} / 300`; };
+        const showPublic = open => { publicBox.hidden = !open; publicButton.hidden = open; };
+        if (publicField.value) showPublic(true);
+        countPublic();
+        publicButton.addEventListener('click', () => { showPublic(true); publicField.focus(); });
+        document.getElementById('removePublic').addEventListener('click', () => {
+            publicField.value = '';
+            countPublic();
+            showPublic(false);
+            publicButton.focus();
+        });
+        publicField.addEventListener('input', countPublic);
         publicBox.querySelectorAll('[data-quick]').forEach(b => b.addEventListener('click', () => {
             publicField.value = b.dataset.quick;
+            countPublic();
             publicField.focus();
             publicField.setSelectionRange(publicField.value.length, publicField.value.length);
         }));

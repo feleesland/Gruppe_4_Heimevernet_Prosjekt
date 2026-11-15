@@ -23,6 +23,29 @@
         Layout = "_EmbedLayout";
     }
     var showMap = !embed && Model.Latitude != null && Model.Longitude != null;
+    var radiusText = RadiusText(Model.RadiusKm);
+
+    // «Neste steg»: one «Finn …» button per line that can be searched (it opens the line), and «Øk radius» when nothing
+    // is free inside the circle (help with AI)
+    void NextButtons(IEnumerable<NeedLineViewModel> lines, bool far)
+    {
+        var first = true;
+        <div class="np-next-actions">
+            @foreach (var l in lines.Where(l => l.Suggestions.Count > 0))
+            {
+                <button type="button" class="btn btn-sm @(first ? "btn-danger" : "rf-reset")" data-open-line="@l.ItemId">
+                    <i class="ti ti-search" aria-hidden="true"></i> Finn @l.Type
+                </button>
+                first = false;
+            }
+            @if (far)
+            {
+                <a class="btn btn-sm rf-reset" href="@Url.Action("Edit", "ResourceNeedHandler", new { id = Model.Id, embed = embed ? "1" : null })">
+                    <i class="ti ti-circle-dashed" aria-hidden="true"></i> Øk radius
+                </a>
+            }
+        </div>
+    }
 }
 
 @functions {
@@ -54,8 +77,19 @@
         : line.Requests.Any(r => r.Status == RequestStatus.Sendt) ? ($"⏳ 0 av {line.Quantity}", "text-bg-warning")
         : ($"○ 0 av {line.Quantity}", "text-bg-danger");
 
+    // How many are free for a line: "3 ledige innen 5 km", "ingen innen 5 km · nærmeste 7,2 km" or "ingen ledige i hele området"
+    // (the same words as «Mangler» on Oversikt) (help with AI)
+    private static string FreeText(NeedLineViewModel line, string radiusText)
+    {
+        if (line.Suggestions.Count == 0) return "ingen ledige i hele området";
+        var inside = line.Suggestions.Count(s => s.InsideCircle);
+        if (inside > 0) return $"{inside} {(inside == 1 ? "ledig" : "ledige")} innen {radiusText}";
+        var known = line.Suggestions.Where(s => s.DistanceKm != null).Select(s => s.DistanceKm!.Value).ToList();
+        return known.Count > 0 ? $"ingen innen {radiusText} · nærmeste {KmText(known.Min())}" : $"ingen innen {radiusText}";
+    }
+
     // A short text under the line: who has said yes, how many we wait for, and how many are free (help with AI)
-    private static string LineNote(NeedLineViewModel line, bool active)
+    private static string LineNote(NeedLineViewModel line, bool active, string radiusText)
     {
         var parts = new List<string>();
         var yes = line.Requests.Where(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null).ToList();
@@ -72,9 +106,11 @@
         var unanswered = line.Requests.Count(r => r.Status == RequestStatus.Sendt && r.Unanswered);
         if (waiting > 0) parts.Add($"venter på {waiting}");
         if (unanswered > 0) parts.Add($"{unanswered} ikke svart");
-        if (active && !line.IsCovered && line.Requests.Count == 0)
+        // Nobody is being asked: say if anyone has been asked, and how many are free
+        if (active && !line.IsCovered && waiting + unanswered == 0)
         {
-            parts.Add(line.Suggestions.Count == 0 ? "ingen ledige" : $"{line.Suggestions.Count} ledige");
+            if (line.Requests.Count == 0) parts.Add("ingen spurt");
+            parts.Add(FreeText(line, radiusText));
         }
         return parts.Count == 0 ? "" : string.Join(" · ", parts);
     }
@@ -90,6 +126,9 @@
 
     private static string KmText(double km) => km < 1 ? $"{Math.Round(km * 100) * 10:0} m" : km.ToString("0.0", Norwegian) + " km";
 
+    // The radius: "500 m" or "5 km"
+    private static string RadiusText(double km) => km < 1 ? $"{km * 1000:0} m" : km.ToString("0.#", Norwegian) + " km";
+
     // How long the need lasted: "40 min", "5 t" or "3 d" (help with AI)
     private static string DurationText(TimeSpan t) =>
         t.TotalHours < 1 ? $"{(int)t.TotalMinutes} min" : t.TotalHours < 48 ? $"{(int)t.TotalHours} t" : $"{(int)t.TotalDays} d";
@@ -103,19 +142,37 @@
 
 @if (TempData["Message"] != null)
 {
-    <div class="alert alert-success" role="status">@TempData["Message"]</div>
+    var undoText = TempData["UndoText"] as string;
+    <div class="alert alert-success d-flex flex-wrap align-items-center gap-2" role="status">
+        <span>@TempData["Message"]</span>
+        @* «Angre» after Publiser or Fjern in "Info til innbyggere": puts back what was there before (help with AI) *@
+        @if (undoText != null)
+        {
+            <form asp-controller="ResourceNeedHandler" asp-action="UndoUpdate" method="post" class="ms-auto">
+                <input type="hidden" name="needId" value="@Model.Id" />
+                <input type="hidden" name="restoreText" value="@undoText" />
+                @if (embed)
+                {
+                    <input type="hidden" name="embed" value="1" />
+                }
+                <button type="submit" class="btn btn-sm btn-outline-success py-0"><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Angre</button>
+            </form>
+        }
+    </div>
 }
 @if (TempData["Error"] != null)
 {
     <div class="alert alert-danger" role="alert">@TempData["Error"]</div>
 }
 
-@* Back to the list. From the Behov list: back with the same filter (history.back); otherwise to the list (help with AI) *@
+@* Back to where you came from (help with AI): «← Oversikt» from Oversikt (?from=overview, remembered by need-page.js after
+   a form is sent), otherwise «← Alle behov». From the Behov list it goes back with the same filter (need-page.js) *@
 @if (!embed)
 {
-    <a asp-controller="ResourceNeed" asp-action="List" class="np-back np-noprint"
-       onclick="if (document.referrer.includes('/ResourceNeed/List')) { history.back(); return false; }">
-        <i class="ti ti-arrow-left" aria-hidden="true"></i> Alle behov
+    var fromOverview = Context.Request.Query["from"] == "overview";
+    <a href="@(fromOverview ? Url.Action("Overview", "ResourceNeed") : Url.Action("List", "ResourceNeed"))" class="np-back np-noprint" id="npBack"
+       data-overview="@Url.Action("Overview", "ResourceNeed")">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> <span>@(fromOverview ? "Oversikt" : "Alle behov")</span>
     </a>
 }
 
@@ -133,6 +190,20 @@
             <span class="badge text-bg-danger">⏰ Akutt</span>
         }
         <partial name="_NeedStatusBadge" model="Model.Status" />
+        @* How much is covered, or how much is still out, next to the status *@
+        @{
+            var coverOut = Model.Lines.SelectMany(l => l.Requests).Count(r => r.Status == RequestStatus.Godtatt && r.ReturnedAt == null);
+            var coverText = Model.Status switch
+            {
+                NeedStatus.Lost => "",
+                NeedStatus.LeverTilbake => $"{coverOut} ute",
+                _ => $"{Model.Lines.Sum(l => Math.Min(l.Accepted, l.Quantity))}/{Model.Lines.Sum(l => l.Quantity)} dekket"
+            };
+        }
+        @if (coverText != "")
+        {
+            <span class="need-cover">· @coverText</span>
+        }
     </div>
     <div class="np-actions np-noprint">
         @* Export: print / PDF now; CSV and JSON come later *@
@@ -169,6 +240,85 @@
 
 <div class="np-layout @(showMap ? "has-map" : "")">
     <div class="np-main">
+        @* «Neste steg» (help with AI): the same words as on Oversikt, with the buttons that do the work.
+           Ring (who has not answered in time), spør (the lines nobody is being asked for), vent, or all covered *@
+        @if (active && Model.Lines.Count > 0)
+        {
+            var missingLines = Model.Lines.Where(l => !l.IsCovered).ToList();
+            // Each overdue request with its line, so the same resource asked on two lines shows which line it is (help with AI)
+            var overdueReqs = Model.Lines
+                .SelectMany(l => l.Requests.Where(r => r.Status == RequestStatus.Sendt && r.Unanswered).Select(r => (Line: l, Req: r)))
+                .ToList();
+            var waitingReqs = Model.Lines.SelectMany(l => l.Requests).Where(r => r.Status == RequestStatus.Sendt && !r.Unanswered).ToList();
+            var idleLines = missingLines.Where(l => !l.Requests.Any(r => r.Status == RequestStatus.Sendt)).ToList();
+            // The same type on two lines is said once ("Lokaler", not "Lokaler. Lokaler")
+            var idleTypes = idleLines.GroupBy(l => l.Type).Select(g => g.First()).ToList();
+            var far = idleTypes.Any(l => !l.Suggestions.Any(s => s.InsideCircle));
+
+            if (overdueReqs.Count > 0)
+            {
+                var owners = overdueReqs.Select(x => x.Req.ResourceName).Distinct().Count();
+                <section class="np-next is-hot np-noprint" aria-labelledby="npNextTitle">
+                    <div id="npNextTitle" class="np-next-title"><i class="ti ti-phone" aria-hidden="true"></i> Neste steg: ring @(owners == 1 ? "1 eier" : $"{owners} eiere")</div>
+                    <div class="np-next-why">@overdueReqs.Count har ikke svart innen fristen. Ring dem, eller gi mer tid.</div>
+                    @foreach (var x in overdueReqs)
+                    {
+                        <div class="np-next-call">
+                            <b>@x.Req.ResourceName</b>
+                            <span class="text-body-secondary">· @x.Line.Type · @x.Req.OwnerName</span>
+                            @if (!string.IsNullOrEmpty(x.Req.OwnerPhone))
+                            {
+                                <a href="tel:@x.Req.OwnerPhone" class="btn btn-sm btn-outline-danger"><i class="ti ti-phone" aria-hidden="true"></i> @x.Req.OwnerPhone</a>
+                            }
+                            else
+                            {
+                                <span class="small text-body-secondary">ingen telefon</span>
+                            }
+                            <form asp-controller="ResourceNeedHandler" asp-action="ExtendDeadline" method="post">
+                                <input type="hidden" name="needId" value="@Model.Id" />
+                                @if (embed)
+                                {
+                                    <input type="hidden" name="embed" value="1" />
+                                }
+                                <button type="submit" name="extend" value="@x.Req.Id:30" class="btn btn-sm rf-reset">+30 min</button>
+                            </form>
+                        </div>
+                    }
+                    @if (idleTypes.Count > 0)
+                    {
+                        <div class="np-next-why mt-2">Mangler også: @string.Join(". ", idleTypes.Select(l => $"{l.Type}: {FreeText(l, radiusText)}")).</div>
+                        NextButtons(idleTypes, far);
+                    }
+                </section>
+            }
+            else if (idleTypes.Count > 0)
+            {
+                <section class="np-next is-hot np-noprint" aria-labelledby="npNextTitle">
+                    <div id="npNextTitle" class="np-next-title">
+                        <i class="ti @(far ? "ti-current-location" : "ti-plus")" aria-hidden="true"></i> Neste steg: @(far ? "spør lenger unna" : "spør ressurser")
+                    </div>
+                    <div class="np-next-why">@string.Join(". ", idleTypes.Select(l => $"{l.Type}: {(l.Requests.Count == 0 ? "ingen spurt, " : "")}{FreeText(l, radiusText)}")).</div>
+                    @{
+                        NextButtons(idleTypes, far);
+                    }
+                </section>
+            }
+            else if (missingLines.Count > 0)
+            {
+                <section class="np-next is-wait np-noprint" aria-labelledby="npNextTitle">
+                    <div id="npNextTitle" class="np-next-title"><i class="ti ti-hourglass" aria-hidden="true"></i> Neste steg: vent på svar</div>
+                    <div class="np-next-why">@waitingReqs.Count venter@(waitingReqs.Count > 0 ? $" · første frist {OsloShort(waitingReqs.Min(r => r.AnswerBy))}" : "").</div>
+                </section>
+            }
+            else
+            {
+                var notDelivered = Model.Lines.SelectMany(l => l.Requests).Count(r => r.Status == RequestStatus.Godtatt && r.DeliveredAt == null && r.ReturnedAt == null);
+                <section class="np-next is-ok np-noprint" aria-label="Neste steg">
+                    <i class="ti ti-circle-check" aria-hidden="true"></i> Alt er dekket.@(notDelivered > 0 ? $" Marker som levert når {(notDelivered == 1 ? "ressursen" : $"de {notDelivered} ressursene")} kommer." : "")
+                </section>
+            }
+        }
+
         @* Four short facts. 2×2 on phones and in the side panel *@
         <div class="np-facts">
             <div class="np-fact">
@@ -215,7 +365,7 @@
                 <div class="np-fact-label"><i class="ti ti-map-pin" aria-hidden="true"></i> Hvor</div>
                 <div class="np-fact-value">@(string.IsNullOrEmpty(Model.Address) ? "Valgt i kartet" : Model.Address)</div>
                 <div class="np-fact-small">
-                    @(string.IsNullOrEmpty(Model.City) ? "" : $"{Model.ZipCode} {Model.City} · ")radius @(Model.RadiusKm < 1 ? $"{Model.RadiusKm * 1000:0} m" : Model.RadiusKm.ToString("0.#", Norwegian) + " km")
+                    @(string.IsNullOrEmpty(Model.City) ? "" : $"{Model.ZipCode} {Model.City} · ")radius @radiusText
                 </div>
             </div>
 
@@ -235,18 +385,25 @@
                 }
             </div>
 
-            @* The latest "Info til innbyggere". The whole box opens the window with quick texts, Publiser and the history *@
+            @* "Info til innbyggere": what is on the front page now. The whole box opens the window to publish, change or remove *@
             <button type="button" class="np-fact np-fact-button @(updates.Count > 0 && active ? "is-public" : "")" data-bs-toggle="modal" data-bs-target="#infoModal">
                 <span class="np-fact-label"><i class="ti ti-world" aria-hidden="true"></i> Forsiden</span>
                 @if (updates.Count > 0)
                 {
                     <span class="np-fact-value np-clamp">«@updates[0].Text»</span>
-                    <span class="np-fact-small">@OsloShort(updates[0].At) · @(active ? "Oppdater ▸" : "Vis ▸")</span>
+                    <span class="np-fact-small">@OsloShort(updates[0].At) · @updates[0].UserName</span>
                 }
                 else
                 {
                     <span class="np-fact-value text-body-secondary">Ikke publisert</span>
-                    <span class="np-fact-small">@(active ? "Skriv til innbyggere ▸" : "Ingen info ble publisert")</span>
+                    <span class="np-fact-small">@(active ? "Ingen info til innbyggere ennå" : "Ingen info ble publisert")</span>
+                }
+                @if (active)
+                {
+                    @* Looks like a button, so it is clear the box can be pressed *@
+                    <span class="btn btn-sm rf-reset mt-2 align-self-start np-noprint">
+                        <i class="ti @(updates.Count > 0 ? "ti-pencil" : "ti-send")" aria-hidden="true"></i> @(updates.Count > 0 ? "Endre / fjern" : "Publiser info")
+                    </span>
                 }
             </button>
         </div>
@@ -385,7 +542,8 @@
                 <input type="hidden" name="embed" value="1" />
             }
 
-            @* The overview: one row per line. «Finn ▸» / «Vis ▸» opens the line (need-page.js) *@
+            @* The overview: one row per line. «Finn ▸» / «Vis ▸» opens the line (need-page.js).
+               A line that still misses something has a light red background *@
             <section id="npOverview" aria-labelledby="npLinesTitle">
                 <h2 id="npLinesTitle" class="np-section-title"><i class="ti ti-package" aria-hidden="true"></i> Hva trengs</h2>
                 @if (Model.Lines.Count == 0)
@@ -396,9 +554,9 @@
                     @foreach (var line in Model.Lines)
                     {
                         var badge = LineBadge(line);
-                        var note = LineNote(line, active);
+                        var note = LineNote(line, active, radiusText);
                         var find = active && !line.IsCovered;
-                        <button type="button" class="np-row" data-open-line="@line.ItemId" aria-controls="np-line-@line.ItemId">
+                        <button type="button" class="np-row @(find ? "is-missing" : "")" data-open-line="@line.ItemId" aria-controls="np-line-@line.ItemId">
                             <span class="np-row-main">
                                 <b>@line.Quantity × @line.Type</b>
                                 @if (note != "")
@@ -633,7 +791,8 @@
         }
     </div>
 
-    @* The map: the need, the circle, the ⚑ kontaktpunkt and the open line's free resources (need-page.js) *@
+    @* The map: the need, the circle, the ⚑ kontaktpunkt and the free resources - all lines that miss something,
+       or only the open line (need-page.js) *@
     @if (showMap)
     {
         <div class="np-map-col">
@@ -657,8 +816,8 @@
     }
 </div>
 
-@* "Info til innbyggere" (help with AI): short public updates, newest first. Shown on the front page and the map for everyone,
-   without the resources. No updates = the need is not public - Docs: Bootstrap Modal https://getbootstrap.com/docs/5.3/components/modal/ *@
+@* "Info til innbyggere" (help with AI): one short public message per need, shown on the front page and the map for everyone,
+   without the resources. No message = the need is not public - Docs: Bootstrap Modal https://getbootstrap.com/docs/5.3/components/modal/ *@
 <div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
@@ -667,7 +826,34 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Lukk"></button>
             </div>
             <div class="modal-body">
-                <p class="small text-body-secondary">Vises på forsiden og kartet for alle, uten ressursene.</p>
+                <p class="small text-body-secondary">Vises på forsiden og kartet for alle, uten ressursene. En ny melding bytter ut den gamle.</p>
+
+                @if (updates.Count > 0)
+                {
+                    <h3 class="h6">Publisert nå</h3>
+                    <div class="d-flex gap-2 align-items-start border rounded p-2">
+                        <div class="flex-grow-1">
+                            <div>«@updates[0].Text»</div>
+                            <div class="small text-body-secondary">@OsloShort(updates[0].At) · @updates[0].UserName</div>
+                        </div>
+                        @if (active)
+                        {
+                            <form asp-controller="ResourceNeedHandler" asp-action="RemoveUpdate" method="post">
+                                <input type="hidden" name="needId" value="@Model.Id" />
+                                @if (embed)
+                                {
+                                    <input type="hidden" name="embed" value="1" />
+                                }
+                                <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap"><i class="ti ti-trash" aria-hidden="true"></i> Fjern</button>
+                            </form>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="small text-body-secondary mb-0"><i class="ti ti-info-circle" aria-hidden="true"></i> Ingenting er publisert ennå. Behovet vises ikke på forsiden før noe er publisert.</p>
+                }
+
                 @if (active)
                 {
                     <form asp-controller="ResourceNeedHandler" asp-action="PublishUpdate" method="post">
@@ -676,6 +862,7 @@
                         {
                             <input type="hidden" name="embed" value="1" />
                         }
+                        <h3 class="h6 mt-3">@(updates.Count > 0 ? "Bytt melding" : "Ny melding")</h3>
                         @* Quick texts fill the field; the operator writes the rest *@
                         <div class="d-flex flex-wrap gap-1 mb-2">
                             @foreach (var quick in new[] { ("Unngå området", "Unngå området rundt "), ("Veien er stengt", "Veien er stengt. Bruk omkjøring via "), ("Evakuering", "Evakuerte kan møte på "), ("Strømbrudd", "Strømbrudd i området. "), ("Øvelse", "Heimevernet øver i området. ") })
@@ -683,26 +870,14 @@
                                 <button type="button" class="btn btn-sm rf-reset rounded-pill" data-quick="@quick.Item2">@quick.Item1</button>
                             }
                         </div>
-                        <label for="updateText" class="visually-hidden">Kort oppdatering</label>
-                        <textarea id="updateText" name="updateText" class="form-control mb-2" rows="2" maxlength="300" required placeholder="Skriv en kort oppdatering …"></textarea>
-                        <button type="submit" class="btn btn-success w-100">Publiser</button>
+                        <label for="updateText" class="visually-hidden">Kort melding</label>
+                        <textarea id="updateText" name="updateText" class="form-control" rows="2" maxlength="300" required placeholder="Kort tekst alle kan se, f.eks. «Unngå området rundt Lund»"></textarea>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <span id="updateCount" class="small text-body-secondary">0 / 300</span>
+                            <button type="button" class="btn rf-reset ms-auto" data-bs-dismiss="modal">Avbryt</button>
+                            <button type="submit" class="btn btn-success"><i class="ti ti-send" aria-hidden="true"></i> Publiser</button>
+                        </div>
                     </form>
-                }
-                @if (updates.Count == 0)
-                {
-                    <p class="small text-body-secondary mt-3 mb-0"><i class="ti ti-info-circle" aria-hidden="true"></i> Ingen oppdateringer ennå. Behovet vises ikke på forsiden før noe er publisert.</p>
-                }
-                else
-                {
-                    <ol class="np-timeline mt-3">
-                        @foreach (var update in updates)
-                        {
-                            <li>
-                                <span class="small text-body-secondary">@OsloShort(update.At) · @update.UserName</span>
-                                <div>@update.Text</div>
-                            </li>
-                        }
-                    </ol>
                 }
             </div>
         </div>

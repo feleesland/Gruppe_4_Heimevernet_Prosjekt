@@ -46,6 +46,10 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         public DateTime? ClosedAt { get; set; }
         // Ny, Vurderes, Tildelt or Løst (worked out in the controller)
         public NeedStatus Status { get; set; }
+        // Shown next to the status: "Vurderes · 2/4", or "Lever tilbake · 2 ute" (help with AI)
+        public int Covered { get; set; }
+        public int Quantity { get; set; }
+        public int OutCount { get; set; }
         // The municipality (region), e.g. "KRISTIANSAND"
         public string? Municipality { get; set; }
 

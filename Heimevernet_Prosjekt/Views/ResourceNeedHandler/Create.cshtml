@@ -1,5 +1,6 @@
 ﻿@using Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 @using Heimevernet_Prosjekt.Models.Entities
+@using System.Globalization
 @model ReportNeedViewModel
 @{
     // The same form for "Meld behov" and "Rediger behov" (EditNeedId is set)
@@ -14,6 +15,9 @@
     {
         Layout = "_EmbedLayout";
     }
+    // The radius: one of the usual sizes, or «Annen …» with the number typed in (help with AI)
+    var radiusPresets = new[] { 0.5, 1, 2, 5, 10 };
+    var radiusOther = !radiusPresets.Contains(Model.RadiusKm);
 }
 
 <link rel="stylesheet" href="~/css/need-form.css" asp-append-version="true" />
@@ -77,20 +81,23 @@
                 <textarea asp-for="Description" class="form-control mt-2 need-grow" rows="1" placeholder="Beskrivelse for operatørene, f.eks. «Elva har gått over sine bredder»"></textarea>
                 <span asp-validation-for="Description" class="text-danger small"></span>
 
-                @* The optional things are links, so the form stays short *@
-                <div class="d-flex flex-wrap gap-3 mt-2">
-                    <button type="button" id="addDeadline" class="btn btn-link btn-sm p-0 need-link">+ Frist</button>
+                @* The optional things are small buttons, so the form stays short *@
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button type="button" id="addDeadline" class="btn btn-sm rf-reset"><i class="ti ti-clock" aria-hidden="true"></i> + Frist</button>
                     @if (!editing)
                     {
-                        <button type="button" id="addPublic" class="btn btn-link btn-sm p-0 need-link">+ Info til innbyggere</button>
+                        <button type="button" id="addPublic" class="btn btn-sm rf-reset"><i class="ti ti-world" aria-hidden="true"></i> + Info til innbyggere</button>
                     }
                 </div>
                 @* «+ Info til innbyggere» (help with AI): published on the front page when the need is created.
-                   When editing, it is written on the need page instead *@
+                   «✕ Fjern» closes it again. When editing, it is changed on the need page instead *@
                 @if (!editing)
                 {
-                    <div id="publicBox" class="mt-2" hidden>
-                        <label asp-for="PublicText" class="form-label small mb-1"><i class="ti ti-world" aria-hidden="true"></i> Info til innbyggere <span class="text-body-secondary">· vises på forsiden for alle</span></label>
+                    <div id="publicBox" class="need-public mt-2" hidden>
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <label asp-for="PublicText" class="form-label small mb-0"><i class="ti ti-world" aria-hidden="true"></i> Info til innbyggere <span class="text-body-secondary">· vises på forsiden og kartet når behovet meldes</span></label>
+                            <button type="button" id="removePublic" class="btn btn-sm rf-reset py-0 ms-auto text-nowrap">✕ Fjern</button>
+                        </div>
                         <div class="d-flex flex-wrap gap-1 mb-1">
                             @foreach (var quick in new[] { ("Unngå området", "Unngå området rundt "), ("Veien er stengt", "Veien er stengt. Bruk omkjøring via "), ("Evakuering", "Evakuerte kan møte på "), ("Strømbrudd", "Strømbrudd i området. "), ("Øvelse", "Heimevernet øver i området. ") })
                             {
@@ -98,7 +105,10 @@
                             }
                         </div>
                         <input asp-for="PublicText" class="form-control" maxlength="300" autocomplete="off" placeholder="Kort tekst alle kan se, f.eks. «Unngå området rundt Lund»" />
-                        <span asp-validation-for="PublicText" class="text-danger small"></span>
+                        <div class="d-flex">
+                            <span asp-validation-for="PublicText" class="text-danger small"></span>
+                            <span id="publicCount" class="small text-body-secondary ms-auto">0 / 300</span>
+                        </div>
                     </div>
                 }
             </div>
@@ -129,17 +139,26 @@
                 <input asp-for="City" class="form-control form-control-sm need-city" placeholder="Poststed" aria-label="Poststed" />
                 <button type="button" id="findOnMap" class="btn btn-sm rf-reset" title="Finn adressen på kartet" aria-label="Finn adressen på kartet"><i class="ti ti-search" aria-hidden="true"></i></button>
                 <button type="button" id="useMyLocation" class="btn btn-sm rf-reset" title="Bruk min posisjon" aria-label="Bruk min posisjon"><i class="ti ti-current-location" aria-hidden="true"></i></button>
-                <span id="radiusWrap">
-                    <label asp-for="RadiusKm" class="visually-hidden"></label>
-                    <select asp-for="RadiusKm" class="form-select form-select-sm" title="Radius" style="width: auto;">
-                        <option value="0.5">500 m</option>
-                        <option value="1">1 km</option>
-                        <option value="2">2 km</option>
-                        <option value="5">5 km</option>
-                        <option value="10">10 km</option>
+                @* The radius (help with AI): the usual sizes, or «Annen …» with a box to type the km. The box is what is sent (RadiusKm);
+                   the list only fills it in (need-form.js). The value is written with a dot, so the server reads 7.5 the same everywhere *@
+                <span id="radiusWrap" class="need-radius">
+                    <label for="radiusChoice" class="visually-hidden">Radius</label>
+                    <select id="radiusChoice" class="form-select form-select-sm" title="Radius" style="width: auto;">
+                        @foreach (var km in radiusPresets)
+                        {
+                            <option value="@km.ToString(CultureInfo.InvariantCulture)" selected="@(!radiusOther && Model.RadiusKm == km)">@(km < 1 ? $"{km * 1000:0} m" : $"{km:0} km")</option>
+                        }
+                        <option value="other" selected="@radiusOther">Annen …</option>
                     </select>
+                    <span id="radiusOtherBox" class="need-radius-other" hidden="@(!radiusOther)">
+                        <label for="RadiusKm" class="visually-hidden">Radius i km</label>
+                        <input type="number" id="RadiusKm" name="RadiusKm" class="form-control form-control-sm need-radius-input"
+                               value="@Model.RadiusKm.ToString(CultureInfo.InvariantCulture)" min="0.1" max="50" step="0.1" inputmode="decimal" />
+                        <span class="small">km</span>
+                    </span>
                 </span>
             </div>
+            <span asp-validation-for="RadiusKm" class="text-danger small d-block"></span>
             <span id="geoStatus" class="small text-muted d-block"></span>
             @* Kontaktpunkt (help with AI): where the resources are delivered or people meet. One row; a small menu.
                The values are in the hidden fields under the map (need-form.js) *@

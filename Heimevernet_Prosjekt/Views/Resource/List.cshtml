@@ -7,6 +7,9 @@
 @{
     ViewData["Title"] = "Ressurser";
     var seeOwners = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+    // The area (admin and operator), the same as on Oversikt and Behov. null for others
+    var regionPicker = ViewData["RegionPicker"] as Heimevernet_Prosjekt.Models.ViewModels.RegionPickerViewModel;
+    var regionKommune = regionPicker?.Region != null && !regionPicker.AllNorway ? regionPicker.Region : "";
 
     // The status as a badge: icon + text, so it never relies on colour alone (help with AI)
     (string Icon, string Css) StatusLook(string? status) => status switch
@@ -20,11 +23,12 @@
         _ => ("ti-circle", "status-grey")
     };
 
-    // The boxes, like Akutt / Planlagt / Løst on Behov: the ones you can use now first, the ones that can't be used last (closed)
+    // The boxes, like Akutt / Planlagt / Løst on Behov: «Skal leveres tilbake» first (it must be followed up, and is short),
+    // then the ones you can use now, and the ones that can't be used last (closed)
     (string Key, string Title, string Icon, string? Note, bool Open, string[] Statuses)[] groups =
     [
-        ("ok", "Ledig nå", "ti-circle-check", null, true, ["Ledig"]),
         ("return", "Skal leveres tilbake", "ti-arrow-back-up", "behovet er lukket", true, ["Lever tilbake"]),
+        ("ok", "Ledig nå", "ti-circle-check", null, true, ["Ledig"]),
         ("busy", "I bruk eller ledig senere", "ti-hourglass", null, true, ["I bruk", "Ledig senere"]),
         ("off", "Ikke tilgjengelig eller ugyldig", "ti-ban", null, false, ["Ikke tilgjengelig", "Ugyldig"])
     ];
@@ -32,10 +36,10 @@
     var nb = System.Globalization.CultureInfo.GetCultureInfo("nb-NO"); // "KRISTIANSAND" from Kartverket -> "Kristiansand"
 }
 
-<h1>@ViewData["Title"]</h1>
-
-<div class="no-print">
-    <a class="button"
+@* The top row: the title and the buttons. The area is at the start of the list bar (B) *@
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
+    <h1 class="mb-0 me-2">@ViewData["Title"]</h1>
+    <a class="button m-0"
        asp-controller="ResourceHandler"
        asp-action="Create">
         + Opprett ny ressurs
@@ -51,7 +55,7 @@
         var mineQuery = new Dictionary<string, string?>(allQuery) { ["mine"] = "true" };
         var listUrl = Url.Action("List", "Resource")!;
 
-        <div class="btn-group mb-3 ms-2" role="group" aria-label="Vis ressurser">
+        <div class="btn-group" role="group" aria-label="Vis ressurser">
             <a href="@QueryHelpers.AddQueryString(listUrl, allQuery)"
                class="btn @(onlyMine ? "btn-outline-secondary" : "btn-secondary")"
                aria-current="@(onlyMine ? null : "page")">Alle</a>
@@ -78,12 +82,17 @@
             <i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="rfCount" class="badge text-bg-light" hidden></span> <i class="ti ti-chevron-down" aria-hidden="true"></i>
         </button>
         <div id="listFilter" class="collapse d-md-block">
-            <h2 class="h5 d-none d-md-block">Filter</h2>
+            @* "Nullstill alt" at the top, next to the title (also at the bottom). Grey while nothing is chosen (resource-filter.js) *@
+            <div class="d-flex align-items-center mb-2">
+                <h2 class="h5 mb-0 d-none d-md-block">Filter</h2>
+                <button type="button" id="rfResetTop" class="btn btn-link btn-sm rf-reset-link ms-auto" disabled><i class="ti ti-refresh" aria-hidden="true"></i> Nullstill alt</button>
+            </div>
             <partial name="_ResourceFilter" />
         </div>
     </aside>
 
-    <div class="col-md-8 col-lg-9 col-xxl-10">
+    @* hide-place: an area is chosen, so the kommune on every row is hidden (region-picker.css) *@
+    <div class="col-md-8 col-lg-9 col-xxl-10 @(regionKommune != "" ? "hide-place" : "")">
         @* Only on paper: title, what is filtered and when it was printed (.print-only in site.css) *@
         <div class="print-only mb-3">
             <h2 class="h4 mb-1">Ressurser – Heimevernet</h2>
@@ -91,8 +100,13 @@
         </div>
 
         @* The filter bar: green "Viser 6 av 34" with the chips while something is filtered away, grey "34 ressurser" otherwise.
+           Admin and operator: the area first, and the bar is green (the same area as on Oversikt and Behov).
            Vis på kart and Eksporter are in the same bar (help with AI) *@
-        <div id="listBar" class="list-bar no-print">
+        <div id="listBar" class="list-bar no-print @(regionPicker != null ? "is-region" : "")">
+            @if (regionPicker != null)
+            {
+                <partial name="_RegionPicker" model="regionPicker" />
+            }
             <i class="ti ti-filter" aria-hidden="true"></i>
             <strong id="listCount" aria-live="polite"></strong>
             <div id="rfChips" class="rf-chips" hidden></div>
@@ -157,7 +171,7 @@
                                     }
                                 </span>
                                 <span class="res-sub">@r.Type@(string.IsNullOrEmpty(r.Category) ? "" : " · " + r.Category)<span class="res-sub-place"> · @place</span></span>
-                                <span class="res-place">@place<span class="res-distance" data-distance></span></span>
+                                <span class="res-place"><span class="res-place-name">@place</span><span class="res-distance" data-distance></span></span>
                                 <span class="res-status"><span class="status-badge @look.Css"><i class="ti @look.Icon" aria-hidden="true"></i> @statusText</span></span>
                                 @if (seeOwners)
                                 {
@@ -193,6 +207,7 @@
             });
             var start = Object.fromEntries(new URLSearchParams(window.location.search));
             var serverKeys = ['search', 'type'];
+            var regionKommune = @Json.Serialize(regionKommune); // the area, e.g. "Kristiansand" ("" = Hele Norge)
             var current = start;
 
             function show(params) {
@@ -205,7 +220,7 @@
                     // The distance under the kommune, when a point is chosen
                     var km = params.lat && r.latitude ? ResourceFilter.distanceKm(+params.lat, +params.lng, +r.latitude, +r.longitude) : null;
                     r.distance = km;
-                    r.row.querySelector('[data-distance]').textContent = km == null ? '' : ' · ' + km.toFixed(1).replace('.', ',') + ' km';
+                    r.row.querySelector('[data-distance]').textContent = km == null ? '' : (regionKommune ? '' : ' · ') + km.toFixed(1).replace('.', ',') + ' km';
                 });
                 // Each box: the number shown, and the box is hidden when nothing in it matches the filter
                 document.querySelectorAll('[data-group]').forEach(function (box) {
@@ -218,7 +233,11 @@
                     ? 'Viser ' + shown + ' av ' + resources.length
                     : (shown === 1 ? '1 ressurs' : shown + ' ressurser');
                 document.getElementById('listBar').classList.toggle('is-filtered', filtered);
-                document.getElementById('listMapLink').href = '@Url.Action("Map", "Home")?' + new URLSearchParams(params);
+                // Vis på kart: the same filter, and the area as a kommune (a chip on the map that can be removed)
+                var mapParams = Object.assign({}, params);
+                delete mapParams.region;
+                if (regionKommune) mapParams.kommune = regionKommune;
+                document.getElementById('listMapLink').href = '@Url.Action("Map", "Home")?' + new URLSearchParams(mapParams);
                 var empty = document.getElementById('listEmpty');
                 if (empty) empty.hidden = shown > 0;
                 ResourceFilter.render(resources, params);
@@ -228,6 +247,7 @@
             window.onResourceSearch = function (params) {
                 if (serverKeys.some(function (k) { return (params[k] || '') !== (start[k] || ''); })) {
                     if (start.mine) params.mine = start.mine;
+                    if (start.region) params.region = start.region; // the area stays when the search changes
                     window.location.href = window.location.pathname + '?' + new URLSearchParams(params);
                     return;
                 }
@@ -253,9 +273,12 @@
                     return row;
                 });
             }
+            // On paper: the area first, then the chips
             function filterText() {
-                return Array.from(document.querySelectorAll('#rfChips .rf-chip:not(.rf-chip-reset)'))
-                    .map(function (c) { return c.textContent.replace(' ✕', ''); }).join(' · ');
+                var chips = Array.from(document.querySelectorAll('#rfChips .rf-chip:not(.rf-chip-reset)'))
+                    .map(function (c) { return c.textContent.replace(' ✕', ''); });
+                if (regionKommune) chips.unshift(regionKommune);
+                return chips.join(' · ');
             }
             document.querySelectorAll('[data-export]').forEach(function (button) {
                 button.addEventListener('click', function () {

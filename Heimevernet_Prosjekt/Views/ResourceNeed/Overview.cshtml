@@ -7,6 +7,48 @@
     ViewData["Title"] = "Oversikt";
     var now = DateTime.UtcNow;
     const int shownFirst = 5;
+    var chosen = Model.Region != null;
+    var showPlace = !chosen || Model.AllNorway; // the place is only shown on the rows when the page shows more than one kommune
+    var regionNeeds = Model.Needs.Count;
+    var regionPicker = new Heimevernet_Prosjekt.Models.ViewModels.RegionPickerViewModel
+    {
+        Region = Model.Region,
+        Regions = Model.Regions,
+        Url = Url.Action("Overview", "ResourceNeed")!,
+        Summary = $"{regionNeeds} aktive behov · {Model.RegionResources} ressurser",
+        OpenPicker = !chosen // not chosen yet: the picker comes first
+    };
+
+    // Owner name + phone or e-mail link, the same in both boxes under (help with AI)
+    // Docs: Razor code blocks (local functions with markup) - https://learn.microsoft.com/aspnet/core/mvc/views/razor#razor-code-blocks
+    void Contact(OverviewLoanRow l)
+    {
+        <span class="small text-body-secondary">
+            @l.OwnerName
+            @if (!string.IsNullOrEmpty(l.OwnerPhone))
+            {
+                <text>· </text><a href="tel:@l.OwnerPhone"><i class="ti ti-phone" aria-hidden="true"></i> @l.OwnerPhone</a>
+            }
+            else if (!string.IsNullOrEmpty(l.OwnerEmail))
+            {
+                <text>· </text><a href="mailto:@l.OwnerEmail"><i class="ti ti-mail" aria-hidden="true"></i> e-post</a>
+            }
+        </span>
+    }
+
+    // The map button on a loan row: opens Kart at the resource. Nothing for a deleted resource
+    void LoanMap(OverviewLoanRow l)
+    {
+        if (l.ResourceDeleted)
+        {
+            <span></span>
+        }
+        else
+        {
+            <a class="btn btn-sm btn-outline-secondary ov-map" href="@Url.Action("Map", "Home", new { resource = l.ResourceId })"
+               title="Vis på kartet" aria-label="Vis «@l.ResourceName» på kartet"><i class="ti ti-map-2" aria-hidden="true"></i></a>
+        }
+    }
 }
 @functions {
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
@@ -19,15 +61,18 @@
         : t.TotalHours < 1 ? $"{(int)t.TotalMinutes} min"
         : t.TotalDays < 1 ? $"{(int)t.TotalHours} t"
         : $"{(int)t.TotalDays} d";
-
-    // "Lastebil", "Lastebil og Båt", "Lastebil + 3 til"
-    private static string Names(List<string> names) =>
-        names.Count == 1 ? names[0]
-        : names.Count == 2 ? $"{names[0]} og {names[1]}"
-        : $"{names[0]} + {names.Count - 1} til";
 }
 
 <link rel="stylesheet" href="~/css/overview.css" asp-append-version="true" />
+
+@if (TempData["Message"] != null)
+{
+    <div class="alert alert-success" role="status">@TempData["Message"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger" role="alert">@TempData["Error"]</div>
+}
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
     <h1 class="mb-0">Oversikt</h1>
@@ -37,327 +82,324 @@
     </div>
 </div>
 
-@* Admin: one line. "Meldt som feil" opens a list - Docs: Bootstrap Dropdowns
-   https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
-@if (User.IsInRole(RoleNames.Admin))
-{
-    var reports = ReportRepository.GetOpenNotifications().ToList();
-    <div class="ov-admin mb-3">
-        <span class="text-body-secondary"><i class="ti ti-shield" aria-hidden="true"></i> Admin:</span>
-        @if (reports.Count > 0)
-        {
-            <div class="dropdown">
-                <button class="btn btn-link btn-sm p-0 text-warning-emphasis text-decoration-none dropdown-toggle" type="button"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                    ⚑ @reports.Count meldt som feil
-                </button>
-                <div class="dropdown-menu ov-reports">
-                    @foreach (var n in reports)
-                    {
-                        <a class="dropdown-item small" asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
-                            <strong>@n.ResourceName</strong> · «@n.Message»
-                            <div class="text-body-secondary">@n.ReporterEmail · @OsloShort(n.CreatedAt)</div>
-                        </a>
-                    }
-                </div>
-            </div>
-        }
-        else
-        {
-            <span class="text-body-secondary">⚑ Ingen meldt som feil</span>
-        }
-        <a asp-controller="Admin" asp-action="Index"><i class="ti ti-users" aria-hidden="true"></i> Brukere</a>
-        <a asp-controller="ResourceType" asp-action="Index"><i class="ti ti-tags" aria-hidden="true"></i> Ressurstyper</a>
-    </div>
-}
+@* The area: the shared picker (Views/Shared/_RegionPicker.cshtml), the same as on Ressurser and Behov.
+   Shown big here, so you always see which area you look at *@
+<partial name="_RegionPicker" model="regionPicker" />
 
-@* The number strip: each box jumps to its list *@
-<div class="row g-2 mb-3">
-    <div class="col-6 col-md-3">
-        <a class="ov-stat @(Model.ActiveAkutt > 0 ? "is-bad" : "")" href="#activeNeeds">
-            <b>@Model.ActiveAkutt</b><i class="ti ti-alarm" aria-hidden="true"></i> Akutt
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a class="ov-stat" href="#activeNeeds">
-            <b>@Model.ActivePlanned</b><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a class="ov-stat" href="#requestsBox">
-            <b>@Model.Waiting</b><i class="ti ti-hourglass" aria-hidden="true"></i> Venter på svar
-        </a>
-    </div>
-    <div class="col-6 col-md-3">
-        <a class="ov-stat" href="#outBox">
-            <b>@Model.OutNow</b><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Ute / lever tilbake
-        </a>
-    </div>
-</div>
+@* Until an area is chosen the rest is shown for all of Norway, but dimmed, so the choice comes first *@
+<div class="@(chosen ? "" : "ov-dim")">
 
-@* Active needs in fixed columns, the ones that need something first. 5 shown, the rest behind "Vis alle"
-   Docs: Bootstrap Collapse - https://getbootstrap.com/docs/5.3/components/collapse/ *@
-<h2 class="h5 d-flex align-items-baseline gap-2" id="activeNeeds">
-    <i class="ti ti-list" aria-hidden="true"></i> Aktive behov · @Model.Needs.Count
-    <span class="small fw-normal text-body-secondary">· de som trenger noe først</span>
-</h2>
-@if (Model.Needs.Count == 0)
-{
-    <p class="text-body-secondary">✓ Ingen aktive behov.</p>
-}
-else
-{
-    <div class="ov-list mb-4">
-        <div class="ov-row ov-head" aria-hidden="true">
-            <span></span><span>Behov</span><span>Dekket</span><span>Svar</span><span>I nærheten</span><span></span>
-        </div>
-        @for (var i = 0; i < Model.Needs.Count; i++)
-        {
-            var n = Model.Needs[i];
-            if (i == shownFirst)
+    @* Admin: one line. "Meldt som feil" opens a list - Docs: Bootstrap Dropdowns
+       https://getbootstrap.com/docs/5.3/components/dropdowns/ *@
+    @if (User.IsInRole(RoleNames.Admin))
+    {
+        var reports = ReportRepository.GetOpenNotifications().ToList();
+        <div class="ov-admin mb-3">
+            <span class="text-body-secondary"><i class="ti ti-shield" aria-hidden="true"></i> Admin:</span>
+            @if (reports.Count > 0)
             {
-                @Html.Raw("<div class=\"collapse\" id=\"moreNeeds\">")
-            }
-            var percent = n.Quantity == 0 ? 0 : Math.Min(100, n.Covered * 100 / n.Quantity);
-            var radiusText = $"{n.RadiusKm:0.#} km";
-            var action =
-                n.Overdue > 0 ? "☎ Ring / +30 min ▸"
-                : n.NoneNearby ? "Utvid søk ▸"
-                : n.NobodyAsked ? (n.Covered > 0 ? $"Finn {n.Missing} til ▸" : "Finn ressurser ▸")
-                : "Åpne ▸";
-
-            <div class="ov-row @(n.Level == 2 ? "is-hot" : n.Level == 1 ? "is-warm" : "")">
-                <div class="ov-when">
-                    @if (n.Urgency == NeedUrgency.Akutt)
-                    {
-                        <span class="ov-tag ov-tag-akutt">⏰ Akutt</span>
-                    }
-                    else
-                    {
-                        <span class="ov-tag ov-tag-plan">📅 @(n.NeededFrom == null ? "Planlagt" : TimeZoneInfo.ConvertTimeFromUtc(n.NeededFrom.Value, Oslo).ToString("dd.MM"))</span>
-                    }
+                <div class="dropdown">
+                    <button class="btn btn-link btn-sm p-0 text-warning-emphasis text-decoration-none dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="ti ti-flag" aria-hidden="true"></i> @reports.Count meldt som feil
+                    </button>
+                    <div class="dropdown-menu ov-reports">
+                        @foreach (var n in reports)
+                        {
+                            <a class="dropdown-item small" asp-controller="Resource" asp-action="Index" asp-route-id="@n.ResourceId">
+                                <strong>@n.ResourceName</strong> · «@n.Message»
+                                <div class="text-body-secondary">@n.ReporterEmail · @OsloShort(n.CreatedAt)</div>
+                            </a>
+                        }
+                    </div>
                 </div>
+            }
+            else
+            {
+                <span class="text-body-secondary"><i class="ti ti-flag" aria-hidden="true"></i> Ingen meldt som feil</span>
+            }
+            <a asp-controller="Admin" asp-action="Index"><i class="ti ti-users" aria-hidden="true"></i> Brukere</a>
+            <a asp-controller="ResourceType" asp-action="Index"><i class="ti ti-tags" aria-hidden="true"></i> Ressurstyper</a>
+        </div>
+    }
 
-                <div class="ov-name">
-                    <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
-                    <div class="small text-body-secondary">
-                        @if (!string.IsNullOrWhiteSpace(n.City))
+    @* The number strip: each box jumps to its list *@
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+            <a class="ov-stat" href="#activeNeeds"><b>@Model.ActiveAkutt</b><i class="ti ti-alarm" aria-hidden="true"></i> Akutt</a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="ov-stat" href="#activeNeeds"><b>@Model.ActivePlanned</b><i class="ti ti-calendar" aria-hidden="true"></i> Planlagt</a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="ov-stat" href="#activeNeeds"><b>@Model.Waiting</b><i class="ti ti-hourglass" aria-hidden="true"></i> Venter på svar</a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a class="ov-stat" href="#loanBox"><b>@Model.InUse.Count</b><i class="ti ti-package" aria-hidden="true"></i> Utlånt nå</a>
+        </div>
+    </div>
+
+    @* Active needs in fixed columns, the ones that need something first. 5 shown, the rest behind "Vis alle".
+       No buttons: the row opens the need (with from=overview, so its back button comes back here). The map button opens Kart at the need
+       Docs: Bootstrap Collapse - https://getbootstrap.com/docs/5.3/components/collapse/ *@
+    <h2 class="h5 d-flex flex-wrap align-items-baseline gap-2" id="activeNeeds">
+        <i class="ti ti-list" aria-hidden="true"></i> Aktive behov@(chosen && !Model.AllNorway ? $" i {Model.RegionName}" : "") · @Model.Needs.Count
+        <span class="small fw-normal text-body-secondary d-none d-md-inline">· de som trenger noe først · trykk på raden for å åpne behovet</span>
+    </h2>
+
+    @* What «Mangler» and «Neste steg» mean. Open the first time, then closed (remembered in the browser by overview.js) *@
+    <details id="ovHelp" class="ov-help mb-2">
+        <summary><i class="ti ti-help-circle" aria-hidden="true"></i> Hva betyr kolonnene?</summary>
+        <dl class="ov-help-list">
+            <dt>Mangler</dt>
+            <dd>Det behovet fortsatt trenger, med hvor mange som er ledige eller spurt. <span class="ov-miss is-none"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Rødt</span> = ingen ledige innenfor sirkelen, og ingen er spurt.</dd>
+            <dt><i class="ti ti-phone" aria-hidden="true"></i> Ring eiere</dt>
+            <dd>Noen har ikke svart innen fristen. Ring dem eller gi mer tid på behovssiden.</dd>
+            <dt><i class="ti ti-current-location" aria-hidden="true"></i> Spør lenger unna</dt>
+            <dd>Ingen ledige av typen innenfor sirkelen. Behovssiden viser de nærmeste utenfor.</dd>
+            <dt><i class="ti ti-plus" aria-hidden="true"></i> Spør ressurser</dt>
+            <dd>Det finnes ledige i nærheten, men ingen er spurt ennå.</dd>
+            <dt><i class="ti ti-hourglass" aria-hidden="true"></i> Vent på svar</dt>
+            <dd>Forespørsler er sendt, og fristen har ikke gått ut.</dd>
+            <dt><i class="ti ti-map-2" aria-hidden="true"></i> Kart</dt>
+            <dd>Åpner kartet med behovet eller ressursen.</dd>
+        </dl>
+    </details>
+
+    @if (Model.Needs.Count == 0)
+    {
+        <p class="text-body-secondary"><i class="ti ti-check" aria-hidden="true"></i> Ingen aktive behov@(chosen && !Model.AllNorway ? $" i {Model.RegionName}" : "").</p>
+    }
+    else
+    {
+        <div class="ov-list mb-4">
+            <div class="ov-row ov-head" aria-hidden="true">
+                <span></span><span>Behov</span><span>Mangler</span><span>Dekket</span><span>Neste steg</span><span>Kart</span><span></span>
+            </div>
+            @for (var i = 0; i < Model.Needs.Count; i++)
+            {
+                var n = Model.Needs[i];
+                if (i == shownFirst)
+                {
+                    @Html.Raw("<div class=\"collapse\" id=\"moreNeeds\">")
+                }
+                var percent = n.Quantity == 0 ? 0 : Math.Min(100, n.Covered * 100 / n.Quantity);
+                var radiusText = $"{n.RadiusKm:0.#} km";
+                var needUrl = Url.Action("Index", "ResourceNeed", new { id = n.Id, from = "overview" });
+
+                // «Mangler»: lines of the same type as one tag (summed), the red ones (nothing free inside the circle, nobody asked) first
+                var tags = n.Lines
+                    .GroupBy(l => l.Type)
+                    .Select(g => (Type: g.Key,
+                                  Missing: g.Sum(l => l.Missing),
+                                  Waiting: g.Sum(l => l.Waiting),
+                                  FreeInside: g.Max(l => l.FreeInside),
+                                  FreeAnywhere: g.Max(l => l.FreeAnywhere)))
+                    .Where(t => t.Missing > 0)
+                    .OrderByDescending(t => t.Waiting == 0 && t.FreeInside == 0)
+                    .ThenBy(t => t.Type)
+                    .ToList();
+
+                // «Neste steg»: what to do (first line) and why (second line)
+                string nextIcon, nextText, nextWhy;
+                var whyBad = false;
+                if (n.Overdue > 0)
+                {
+                    nextIcon = "ti-phone";
+                    nextText = n.OverdueOwners == 1 ? "Ring 1 eier" : $"Ring {n.OverdueOwners} eiere";
+                    nextWhy = $"{n.Overdue} har ikke svart" + (n.OverdueSince != null ? $" siden {OsloShort(n.OverdueSince.Value)}" : "");
+                    whyBad = true;
+                }
+                else if (n.NoneNearby)
+                {
+                    nextIcon = "ti-current-location";
+                    nextText = "Spør lenger unna";
+                    nextWhy = n.NobodyAsked ? (n.Covered > 0 ? "ingen venter på svar" : "ingen er spurt") : $"ingen ledige innen {radiusText}";
+                }
+                else if (n.NobodyAsked)
+                {
+                    nextIcon = "ti-plus";
+                    nextText = "Spør ressurser";
+                    nextWhy = n.FreeNearby > 0 ? $"{n.FreeNearby} ledige innen {radiusText}" : (n.Covered > 0 ? "ingen venter på svar" : "ingen er spurt");
+                }
+                else if (n.Missing > 0)
+                {
+                    nextIcon = "ti-hourglass";
+                    nextText = "Vent på svar";
+                    nextWhy = n.NextAnswerBy != null ? $"{n.Waiting} venter · innen {OsloTime(n.NextAnswerBy.Value)}" : $"{n.Waiting} venter";
+                }
+                else
+                {
+                    nextIcon = "ti-check";
+                    nextText = "Ingenting å gjøre";
+                    nextWhy = n.Delivered >= n.Covered ? "alt er levert" : n.Delivered > 0 ? $"{n.Delivered} levert, {n.Covered - n.Delivered} kommer" : "alt er dekket";
+                }
+                var quiet = nextIcon == "ti-check" || nextIcon == "ti-hourglass";
+
+                <div class="ov-row @(n.Level == 2 ? "is-hot" : n.Level == 1 ? "is-warm" : "")" data-href="@needUrl">
+                    <div class="ov-when">
+                        @if (n.Urgency == NeedUrgency.Akutt)
                         {
-                            <span>📍 @n.City ·</span>
-                        }
-                        @if (n.StartsSoon && n.NeededFrom != null)
-                        {
-                            <span class="ov-text-warn">⏰ @(n.NeededFrom <= now ? "har startet" : $"starter om {Span(n.NeededFrom.Value - now)}")</span>
-                        }
-                        else if (n.Urgency == NeedUrgency.Planlagt && n.NeededFrom != null)
-                        {
-                            <span>trengs @OsloShort(n.NeededFrom.Value)</span>
+                            <span class="ov-tag ov-tag-akutt"><i class="ti ti-alarm" aria-hidden="true"></i> Akutt</span>
                         }
                         else
                         {
-                            <span>@Span(now - n.CreatedAt) siden</span>
+                            <span class="ov-tag ov-tag-plan"><i class="ti ti-calendar" aria-hidden="true"></i> @(n.NeededFrom == null ? "Planlagt" : TimeZoneInfo.ConvertTimeFromUtc(n.NeededFrom.Value, Oslo).ToString("dd.MM"))</span>
                         }
                     </div>
-                </div>
 
-                <div class="ov-progress">
-                    <div class="progress" role="progressbar" aria-label="Dekket" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
-                        <div class="progress-bar bg-success" style="width: @percent%"></div>
+                    <div class="ov-name">
+                        <a href="@needUrl">@n.Name</a>
+                        <div class="small text-body-secondary">
+                            @if (showPlace && n.Place != "")
+                            {
+                                <span><i class="ti ti-map-pin" aria-hidden="true"></i> @n.Place ·</span>
+                            }
+                            @if (n.StartsSoon && n.NeededFrom != null)
+                            {
+                                <span class="ov-text-warn"><i class="ti ti-alarm" aria-hidden="true"></i> @(n.NeededFrom <= now ? "har startet" : $"starter om {Span(n.NeededFrom.Value - now)}")</span>
+                            }
+                            else if (n.Urgency == NeedUrgency.Planlagt && n.NeededFrom != null)
+                            {
+                                <span>trengs @OsloShort(n.NeededFrom.Value)</span>
+                            }
+                            else
+                            {
+                                <span>meldt for @Span(now - n.CreatedAt) siden</span>
+                            }
+                        </div>
                     </div>
-                    <span class="small text-body-secondary">@n.Covered av @n.Quantity@(n.Delivered > 0 ? $" · {n.Delivered} levert" : "")</span>
-                </div>
 
-                <div class="ov-answer small">
-                    @if (n.Overdue > 0)
-                    {
-                        <span class="ov-text-bad">⏱ @n.Overdue har ikke svart</span>
-                        @if (n.Waiting > 0)
+                    <div class="ov-missing">
+                        @if (tags.Count == 0)
                         {
-                            <div class="text-body-secondary">⏳ @n.Waiting venter</div>
+                            <span class="ov-miss is-ok"><i class="ti ti-check" aria-hidden="true"></i> Alt dekket</span>
                         }
-                    }
-                    else if (n.NobodyAsked)
-                    {
-                        <span class="@(n.Level == 2 ? "ov-text-bad" : "text-body-secondary")">○ Ingen er spurt</span>
-                    }
-                    else if (n.Waiting > 0 && n.NextAnswerBy != null)
-                    {
-                        <span class="text-body-secondary">⏳ @n.Waiting venter · innen @OsloTime(n.NextAnswerBy.Value)</span>
-                    }
-                    else if (n.Missing == 0)
-                    {
-                        <span class="ov-text-ok">✓ Dekket</span>
-                    }
-                    else
-                    {
-                        <span class="text-body-secondary">–</span>
-                    }
-                </div>
-
-                <div class="ov-near small">
-                    @if (n.NoneNearby)
-                    {
-                        <span class="@(n.Level == 2 ? "ov-text-bad" : "text-body-secondary")">⌀ Ingen innen @radiusText</span>
-                    }
-                    else if (n.FreeNearby != null)
-                    {
-                        <span class="text-body-secondary">✓ @n.FreeNearby @(n.FreeNearby == 1 ? "ledig" : "ledige") innen @radiusText</span>
-                    }
-                    else
-                    {
-                        <span class="text-body-secondary">–</span>
-                    }
-                </div>
-
-                <a class="btn btn-sm ov-action text-nowrap @(n.Level == 2 ? "btn-outline-danger" : "btn-outline-secondary")"
-                   asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@n.Id">@action</a>
-            </div>
-        }
-        @if (Model.Needs.Count > shownFirst)
-        {
-            @Html.Raw("</div>")
-            <button class="btn btn-sm btn-link ov-more collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#moreNeeds"
-                    aria-expanded="false" aria-controls="moreNeeds">
-                <span class="when-closed">Vis alle @Model.Needs.Count ▾</span>
-                <span class="when-open">Vis færre ▴</span>
-            </button>
-        }
-    </div>
-}
-
-<div class="row g-3 mb-4">
-    @* "Ute nå": said yes but not delivered, must go back, in use. Longest first *@
-    <div class="col-12 col-lg-6">
-        <div class="ov-box" id="outBox">
-            <h2 class="h6 mb-1"><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Ute nå · @Model.OutNow <span class="small fw-normal text-body-secondary">· lengst først</span></h2>
-            @if (Model.OutNow == 0)
-            {
-                <p class="small text-body-secondary mb-0">✓ Ingen ressurser er ute nå.</p>
-            }
-
-            @if (Model.NotDelivered.Count > 0)
-            {
-                <div class="ov-group is-warn">✓ Sagt ja – ikke levert</div>
-                @foreach (var l in Model.NotDelivered)
-                {
-                    <div class="ov-item">
-                        <span class="ov-badge @(l.Late ? "ov-warn" : "ov-muted")">@(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
-                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
-                        <span class="small text-body-secondary">
-                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
-                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
-                            {
-                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
-                            }
-                        </span>
-                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="MarkDelivered">
-                            <input type="hidden" name="needId" value="@l.NeedId" />
-                            <input type="hidden" name="back" value="overview" />
-                            <button class="btn btn-sm btn-outline-secondary" name="delivered" value="@l.RequestId">Marker levert</button>
-                        </form>
+                        @foreach (var t in tags)
+                        {
+                            var none = t.Waiting == 0 && t.FreeInside == 0;
+                            var note = t.Waiting > 0 ? $"{t.Waiting} spurt"
+                                : t.FreeInside > 0 ? $"{t.FreeInside} {(t.FreeInside == 1 ? "ledig" : "ledige")}"
+                                : t.FreeAnywhere > 0 ? $"ingen innen {radiusText}"
+                                : t.FreeAnywhere == 0 ? "ingen ledige"
+                                : "";
+                            <span class="ov-miss @(none ? "is-none" : "")">
+                                @if (none)
+                                {
+                                    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+                                }
+                                @t.Type@(t.Missing > 1 ? $" × {t.Missing}" : "")@(note != "" ? $" · {note}" : "")
+                            </span>
+                        }
                     </div>
-                }
-            }
 
-            @if (Model.GiveBack.Count > 0)
-            {
-                <div class="ov-group is-return">↩︎ Behovet er avsluttet – skal tilbake</div>
-                @foreach (var l in Model.GiveBack)
-                {
-                    <div class="ov-item">
-                        <span class="ov-badge ov-return">↩︎ @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
-                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
-                        <span class="small text-body-secondary">
-                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
-                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
-                            {
-                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
-                            }
-                        </span>
-                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="MarkReturned">
-                            <input type="hidden" name="needId" value="@l.NeedId" />
-                            <input type="hidden" name="back" value="overview" />
-                            <button class="btn btn-sm btn-outline-secondary" name="returned" value="@l.RequestId">Marker tilbake</button>
-                        </form>
+                    <div class="ov-progress">
+                        <div class="progress" role="progressbar" aria-label="Dekket" aria-valuenow="@percent" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar bg-success" style="width: @percent%"></div>
+                        </div>
+                        <span class="small text-body-secondary">@n.Covered av @n.Quantity</span>
                     </div>
-                }
-            }
 
-            @if (Model.InUse.Count > 0)
+                    <div class="ov-next">
+                        <b class="@(quiet ? "text-body-secondary fw-normal" : "")"><i class="ti @nextIcon @(n.Level == 2 && !quiet ? "ov-text-bad" : "")" aria-hidden="true"></i> @nextText</b>
+                        <span class="@(whyBad ? "ov-text-bad" : "text-body-secondary")">@nextWhy</span>
+                    </div>
+
+                    <a class="btn btn-sm btn-outline-secondary ov-map" href="@Url.Action("Map", "Home", new { need = n.Id })"
+                       title="Vis på kartet" aria-label="Vis «@n.Name» på kartet"><i class="ti ti-map-2" aria-hidden="true"></i></a>
+                    <span class="ov-chev" aria-hidden="true">›</span>
+                </div>
+            }
+            @if (Model.Needs.Count > shownFirst)
             {
-                <div class="ov-group">📦 I bruk</div>
+                @Html.Raw("</div>")
+                <button class="btn btn-sm btn-link ov-more collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#moreNeeds"
+                        aria-expanded="false" aria-controls="moreNeeds">
+                    <span class="when-closed">Vis alle @Model.Needs.Count ▾</span>
+                    <span class="when-open">Vis færre ▴</span>
+                </button>
+            }
+        </div>
+    }
+
+    @* Under the list: what is lent out now (left) and what must be followed up (right). No buttons here - the row opens
+       the need, where it is marked as delivered or returned. Phone and e-mail are links, the map button opens Kart at the resource *@
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="ov-box" id="loanBox">
+                <h2 class="h6 mb-1"><i class="ti ti-package" aria-hidden="true"></i> Utlånt nå · @Model.InUse.Count <span class="small fw-normal text-body-secondary">· lengst først</span></h2>
+                @if (Model.InUse.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0"><i class="ti ti-check" aria-hidden="true"></i> Ingen ressurser er utlånt nå.</p>
+                }
                 @foreach (var l in Model.InUse)
                 {
-                    <div class="ov-item">
-                        <span class="ov-badge ov-info">📦 @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
-                        <a class="ov-what" asp-controller="Resource" asp-action="Index" asp-route-id="@l.ResourceId">@l.ResourceName</a>
-                        <span class="small text-body-secondary">
-                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@l.NeedId">@l.NeedName</a> · @l.OwnerName
-                            @if (!string.IsNullOrEmpty(l.OwnerPhone))
-                            {
-                                <a href="tel:@l.OwnerPhone" aria-label="Ring @l.OwnerName">☎</a>
+                    <div class="ov-loan" data-href="@Url.Action("Index", "ResourceNeed", new { id = l.NeedId, from = "overview" })">
+                        <span class="ov-badge ov-info"><i class="ti ti-package" aria-hidden="true"></i> @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                        <span class="ov-loan-what"><b>@l.ResourceName</b><span class="small text-body-secondary">på @l.NeedName</span></span>
+                        @{
+                            Contact(l);
+                        }
+                        @{
+                            LoanMap(l);
+                        }
+                        <span class="text-body-secondary" aria-hidden="true">›</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="ov-box">
+                <h2 class="h6 mb-1"><i class="ti ti-alert-circle" aria-hidden="true"></i> Må følges opp · @(Model.NotDelivered.Count + Model.GiveBack.Count) <span class="small fw-normal text-body-secondary">· ikke der de skal være</span></h2>
+                @if (Model.NotDelivered.Count + Model.GiveBack.Count == 0)
+                {
+                    <p class="small text-body-secondary mb-0"><i class="ti ti-check" aria-hidden="true"></i> Alt er der det skal være.</p>
+                }
+
+                @if (Model.NotDelivered.Count > 0)
+                {
+                    <div class="ov-group is-warn"><i class="ti ti-check" aria-hidden="true"></i> Sagt ja – ikke levert</div>
+                    @foreach (var l in Model.NotDelivered)
+                    {
+                        <div class="ov-loan" data-href="@Url.Action("Index", "ResourceNeed", new { id = l.NeedId, from = "overview" })">
+                            <span class="ov-badge @(l.Late ? "ov-warn" : "ov-muted")">@(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                            <span class="ov-loan-what"><b>@l.ResourceName</b><span class="small text-body-secondary">til @l.NeedName</span></span>
+                            @{
+                                Contact(l);
                             }
-                        </span>
-                    </div>
+                            @{
+                                LoanMap(l);
+                            }
+                            <span class="text-body-secondary" aria-hidden="true">›</span>
+                        </div>
+                    }
                 }
-            }
+
+                @if (Model.GiveBack.Count > 0)
+                {
+                    <div class="ov-group is-return"><i class="ti ti-arrow-back-up" aria-hidden="true"></i> Behovet er avsluttet – skal tilbake</div>
+                    @foreach (var l in Model.GiveBack)
+                    {
+                        <div class="ov-loan" data-href="@Url.Action("Index", "ResourceNeed", new { id = l.NeedId, from = "overview" })">
+                            <span class="ov-badge ov-return"><i class="ti ti-arrow-back-up" aria-hidden="true"></i> @(l.Since == null ? "–" : Span(now - l.Since.Value))</span>
+                            <span class="ov-loan-what"><b>@l.ResourceName</b><span class="small text-body-secondary">fra @l.NeedName</span></span>
+                            @{
+                                Contact(l);
+                            }
+                            @{
+                                LoanMap(l);
+                            }
+                            <span class="text-body-secondary" aria-hidden="true">›</span>
+                        </div>
+                    }
+                }
+            </div>
         </div>
     </div>
 
-    @* "Forespørsler": deadline passed, waiting, said no the last 24 hours *@
-    <div class="col-12 col-lg-6">
-        <div class="ov-box" id="requestsBox">
-            <h2 class="h6 mb-1"><i class="ti ti-hourglass" aria-hidden="true"></i> Forespørsler</h2>
-            @if (Model.Overdue.Count == 0 && Model.WaitingList.Count == 0 && Model.Declined.Count == 0)
-            {
-                <p class="small text-body-secondary mb-0">✓ Ingen forespørsler å følge med på.</p>
-            }
-
-            @if (Model.Overdue.Count > 0)
-            {
-                <div class="ov-group is-bad">⏱ Frist gått · @Model.Overdue.Sum(g => g.ResourceNames.Count)</div>
-                @foreach (var g in Model.Overdue)
-                {
-                    <div class="ov-item">
-                        <span class="ov-what">@Names(g.ResourceNames)</span>
-                        <span class="small text-body-secondary">@g.NeedName · gikk ut @OsloShort(g.When)</span>
-                        <a class="btn btn-sm btn-outline-secondary" asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@g.NeedId">Åpne ▸</a>
-                    </div>
-                }
-            }
-
-            @if (Model.WaitingList.Count > 0)
-            {
-                <div class="ov-group">⏳ Venter på svar · @Model.WaitingList.Count</div>
-                @foreach (var r in Model.WaitingList)
-                {
-                    <div class="ov-item">
-                        <span class="ov-what">@r.ResourceName</span>
-                        <span class="small text-body-secondary">
-                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@r.NeedId">@r.NeedName</a> · innen @OsloTime(r.AnswerBy)
-                        </span>
-                        <form method="post" asp-controller="ResourceNeedHandler" asp-action="ExtendDeadline">
-                            <input type="hidden" name="needId" value="@r.NeedId" />
-                            <input type="hidden" name="back" value="overview" />
-                            <button class="btn btn-sm btn-outline-secondary" name="extend" value="@($"{r.RequestId}:30")">+30 min</button>
-                        </form>
-                    </div>
-                }
-            }
-
-            @if (Model.Declined.Count > 0)
-            {
-                <div class="ov-group">✗ Sagt nei siste døgn · @Model.Declined.Sum(g => g.ResourceNames.Count)</div>
-                @foreach (var g in Model.Declined)
-                {
-                    <div class="ov-item">
-                        <span class="ov-what">@Names(g.ResourceNames)</span>
-                        <span class="small text-body-secondary">
-                            <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@g.NeedId">@g.NeedName</a> · @OsloTime(g.When)
-                        </span>
-                    </div>
-                }
-            }
-        </div>
-    </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/overview.js" asp-append-version="true"></script>
+}

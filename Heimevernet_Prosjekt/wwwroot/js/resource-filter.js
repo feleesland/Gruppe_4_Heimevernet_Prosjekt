@@ -1,14 +1,14 @@
-﻿// The resource filter (in the side panel on Kart, and on Ressursoversikt): type, status and place (kommune and distance)
+﻿// The resource filter (in the side panel on Kart, and on Ressursoversikt): type, status and distance from a point
 // with checkboxes and the number of hits. No "Bruk" button: the result updates as soon as you choose (help with AI)
-// The choices are kept in the URL (types, status, kommune, where, lat, lng, radius) through site.js, so Kart and Ressursoversikt show the same
+// The choices are kept in the URL (types, status, where, lat, lng, radius) through site.js, so Kart and Ressursoversikt show the same.
+// kommune is not chosen here any more (it is the area at the top of the lists), but «Vis på kart» sends it, so it still filters and has a chip
 // Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
 window.ResourceFilter = (function () {
     var statuses = ['Ledig', 'Ledig senere', 'I bruk', 'Lever tilbake', 'Ikke tilgjengelig', 'Ugyldig']; // as ResourceController.ShownStatus sends them
-    var radiusMain = ['1', '2', '5', '10'];   // always shown
-    var radiusMore = ['20', '50', '100'];     // under "Flere avstander"
+    var radiusMain = ['1', '2', '5', '10'];   // the chips; other distances under «Annen …»
     var allTypes = null; // the categories with their types from the server
     var openCategories = {}; // which categories are folded out (kept when the filter is drawn again)
-    var showMoreRadius = false;
+    var showCustomRadius = false; // «Annen …» is open
     var lastResources = [];
 
     // "a,b" in the URL -> ['a', 'b']
@@ -61,7 +61,7 @@ window.ResourceFilter = (function () {
     function countBy(resources, params, skip, key) {
         var counts = {};
         resources.filter(function (r) { return matches(r, params, skip); }).forEach(function (r) {
-            var value = key === 'municipality' ? titleCase(r.municipality) : (r[key] || (key === 'status' ? 'Ledig' : 'Ukjent'));
+            var value = r[key] || (key === 'status' ? 'Ledig' : 'Ukjent');
             if (value) counts[value] = (counts[value] || 0) + 1;
         });
         return counts;
@@ -204,96 +204,77 @@ window.ResourceFilter = (function () {
         return parseFloat(km) < 1 ? Math.round(parseFloat(km) * 1000) + ' m' : String(km).replace('.', ',') + ' km';
     }
 
-    // "Sted": the kommuner with resources, and the distance from a point (help with AI)
+    // "Avstand fra et punkt" (help with AI): before a place is chosen only the field (with ⌖ inside) and «Bruk min posisjon».
+    // After: the place as a tag with ✕, and the distances as chips with the number of resources within each,
+    // like «Ressurser i området» on Kart. «Annen …» opens a field for an own distance, e.g. 7,5 km
     function renderPlace(resources, params) {
-        // Kommune: only those that have resources, the most first
-        var kommuneCounts = countBy(resources, params, 'kommune', 'municipality');
-        var chosenKommuner = list(params.kommune);
-        var names = [];
-        resources.forEach(function (r) { var k = titleCase(r.municipality); if (k && !names.includes(k)) names.push(k); });
-        chosenKommuner.forEach(function (k) { if (!names.includes(k)) names.push(k); });
-        names.sort(function (a, b) { return (kommuneCounts[b] || 0) - (kommuneCounts[a] || 0) || a.localeCompare(b, 'nb'); });
-        var kommuneBox = document.getElementById('rfKommune');
-        kommuneBox.replaceChildren();
-        if (names.length === 0) {
-            kommuneBox.innerHTML = '<div class="small text-body-secondary">Ingen ressurser har kommune ennå.</div>';
-        }
-        names.forEach(function (name, i) {
-            kommuneBox.appendChild(checkRow('rfKommune' + i, name, kommuneCounts[name] || 0, chosenKommuner.includes(name), function (checked) {
-                var now = chosenKommuner.filter(function (k) { return k !== name; });
-                if (checked) now.push(name);
-                change('kommune', now);
-            }));
-        });
-
-        // "Fra": the search field, or the chosen place as a tag with ✕
         var hasPoint = !!(params.lat && params.lng);
         document.getElementById('rfFromSearch').hidden = hasPoint;
         document.getElementById('rfFromChosen').hidden = !hasPoint;
         if (hasPoint) {
-            document.getElementById('rfFromName').textContent = params.where || 'valgt punkt';
+            var where = params.where || 'valgt punkt';
+            document.getElementById('rfFromName').textContent = where === 'din posisjon' ? 'Din posisjon' : where;
+            document.getElementById('rfFromIcon').className = 'ti ' + (where === 'din posisjon' ? 'ti-current-location' : 'ti-map-pin');
             var mapLink = document.getElementById('rfFromMap');
             if (mapLink) mapLink.href = mapLink.dataset.mapUrl + '?' + new URLSearchParams(params);
+            showHint(''); // a place is chosen: an old message is no longer true
         }
 
-        // The distances, with the number of resources within each. Grey until a place is chosen
         var current = hasPoint ? String(radiusKm(params)) : '';
         var values = radiusMain.slice();
-        if (showMoreRadius) values = values.concat(radiusMore);
-        if (current && !values.includes(current)) values.push(current); // an own distance, e.g. 49 km
+        if (current && !values.includes(current)) values.push(current); // an own distance, e.g. 7.5 km
+        values.sort(function (a, b) { return parseFloat(a) - parseFloat(b); });
         var box = document.getElementById('rfRadiusList');
         box.replaceChildren();
-        box.classList.toggle('rf-disabled', !hasPoint);
-        values.concat(['']).forEach(function (value) {
-            var div = document.createElement('div');
-            div.className = 'form-check';
-            var input = document.createElement('input');
-            input.type = 'radio';
-            input.className = 'form-check-input';
-            input.name = 'rfRadiusChoice';
-            input.id = 'rfRadius' + (value || 'None').replace('.', '_');
-            input.checked = value === current;
-            input.disabled = !hasPoint;
-            if (input.checked && hasPoint) div.classList.add('is-picked');
-            input.addEventListener('change', function () {
-                setParams(function (p) {
-                    if (value === '') { delete p.lat; delete p.lng; delete p.where; delete p.radius; }
-                    else p.radius = value;
-                });
-            });
-            var label = document.createElement('label');
-            label.className = 'form-check-label d-flex w-100';
-            label.htmlFor = input.id;
-            label.textContent = value === '' ? 'Ingen avstand' : 'Innen ' + radiusText(value);
-            var pill = document.createElement('span');
-            pill.className = 'rf-pill ms-auto';
-            pill.textContent = !hasPoint ? '–' : resources.filter(function (r) {
-                return matches(r, params, 'radius') && (value === '' || within(r, params, parseFloat(value)));
-            }).length;
-            label.appendChild(pill);
-            div.append(input, label);
-            box.appendChild(div);
-            if (value === (showMoreRadius ? radiusMore[radiusMore.length - 1] : radiusMain[radiusMain.length - 1])) {
-                box.appendChild(moreButton(hasPoint));
-            }
+        box.hidden = !hasPoint;
+        if (!hasPoint) {
+            document.getElementById('rfRadiusCustom').hidden = true;
+            return;
+        }
+        values.forEach(function (value) {
+            var on = value === current;
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'rf-km' + (on ? ' is-on' : '');
+            chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+            var count = resources.filter(function (r) { return matches(r, params, 'radius') && within(r, params, parseFloat(value)); }).length;
+            chip.textContent = (on ? '✓ ' : '') + radiusText(value) + ' '; // textContent: never runs as HTML
+            var small = document.createElement('small');
+            small.textContent = count;
+            chip.appendChild(small);
+            chip.setAttribute('aria-label', 'Innen ' + radiusText(value) + ', ' + count + (count === 1 ? ' ressurs' : ' ressurser'));
+            chip.addEventListener('click', function () { setParams(function (p) { p.radius = value; }); });
+            box.appendChild(chip);
         });
-        document.getElementById('rfRadiusCustom').hidden = !showMoreRadius || !hasPoint;
-        document.getElementById('rfRadiusHint').hidden = hasPoint;
+        var other = document.createElement('button');
+        other.type = 'button';
+        other.className = 'rf-km' + (showCustomRadius ? ' is-on' : '');
+        other.setAttribute('aria-expanded', showCustomRadius ? 'true' : 'false');
+        other.setAttribute('aria-controls', 'rfRadiusCustom');
+        other.textContent = 'Annen …';
+        other.addEventListener('click', function () {
+            showCustomRadius = !showCustomRadius;
+            renderPlace(lastResources, window.getResourceParams());
+            if (showCustomRadius) document.getElementById('rfRadiusOwn').focus();
+        });
+        box.appendChild(other);
+        document.getElementById('rfRadiusCustom').hidden = !showCustomRadius;
     }
 
-    // "Flere avstander" / "Færre avstander"
-    function moreButton(enabled) {
-        var button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn btn-link btn-sm px-0 rf-more';
-        button.disabled = !enabled;
-        button.setAttribute('aria-expanded', showMoreRadius);
-        button.innerHTML = '<i class="ti ti-chevron-' + (showMoreRadius ? 'up' : 'down') + '" aria-hidden="true"></i> ' + (showMoreRadius ? 'Færre avstander' : 'Flere avstander');
-        button.addEventListener('click', function () {
-            showMoreRadius = !showMoreRadius;
-            renderPlace(lastResources, window.getResourceParams());
-        });
-        return button;
+    // A short message under the field: «Henter posisjonen din …», or a warning when the position doesn't work ('' = none)
+    function showHint(text, warning) {
+        var hint = document.getElementById('rfRadiusHint');
+        hint.hidden = !text;
+        hint.classList.toggle('rf-warn', !!warning);
+        hint.replaceChildren();
+        if (!text) return;
+        if (warning) {
+            var icon = document.createElement('i');
+            icon.className = 'ti ti-alert-triangle';
+            icon.setAttribute('aria-hidden', 'true');
+            hint.append(icon, ' ');
+        }
+        hint.append(text);
     }
 
     // One chip; a click removes that choice (or all of them for "Nullstill alt")
@@ -366,6 +347,9 @@ window.ResourceFilter = (function () {
         // The same number on the Filter tab in the side panel on Kart
         var tabBadge = document.getElementById('tabFilterCount');
         if (tabBadge) { tabBadge.textContent = active; tabBadge.hidden = active === 0; }
+        // "Nullstill alt" at the top is grey while nothing is chosen
+        var topReset = document.getElementById('rfResetTop');
+        if (topReset) topReset.disabled = active === 0;
     }
 
     // The "Fra" field: places from Kartverket while you type (the same search as in the menu) (help with AI)
@@ -375,6 +359,7 @@ window.ResourceFilter = (function () {
         var suggestUrl = document.getElementById('globalSearchForm')?.dataset.suggestUrl;
         if (!input || !suggestUrl) return;
         var timer = null;
+        input.addEventListener('input', function () { showHint(''); }); // typing: the warning goes away
 
         function close() {
             listBox.hidden = true;
@@ -445,22 +430,23 @@ window.ResourceFilter = (function () {
             setParams(function (p) { delete p.lat; delete p.lng; delete p.where; delete p.radius; });
         });
 
-        // "Bruk min posisjon": only when the user says yes - Docs: Geolocation API (MDN)
-        // https://developer.mozilla.org/docs/Web/API/Geolocation_API
-        document.getElementById('rfMyPosition').addEventListener('click', function () {
-            var hint = document.getElementById('rfRadiusHint');
-            if (!navigator.geolocation) { hint.textContent = 'Nettleseren din støtter ikke posisjon.'; return; }
-            hint.textContent = 'Henter posisjonen din …';
+        // «Bruk min posisjon» (the link and ⌖ in the field): only when the user says yes. A radius of 2 km around you to start with
+        // Docs: Geolocation API (MDN) - https://developer.mozilla.org/docs/Web/API/Geolocation_API
+        function useMyPosition() {
+            if (!navigator.geolocation) { showHint('Nettleseren din støtter ikke posisjon. Skriv et sted i stedet.', true); return; }
+            showHint('Henter posisjonen din …');
             navigator.geolocation.getCurrentPosition(function (pos) {
-                hint.textContent = 'Velg et sted først';
+                showHint('');
                 setParams(function (p) {
                     p.where = 'din posisjon';
                     p.lat = pos.coords.latitude.toFixed(5);
                     p.lng = pos.coords.longitude.toFixed(5);
                     p.radius = p.radius || '2';
                 });
-            }, function () { hint.textContent = 'Fikk ikke tilgang til posisjonen din.'; });
-        });
+            }, function () { showHint('Fikk ikke bruke posisjonen. Skriv et sted i stedet.', true); });
+        }
+        document.getElementById('rfMyPosition').addEventListener('click', useMyPosition);
+        document.getElementById('rfMyPositionIcon').addEventListener('click', useMyPosition);
 
         // "Velg punkt på kartet" (only on Kart)
         var pick = document.getElementById('rfPick');
@@ -477,18 +463,25 @@ window.ResourceFilter = (function () {
             });
         }
 
-        // An own distance, e.g. 49 km (kept between 0.1 and 500)
-        document.getElementById('rfRadiusUse').addEventListener('click', function () {
+        // «Annen …»: an own distance, e.g. 7,5 km (kept between 0.1 and 500). «Bruk» or Enter
+        function useOwnRadius() {
             var km = parseFloat(document.getElementById('rfRadiusOwn').value.replace(',', '.'));
             if (isNaN(km) || !window.getResourceParams().lat) return;
+            showCustomRadius = false;
             setParams(function (p) { p.radius = String(Math.min(Math.max(km, 0.1), 500)); });
+        }
+        document.getElementById('rfRadiusUse').addEventListener('click', useOwnRadius);
+        document.getElementById('rfRadiusOwn').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); useOwnRadius(); }
         });
 
-        // Nullstill alt: removes every choice, but keeps what is written in the search field
-        document.getElementById('rfReset').addEventListener('click', function () {
+        // Nullstill alt (at the top and at the bottom): removes every choice, but keeps what is written in the search field
+        function resetAll() {
             var params = window.getResourceParams();
             window.applyResourceParams(params.search ? { search: params.search } : {});
-        });
+        }
+        document.getElementById('rfReset').addEventListener('click', resetAll);
+        document.getElementById('rfResetTop')?.addEventListener('click', resetAll);
 
         // "Vis X treff": close the panel and look at the map
         var show = document.getElementById('rfShow');
@@ -498,4 +491,4 @@ window.ResourceFilter = (function () {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 
     return { matches: matches, render: render, distanceKm: distanceKm };
-})();
+})();

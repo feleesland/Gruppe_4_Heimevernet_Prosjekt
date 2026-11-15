@@ -7,6 +7,13 @@
     var canReports = User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Admin) || User.IsInRole(Heimevernet_Prosjekt.Security.Authorization.RoleNames.Operator); // admin and operator see the ⚑ messages
 }
 <div id="rfPanel" data-types-url="@Url.Action("Types", "Resource")" data-on-map="@(onMap ? "true" : "false")">
+    @* On Kart: "Nullstill alt" at the top of the panel too, not only at the bottom (Ressursoversikt has it by the title) *@
+    @if (onMap)
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" id="rfResetTop" class="btn btn-link btn-sm rf-reset-link" disabled><i class="ti ti-refresh" aria-hidden="true"></i> Nullstill alt</button>
+        </div>
+    }
     @if (onMap)
     {
         @* Only on Kart: what is drawn on the map. The rest of the filter is used on Ressursoversikt too *@
@@ -55,47 +62,48 @@
         </fieldset>
     }
 
-    @* "Sted": kommune, and distance from a point (a place from the search, my position or a point on the map). Logic in renderPlace in resource-filter.js *@
+    @* "Avstand fra et punkt" (help with AI): a place from the search, my position (⌖ in the field, or the link) or a point on the map.
+       When a place is chosen, the distances come as chips. Logic in renderPlace in resource-filter.js.
+       The kommune is the area at the top of Ressurser, Behov and Oversikt (Views/Shared/_RegionPicker.cshtml), so it is not here *@
     <fieldset class="rf-section" hidden="@(!signedIn)">
-        <legend class="rf-section-title"><i class="ti ti-map-pin" aria-hidden="true"></i> Sted</legend>
+        <legend class="rf-section-title"><i class="ti ti-map-pin" aria-hidden="true"></i> Avstand fra et punkt</legend>
 
-        <div class="rf-sub">Kommune</div>
-        <div id="rfKommune" class="mb-2"></div>
-
-        <div class="rf-divider">Avstand fra et punkt</div>
-        <div id="rfFromSearch" class="rf-from mb-2">
-            <label for="rfFrom" class="form-label small mb-1">Fra</label>
-            <input type="search" id="rfFrom" class="form-control form-control-sm" placeholder="Sted, adresse eller postnr."
-                   autocomplete="off" aria-expanded="false" aria-controls="rfFromList" />
+        <div id="rfFromSearch" class="rf-from">
+            <label for="rfFrom" class="visually-hidden">Fra</label>
+            <div class="rf-field">
+                <input type="search" id="rfFrom" class="form-control form-control-sm" placeholder="Sted, adresse eller postnr."
+                       autocomplete="off" aria-expanded="false" aria-controls="rfFromList" />
+                <button type="button" id="rfMyPositionIcon" class="rf-field-btn" title="Bruk min posisjon" aria-label="Bruk min posisjon"><i class="ti ti-current-location" aria-hidden="true"></i></button>
+            </div>
             <div id="rfFromList" class="rf-from-list" hidden></div>
+            <div class="d-flex flex-wrap gap-3 mt-1">
+                <button type="button" id="rfMyPosition" class="btn btn-link btn-sm p-0 rf-link"><i class="ti ti-current-location" aria-hidden="true"></i> Bruk min posisjon</button>
+                @if (onMap)
+                {
+                    <button type="button" id="rfPick" class="btn btn-link btn-sm p-0 rf-link"><i class="ti ti-pointer" aria-hidden="true"></i> Velg på kartet</button>
+                }
+            </div>
         </div>
-        <div id="rfFromChosen" class="mb-2" hidden>
+
+        <div id="rfFromChosen" hidden>
             <span class="rf-tag">
-                <i class="ti ti-check" aria-hidden="true"></i> <span id="rfFromName"></span>
+                <i id="rfFromIcon" class="ti ti-map-pin" aria-hidden="true"></i> <span id="rfFromName"></span>
                 <button type="button" id="rfFromClear" class="rf-tag-clear" aria-label="Fjern punktet">✕</button>
             </span>
-            <div class="small text-body-secondary mt-1">Måles fra dette punktet.</div>
             @if (!onMap)
             {
-                <a id="rfFromMap" class="small" href="#" data-map-url="@Url.Action("Map", "Home")"><i class="ti ti-map" aria-hidden="true"></i> Se på kartet</a>
-            }
-        </div>
-        <div class="d-flex flex-wrap gap-2 mb-2">
-            <button type="button" id="rfMyPosition" class="btn btn-sm rf-reset"><i class="ti ti-current-location" aria-hidden="true"></i> Bruk min posisjon</button>
-            @if (onMap)
-            {
-                <button type="button" id="rfPick" class="btn btn-sm rf-reset"><i class="ti ti-pointer" aria-hidden="true"></i> Velg på kartet</button>
+                <a id="rfFromMap" class="small ms-2" href="#" data-map-url="@Url.Action("Map", "Home")"><i class="ti ti-map" aria-hidden="true"></i> Se på kartet</a>
             }
         </div>
 
-        <div id="rfRadiusList"></div>
-        <div id="rfRadiusCustom" class="d-flex align-items-center gap-2 mt-1" hidden>
-            <label for="rfRadiusOwn" class="small">Egen:</label>
-            <input type="number" id="rfRadiusOwn" class="form-control form-control-sm" style="width: 5.5rem;" step="0.1" min="0.1" max="500" />
+        <div id="rfRadiusList" class="rf-km-list" role="group" aria-label="Avstand" hidden></div>
+        <div id="rfRadiusCustom" class="d-flex align-items-center gap-2 mt-2" hidden>
+            <label for="rfRadiusOwn" class="small">Innen</label>
+            <input type="text" inputmode="decimal" id="rfRadiusOwn" class="form-control form-control-sm" style="width: 5.5rem;" placeholder="7,5" />
             <span class="small">km</span>
             <button type="button" id="rfRadiusUse" class="btn btn-sm rf-reset">Bruk</button>
         </div>
-        <div id="rfRadiusHint" class="small text-body-secondary mt-1" role="status">Velg et sted først</div>
+        <div id="rfRadiusHint" class="small mt-1" role="status" hidden></div>
     </fieldset>
 
     <div class="d-flex gap-2">

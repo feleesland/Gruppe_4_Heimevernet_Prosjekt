@@ -9,9 +9,11 @@
 
 <link rel="stylesheet" href="~/css/crisis.css" asp-append-version="true" />
 <div id="map"></div>
-@* One side panel on the left, like Google Maps. It shows one thing at a time: a list (from a box), a resource or a need
-   (the pages themselves with ?embed=1). While a need is open you can look at a resource and go back with ‹ *@
+@* One side panel on the left, like Google Maps (on phones a sheet at the bottom). It shows one thing at a time: Liste, Filter,
+   a resource or a need (the pages themselves with ?embed=1). While a need is open you can look at a resource and go back with ‹ *@
 <aside id="sidePanel" class="side-panel" hidden aria-label="Sidepanel">
+	@* Phones: the grip at the top of the sheet. Tap or drag up = full height, drag down = half height or close *@
+	<button type="button" id="sidePanelGrip" class="side-panel-grip" aria-label="Gjør panelet større" aria-expanded="false"><span aria-hidden="true"></span></button>
 	@* Drag the right edge to change the width (also ← → with the keyboard) *@
 	<div id="sidePanelResize" class="side-panel-resize" role="separator" aria-orientation="vertical"
 		 aria-label="Endre bredden på panelet" tabindex="0"></div>
@@ -23,7 +25,8 @@
 			<button type="button" id="tabHits" class="panel-tab" role="tab" onclick="showView('hits')"><i class="ti ti-list" aria-hidden="true"></i> Liste <span id="tabHitsCount" class="badge rounded-pill"></span></button>
 			<button type="button" id="tabFilter" class="panel-tab" role="tab" onclick="showView('filter')"><i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="tabFilterCount" class="badge rounded-pill" hidden></span></button>
 		</div>
-		<a id="sidePanelFull" href="#" class="small" hidden>Åpne på egen side ↗</a>
+		@* A button (a link that looks like one, since it opens another page), next to ✕ on the right *@
+		<a id="sidePanelFull" href="#" class="btn btn-sm btn-outline-secondary panel-full-btn ms-auto" hidden><i class="ti ti-external-link" aria-hidden="true"></i> <span class="d-none d-sm-inline">Åpne på </span>egen side</a>
 		<button type="button" class="btn-close ms-auto" onclick="closeSidePanel()" aria-label="Lukk panelet"></button>
 	</div>
 	@* Need mode: what you are doing, and what the rings on the map mean (text + icon, not only colour) *@
@@ -53,7 +56,6 @@
 		<a id="hitsOpenList" class="d-block text-center small mt-3" href="#" data-url="@Url.Action("List", "Resource")">Åpne i Ressursoversikt ↗</a>
 	</div>
 	<div id="resourcePanelPick" class="px-3 pt-2" hidden></div>
-	<div id="resourcePanelList" class="side-panel-list" hidden></div>
 	<iframe id="resourcePanelFrame" title="Ressurs" hidden></iframe>
 	<iframe id="needPanelFrame" title="Behov" hidden></iframe>
 </aside>
@@ -334,37 +336,6 @@
 		right: 12px;
 	}
 
-	.resource-row {
-		display: flex;
-		gap: 10px;
-		align-items: center;
-		width: 100%;
-		text-align: left;
-		border: 0;
-		border-bottom: 1px solid var(--bs-border-color);
-		background: none;
-		color: inherit;
-		padding: 10px 4px;
-	}
-
-		.resource-row:hover {
-			background: var(--bs-secondary-bg);
-		}
-
-	.type-chip {
-		border: 1px solid var(--bs-border-color);
-		border-radius: 999px;
-		padding: 3px 10px;
-		background: none;
-		color: inherit;
-		font-size: .85rem;
-	}
-
-		.type-chip.active {
-			background: var(--hv-green);
-			color: #fff;
-			border-color: var(--hv-green);
-		}
 	/* Liste | Filter in the panel head (help with AI): the two tabs share the width, and ✕ has its own box on the right */
 	.side-panel-head.tabbed {
 		padding: 0;
@@ -512,13 +483,31 @@
 		border-bottom-color: rgba(0,0,0,.15);
 	}
 
-		.side-panel.need-mode .side-panel-head a, .side-panel.need-mode .side-panel-head .btn-link {
+	/* "Åpne på egen side": the button and ✕ sit together on the right */
+	.panel-full-btn {
+		white-space: nowrap;
+	}
+
+		.panel-full-btn:not([hidden]) + .btn-close {
+			margin-left: 0 !important;
+		}
+
+	.side-panel.need-mode .panel-full-btn {
+		border-color: rgba(0,0,0,.45);
+	}
+
+		.side-panel.need-mode .panel-full-btn:hover {
+			background: rgba(0,0,0,.1);
 			color: #000;
 		}
 
-		.side-panel.need-mode .side-panel-head .btn-close {
-			filter: none; /* the black ✕, also in dark mode */
-		}
+	.side-panel.need-mode .side-panel-head a, .side-panel.need-mode .side-panel-head .btn-link {
+		color: #000;
+	}
+
+	.side-panel.need-mode .side-panel-head .btn-close {
+		filter: none; /* the black ✕, also in dark mode */
+	}
 	/* The ✓ on a chosen resource in need mode */
 	.picked-check {
 		display: flex;
@@ -816,6 +805,113 @@
 		.return-chip[hidden] {
 			display: none;
 		}
+
+	/* Over "Liste" (help with AI): what the list is limited to, as chips you can remove with ✕ */
+	.hits-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 8px 0 4px;
+	}
+
+	.hits-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 3px 8px 3px 10px;
+		border: 1px solid var(--bs-primary-border-subtle);
+		border-radius: 999px;
+		background: var(--bs-primary-bg-subtle);
+		color: var(--bs-primary-text-emphasis);
+		font-size: .85rem;
+	}
+
+	/* The grip is only used on phones */
+	.side-panel-grip {
+		display: none;
+	}
+
+	/* Phones (help with AI): the side panel is one sheet at the bottom, like Google Maps. Three heights:
+		   Liten (.is-small), Halv (no class) and Full (.is-full). "Ressurser i området" moves into the Filter tab while the sheet is open
+		   Docs: CSS dvh units (MDN) - https://developer.mozilla.org/docs/Web/CSS/length#dynamic_viewport_units */
+	@@media (max-width: 767.98px) {
+		.side-panel {
+			top: auto !important;
+			left: 0;
+			right: 0;
+			width: 100% !important;
+			height: 50dvh;
+			border-right: 0;
+			border-radius: 16px 16px 0 0;
+			box-shadow: 0 -4px 16px rgba(0,0,0,.3);
+			transition: height .2s;
+		}
+
+			.side-panel.is-full {
+				height: calc(100dvh - var(--map-top, 76px));
+				border-radius: 0;
+			}
+			/* Liten: the tabs, "Ressurser i området" and a bit of what is under, so you see that you can scroll (height set by JS) */
+			.side-panel.is-small {
+				height: var(--sheet-small, 35dvh);
+			}
+
+			.side-panel.dragging {
+				transition: none;
+			}
+
+				.side-panel.dragging iframe {
+					pointer-events: none;
+				}
+
+		.side-panel-resize {
+			display: none;
+		}
+
+		.side-panel-grip {
+			display: flex;
+			justify-content: center;
+			width: 100%;
+			padding: 8px 0 4px;
+			border: 0;
+			border-radius: 16px 16px 0 0;
+			background: none;
+			touch-action: none; /* the finger drags the sheet, the page does not scroll */
+			cursor: grab;
+		}
+
+			.side-panel-grip span {
+				width: 40px;
+				height: 4px;
+				border-radius: 2px;
+				background: var(--bs-secondary-color);
+			}
+
+		.side-panel.need-mode .side-panel-grip {
+			background: #ffc107;
+		}
+		/* Phones: "Ressurser i området" is only in the Filter tab, never over the map (the circle and the white dot are still on the map).
+			   The legend is hidden while the sheet is open, since it would be under it */
+		.radius-bar:not(.in-panel), .radius-bar-small {
+			display: none;
+		}
+
+		body.map-panel-open .map-legend {
+			display: none;
+		}
+
+		.radius-bar.in-panel {
+			position: static;
+			transform: none;
+			width: auto;
+			margin-bottom: 12px;
+			box-shadow: none;
+		}
+			/* The tabs are right above it, so "Vis liste" and "Ferdig" are not needed there */
+			.radius-bar.in-panel #radiusList, .radius-bar.in-panel #radiusDone {
+				display: none;
+			}
+	}
 </style>
 
 @section Scripts {
@@ -1015,10 +1111,10 @@
 						});
 
 						marker.bindPopup(`
-							<strong>${escapeHtml(location.name)}</strong><br>
-							Type: ${escapeHtml(location.type)}<br>
-							${escapeHtml(location.description || '')}
-						`);
+									<strong>${escapeHtml(location.name)}</strong><br>
+									Type: ${escapeHtml(location.type)}<br>
+									${escapeHtml(location.description || '')}
+								`);
 
 						permanentMarkerLayer.addLayer(marker);
 					});
@@ -1265,7 +1361,7 @@
 
 			// Move the map: to the circle, so all results fit, or to the only result
 			if (radiusCircle) {
-				map.fitBounds(radiusCircle.getBounds());
+				map.fitBounds(radiusCircle.getBounds(), mapPadding());
 			} else if (markers.length > 1) {
 				map.fitBounds(L.featureGroup(markers).getBounds(), { padding: [40, 40] });
 			} else if (markers.length === 1) {
@@ -1534,18 +1630,39 @@
 		});
 		document.getElementById('mapSheetClose').addEventListener('click', closePointMenu);
 
-		// ?focus=12 (from "Vis på hovedkartet"): zoom to that resource and open its popup
+		// ?focus=12 / ?resource=12 (from "Vis på hovedkartet" and Oversikt): zoom to that resource and open it in the panel.
+		// ?need=5 (the map button on Oversikt): the need opens in the panel, with its whole circle next to the panel (help with AI)
+		// Docs: Leaflet LatLng toBounds - https://leafletjs.com/reference.html#latlng-tobounds
 		var startParams = Object.fromEntries(new URLSearchParams(window.location.search));
-		var focusId = startParams.focus;
-		delete startParams.focus;
+		var focusId = startParams.focus || startParams.resource;
+		var startNeedId = startParams.need;
+		delete startParams.focus; delete startParams.resource; delete startParams.need;
 
 		loadPermanentMarkers();
 
 		window.onResourceSearch(startParams).then(function () {
-			if (focusId && markersById[focusId]) {
-				zoomToResource(focusId);
+			// "I området" on a phone: the Filter tab opens at Liten, with the whole circle above it
+			if (isPhone() && radiusCircle && !focusId && !startNeedId) {
+				showView('filter');
+				setSheet('small');
+				map.fitBounds(radiusCircle.getBounds(), mapPadding());
 			}
+			if (!focusId) return;
+			if (markersById[focusId]) zoomToResource(focusId); else openResource(focusId);
 		});
+
+		if (startNeedId && canNeeds) {
+			fetch('@Url.Action("MapResourceNeeds", "ResourceNeed")')
+				.then(r => r.ok ? r.json() : [])
+				.then(function (needs) {
+					var need = needs.find(n => String(n.id) === String(startNeedId));
+					if (!need) { openNeedPanel(needDetailUrl + startNeedId); return; }
+					var center = [parseFloat(need.latitude), parseFloat(need.longitude)];
+					openNeedPanel(needDetailUrl + need.id, center);
+					map.fitBounds(L.latLng(center).toBounds(need.radiusKm * 2000), mapPadding());
+				})
+				.catch(function () { openNeedPanel(needDetailUrl + startNeedId); });
+		}
 
 		
 		// Open a need ("Meld behov" or an existing need) in the side panel (help with AI) - Docs: Window.postMessage (MDN)
@@ -1555,7 +1672,7 @@
 			exitNeedMode();
 			needUrl = url;
 			needTitle = '';
-			resourceList = [];
+			hitsOnly = null;
 			openResourceId = null;
 			document.getElementById('needPanelFrame').src = url + (url.includes('?') ? '&' : '?') + 'embed=1';
 			document.getElementById('sidePanelFull').href = url;
@@ -1618,7 +1735,7 @@
 				}
 			});
 
-						// The kontaktpunkt: the purple flag with a dashed line to the need (help with AI)
+			// The kontaktpunkt: the purple flag with a dashed line to the need (help with AI)
 			if (needMode && needMode.meeting) {
 				var m = needMode.meeting;
 				L.marker([m.lat, m.lng], {
@@ -1677,23 +1794,28 @@
 			markerLayer.zoomToShowLayer(marker, function () { openResource(id); });
 		}
 
-		// The side panel on the left (help with AI): shows one view at a time - 'list' (from a box), 'resource' or 'need'.
+		// The side panel on the left (help with AI): shows one view at a time - 'hits' (Liste), 'filter', 'resource' or 'need'.
 		// The resource is its own page with ?embed=1, so it looks the same everywhere.
 		// The need stays loaded in the background while you look at a resource, so "✓ Velg til …" still works
-		var resourceList = [];      // the resources in the list (from a box)
-		var resourceListType = '';  // the chosen type chip ('' = all)
+		var hitsOnly = null;        // the resources in a box on the map ("Vis i lista"); null = all in "Liste"
 		var openResourceId = null;
 		var panelView = null;       // what the panel shows now (null = closed)
 		var needUrl = null;         // the need that is open (null = none)
 		var needLatLng = null;      // where the open need is on the map
 		var needTitle = '';         // "Du jobber med: …"
 
+		// The same limit as Bootstrap's md: under 768 px the panel is a sheet at the bottom
+		function isPhone() { return window.innerWidth < 768; }
+
 		function showView(view) {
 			panelView = view;
 			var panel = document.getElementById('sidePanel');
-			panel.style.top = document.querySelector('header').offsetHeight + 'px';
+			var headerHeight = document.querySelector('header').offsetHeight;
+			panel.style.top = headerHeight + 'px';
+			panel.style.setProperty('--map-top', headerHeight + 'px'); // the full height of the sheet on phones
+			if (panel.hidden) setSheet('half'); // phones: a new sheet starts at Halv
 			panel.hidden = false;
-			document.getElementById('resourcePanelList').hidden = view !== 'list';
+			document.body.classList.add('map-panel-open');
 			document.getElementById('resourcePanelFrame').hidden = view !== 'resource';
 			document.getElementById('needPanelFrame').hidden = view !== 'need';
 			document.getElementById('sidePanelFull').hidden = view !== 'need' && view !== 'resource';
@@ -1709,10 +1831,11 @@
 			if (view === 'filter' || view === 'hits') document.getElementById('sidePanelTitle').textContent = '';
 			if (view === 'hits') renderHits(window.getResourceParams());
 			if (view === 'need') document.getElementById('sidePanelTitle').textContent = needTitle;
+			placeRadiusBar(view);
 
 			// ‹ back: from a resource to the list, or to the need you are working on
 			var backTo = null;
-			if (view === 'resource' && (resourceList.length > 0 || fromHits)) backTo = 'lista';
+			if (view === 'resource' && fromHits) backTo = 'lista';
 			else if (view !== 'need' && needUrl) backTo = 'behovet';
 			var back = document.getElementById('sidePanelBack');
 			back.hidden = !backTo;
@@ -1723,16 +1846,117 @@
 
 		function sidePanelBack() {
 			if (panelView === 'resource' && fromHits) showView('hits');
-			else if (panelView === 'resource' && resourceList.length > 0) showResourceList();
 			else showView('need');
+		}
+
+		// Phones: "Ressurser i området" is at the top of the Filter tab while the sheet shows Filter,
+		// and floats over the map when the sheet is closed. On PC it always floats over the map (help with AI)
+		function placeRadiusBar(view) {
+			var bar = document.getElementById('radiusBar');
+			var inPanel = isPhone() && view === 'filter';
+			bar.classList.toggle('in-panel', inPanel);
+			if (inPanel && bar.parentElement.id !== 'filterPanelBody') document.getElementById('filterPanelBody').prepend(bar);
+			if (!inPanel && bar.parentElement.id === 'filterPanelBody') document.getElementById('radiusBarSmall').before(bar);
+			if (inPanel && radiusCircle) {
+				radiusBarSmall = false;
+				bar.hidden = false;
+				document.getElementById('radiusBarSmall').hidden = true;
+			}
+		}
+
+		// Phones (help with AI): the sheet has three heights, like Google Maps: Liten, Halv and Full.
+		// It follows the finger while you drag the grip, and stops at the next height when you let go.
+		// Dragging never closes it; only ✕ (or Esc) does. A tap on the grip goes one height up (from Full: back to Halv)
+		// Docs: Pointer events (MDN) - https://developer.mozilla.org/docs/Web/API/Pointer_events
+		var sheetSizes = ['small', 'half', 'full'];
+		var sheetSize = 'half';
+
+		// Liten: the head, "Ressurser i området" (in Filter) and about 90 px of what is under it
+		function smallSheetHeight() {
+			var panel = document.getElementById('sidePanel');
+			var height = document.getElementById('sidePanelGrip').offsetHeight + panel.querySelector('.side-panel-head').offsetHeight + 8;
+			var info = document.getElementById('needModeInfo');
+			if (!info.hidden) height += info.offsetHeight;
+			var bar = document.getElementById('radiusBar');
+			if (bar.classList.contains('in-panel') && !bar.hidden) height += bar.offsetHeight + 12;
+			return Math.min(height + 90, window.innerHeight * 0.5);
+		}
+
+		function setSheet(size) {
+			var panel = document.getElementById('sidePanel');
+			var grip = document.getElementById('sidePanelGrip');
+			sheetSize = size;
+			if (size === 'small') panel.style.setProperty('--sheet-small', smallSheetHeight() + 'px');
+			panel.classList.toggle('is-small', size === 'small');
+			panel.classList.toggle('is-full', size === 'full');
+			grip.setAttribute('aria-expanded', size === 'full');
+			grip.setAttribute('aria-label', size === 'full' ? 'Gjør panelet mindre' : 'Gjør panelet større');
+		}
+
+		(function () {
+			var panel = document.getElementById('sidePanel');
+			var grip = document.getElementById('sidePanelGrip');
+			var startY = null, startHeight = 0, dragged = false;
+			grip.addEventListener('pointerdown', function (e) {
+				startY = e.clientY;
+				startHeight = panel.offsetHeight;
+				dragged = false;
+				grip.setPointerCapture(e.pointerId);
+				panel.classList.add('dragging');
+			});
+			grip.addEventListener('pointermove', function (e) {
+				if (startY === null) return;
+				if (Math.abs(e.clientY - startY) > 6) dragged = true;
+				if (dragged) panel.style.height = Math.max(80, startHeight - (e.clientY - startY)) + 'px';
+			});
+			function dragEnd(e) {
+				if (startY === null) return;
+				var moved = e.clientY - startY;
+				startY = null;
+				panel.classList.remove('dragging');
+				panel.style.height = '';
+				if (!dragged) return; // a tap: the click below does it
+				var i = sheetSizes.indexOf(sheetSize);
+				if (moved < -40) i = Math.min(i + 1, 2);
+				if (moved > 40) i = Math.max(i - 1, 0);
+				setSheet(sheetSizes[i]);
+			}
+			grip.addEventListener('pointerup', dragEnd);
+			grip.addEventListener('pointercancel', dragEnd);
+			// A tap (or Enter with the keyboard): one height up, and from Full back to Halv
+			grip.addEventListener('click', function () {
+				if (dragged) { dragged = false; return; }
+				setSheet(sheetSize === 'full' ? 'half' : sheetSizes[sheetSizes.indexOf(sheetSize) + 1]);
+			});
+		})();
+
+		// How much of the map the panel covers: on PC the left side, on phones the bottom.
+		// Used by fitBounds, so a circle is placed where you can see it (help with AI)
+		// Docs: Leaflet fitBounds options - https://leafletjs.com/reference.html#fitbounds-options
+		function mapPadding() {
+			var panel = document.getElementById('sidePanel');
+			var open = !panel.hidden;
+			if (isPhone()) return { paddingTopLeft: [20, 60], paddingBottomRight: [20, (open ? panel.offsetHeight : 0) + 20] };
+			return { paddingTopLeft: [(open ? panel.offsetWidth : 0) + 20, 20], paddingBottomRight: [20, 20] };
+		}
+
+		// Phones: move the map so the point is in the middle of the part you can see, above the sheet
+		function showAbovePanel(latlng) {
+			var panel = document.getElementById('sidePanel');
+			if (!isPhone() || panel.hidden) return;
+			var visible = map.getSize().y - panel.offsetHeight;
+			var point = map.latLngToContainerPoint(latlng);
+			map.panBy([0, point.y - visible / 2], { animate: false });
 		}
 
 		function openResource(id, fromList) {
 			openResourceId = id;
 			fromHits = !!fromList; // ‹ goes back to "Liste"
+			if (!fromList) hitsOnly = null;
 			document.getElementById('resourcePanelFrame').src = detailUrl + id + '?embed=1';
 			document.getElementById('sidePanelTitle').textContent = '';
 			showView('resource');
+			if (markersById[id]) showAbovePanel(markersById[id].getLatLng());
 		}
 
 		// "Åpne på egen side ↗" in the panel head follows the page in the panel (the resource, or "Endre ressurs"), without ?embed=1
@@ -1849,8 +2073,9 @@
 			if (d.lat == null || d.lng == null) return;
 
 			var pos = L.latLng(d.lat, d.lng);
-			if (d.radiusKm > 0) {
-				L.circle(pos, { radius: d.radiusKm * 1000, color: d.planned ? '#E69500' : '#E24B4A', dashArray: '8 6', fillOpacity: 0.08, interactive: false }).addTo(needPlaceLayer);
+			var km = Math.min(d.radiusKm || 0, 50); // the same limit as the form (0,1–50 km)
+			if (km > 0) {
+				L.circle(pos, { radius: km * 1000, color: d.planned ? '#E69500' : '#E24B4A', dashArray: '8 6', fillOpacity: 0.08, interactive: false }).addTo(needPlaceLayer);
 			}
 			var pin = L.marker(pos, { draggable: true, zIndexOffset: 1000, icon: new L.Icon.Default({ className: 'place-pin' }) }).addTo(needPlaceLayer);
 			pin.on('dragend', function () { sendToNeedForm('need-place-picked', pin.getLatLng()); });
@@ -1863,7 +2088,28 @@
 				flag.on('dragend', function () { sendToNeedForm('need-meeting-moved', flag.getLatLng()); });
 				L.polyline([pos, [d.meeting.lat, d.meeting.lng]], { color: '#7A5AF8', weight: 2, dashArray: '6 6', interactive: false }).addTo(needPlaceLayer);
 			}
-			if (!map.getBounds().contains(pos)) map.panTo(pos);
+			fitNeedPlace(km > 0 ? pos.toBounds(km * 2000) : L.latLngBounds(pos, pos));
+		}
+
+		// The whole circle where you can see it, next to the panel (or above the sheet on phones). The map only moves when
+		// the circle doesn't fit, and waits 300 ms, so typing 7,5 in «Annen …» is one move. Small: fly out; one point: pan to it
+		// Docs: Leaflet flyToBounds - https://leafletjs.com/reference.html#map-flytobounds
+		var needFitTimer = null;
+		function visibleBounds() {
+			var pad = mapPadding();
+			var size = map.getSize();
+			return L.latLngBounds(map.containerPointToLatLng(pad.paddingTopLeft),
+				map.containerPointToLatLng([size.x - pad.paddingBottomRight[0], size.y - pad.paddingBottomRight[1]]));
+		}
+
+		function fitNeedPlace(bounds) {
+			clearTimeout(needFitTimer);
+			needFitTimer = setTimeout(function () {
+				if (visibleBounds().contains(bounds)) return;
+				var options = Object.assign(mapPadding(), { duration: 0.5 });
+				if (bounds.getNorthEast().equals(bounds.getSouthWest())) map.panInside(bounds.getCenter(), mapPadding());
+				else map.flyToBounds(bounds, options);
+			}, 300);
 		}
 
 		// A click on the map while "Meld behov" is open: the form decides if it is the need or the kontaktpunkt
@@ -1874,55 +2120,17 @@
 			drawNeedPlace(e.data);
 		});
 
+		// "Vis i lista" on a box: "Liste" shows only the resources in the box, with a chip «8 på samme sted ✕» (help with AI)
 		function showClusterList() {
 			if (!lastCluster) return;
-			resourceList = lastCluster.getAllChildMarkers().map(function (m) { return m.resource; });
-			resourceListType = '';
+			hitsOnly = lastCluster.getAllChildMarkers().map(function (m) { return m.resource.id; });
 			map.closePopup();
-			showResourceList();
-		}
-
-		function showResourceList() {
-			openResourceId = null;
-			document.getElementById('resourcePanelFrame').src = 'about:blank';
-			showView('list');
-			document.getElementById('sidePanelTitle').textContent = resourceList.length + ' ressurser her';
-			var list = document.getElementById('resourcePanelList');
-
-			// Type chips with the number: a filter for the list
-			var counts = {};
-			resourceList.forEach(function (r) { var t = r.type || 'Ukjent'; counts[t] = (counts[t] || 0) + 1; });
-			var types = Object.keys(counts).sort();
-			var chips = `<div class="d-flex flex-wrap gap-1 mb-2">`
-				+ `<button type="button" class="type-chip ${resourceListType === '' ? 'active' : ''}" data-index="-1">Alle ${resourceList.length}</button>`
-				+ types.map(function (t, i) {
-					return `<button type="button" class="type-chip ${resourceListType === t ? 'active' : ''}" data-index="${i}">${escapeHtml(t)} ${counts[t]}</button>`;
-				}).join('') + `</div>`;
-
-			var rows = resourceList
-				.filter(function (r) { return resourceListType === '' || (r.type || 'Ukjent') === resourceListType; })
-				.map(function (r) {
-					return `<button type="button" class="resource-row" data-id="${r.id}">`
-						+ `<span class="flex-grow-1"><span class="fw-semibold d-block">${escapeHtml(r.name)}</span>`
-						+ `<span class="small text-body-secondary">${escapeHtml(r.type)} · ${escapeHtml(r.status || 'Ledig')}</span></span>`
-						+ `<span aria-hidden="true">›</span></button>`;
-				}).join('');
-
-			list.innerHTML = chips + rows;
-			list.querySelectorAll('.type-chip').forEach(function (chip) {
-				chip.addEventListener('click', function () {
-					var i = parseInt(chip.dataset.index, 10);
-					resourceListType = i < 0 ? '' : types[i];
-					showResourceList();
-				});
-			});
-			list.querySelectorAll('.resource-row').forEach(function (row) {
-				row.addEventListener('click', function () { openResource(parseInt(row.dataset.id, 10)); });
-			});
+			showView('hits');
 		}
 
 		// "Liste" in the side panel (help with AI): the resources that match the filter, in boxes by status like Ressursoversikt,
-		// the nearest first when a point is chosen. A click shows it on the map and opens it in the panel (‹ goes back to the list)
+		// the nearest first when a point is chosen. A click shows it on the map and opens it in the panel (‹ goes back to the list).
+		// Over the list: chips for the box or the distance, so you see what the list is limited to and can remove it with ✕
 		var lastHits = [];     // the resources on the map now (after the filter)
 		var fromHits = false;  // the open resource was chosen in "Liste"
 		var hitGroups = [['Ledig', 'Ledig nå', 'ti-circle-check', 'status-ok'], ['Ledig senere', 'Ledig senere', 'ti-clock', 'status-grey'],
@@ -1934,15 +2142,21 @@
 		}
 
 		function renderHits(params) {
-			document.getElementById('tabHitsCount').textContent = lastHits.length;
+			var shown = hitsOnly ? lastHits.filter(function (r) { return hitsOnly.includes(r.id); }) : lastHits;
+			document.getElementById('tabHitsCount').textContent = shown.length;
 			document.getElementById('hitsOpenList').href = document.getElementById('hitsOpenList').dataset.url + '?' + new URLSearchParams(params);
 			if (panelView !== 'hits') return;
-			var hits = lastHits.slice().sort(function (a, b) {
+			var hits = shown.slice().sort(function (a, b) {
 				return params.lat ? hitDistance(a, params) - hitDistance(b, params) : (a.name || '').localeCompare(b.name || '', 'nb');
 			});
 			document.getElementById('hitsSummary').innerHTML = '<i class="ti ti-filter" aria-hidden="true"></i> ' + hits.length + (hits.length === 1 ? ' ressurs' : ' ressurser')
 				+ (params.lat ? ' <span class="fw-normal text-body-secondary">· nærmest først</span>' : '');
-			var html = '';
+
+			var chips = '';
+			if (hitsOnly) chips += `<button type="button" class="hits-chip" data-clear="box"><i class="ti ti-stack-2" aria-hidden="true"></i> ${hitsOnly.length} på samme sted <i class="ti ti-x" aria-hidden="true"></i><span class="visually-hidden">Fjern</span></button>`;
+			if (params.lat && params.radius) chips += `<button type="button" class="hits-chip" data-clear="radius"><i class="ti ti-map-pin" aria-hidden="true"></i> Innen ${kmText(roundKm(parseFloat(params.radius)))} <i class="ti ti-x" aria-hidden="true"></i><span class="visually-hidden">Fjern</span></button>`;
+
+			var html = chips ? `<div class="hits-chips">${chips}</div>` : '';
 			hitGroups.forEach(function (g) {
 				var inGroup = hits.filter(function (r) { return (r.status || 'Ledig') === g[0]; });
 				if (inGroup.length === 0) return;
@@ -1958,12 +2172,19 @@
 						+ `<span class="status-badge ${g[3]}"><i class="ti ${g[2]}" aria-hidden="true"></i> ${escapeHtml(r.freeFrom || g[0])}</span></button>`;
 				});
 			});
+			if (hits.length === 0) html += '<p class="small text-body-secondary mt-3">Ingen ressurser passer filteret.</p>';
 			var box = document.getElementById('hitsList');
-			box.innerHTML = html || '<p class="small text-body-secondary mt-3">Ingen ressurser passer filteret.</p>';
+			box.innerHTML = html;
+			box.querySelectorAll('.hits-chip').forEach(function (chip) {
+				chip.addEventListener('click', function () {
+					if (chip.dataset.clear === 'box') { hitsOnly = null; renderHits(window.getResourceParams()); }
+					else document.getElementById('radiusRemove').click(); // the same as "Fjern" in "Ressurser i området"
+				});
+			});
 			box.querySelectorAll('.hit-row').forEach(function (row) {
 				row.addEventListener('click', function () {
 					var id = parseInt(row.dataset.id, 10);
-					if (markersById[id]) map.setView(markersById[id].getLatLng(), Math.max(map.getZoom(), 15));
+					if (markersById[id]) map.setView(markersById[id].getLatLng(), Math.max(map.getZoom(), 15), { animate: false });
 					openResource(id, true);
 				});
 			});
@@ -1991,10 +2212,12 @@
 			panelView = null;
 			needUrl = null;
 			needLatLng = null;
-			resourceList = [];
+			hitsOnly = null;
 			fromHits = false;
 			openResourceId = null;
 			document.getElementById('sidePanel').hidden = true;
+			document.body.classList.remove('map-panel-open');
+			placeRadiusBar(null); // phones: "Ressurser i området" floats over the map again
 			moveMapControls();
 			document.getElementById('resourcePanelFrame').src = 'about:blank';
 			document.getElementById('needPanelFrame').src = 'about:blank';
@@ -2126,12 +2349,14 @@
 			chip.innerHTML = '<i class="ti ti-arrow-back-up" aria-hidden="true"></i> ' + count + ' skal leveres tilbake';
 		}
 
-		// + − and Filter move to the right of the side panel while it is open, so they are never hidden under it
+		// + − and Filter move to the right of the side panel while it is open, so they are never hidden under it.
+		// Phones: the sheet is at the bottom, so nothing moves sideways
 		function moveMapControls() {
 			var panel = document.getElementById('sidePanel');
-			document.querySelector('.leaflet-left').style.left = panel.hidden ? '' : panel.offsetWidth + 'px';
+			var side = !panel.hidden && !isPhone();
+			document.querySelector('.leaflet-left').style.left = side ? panel.offsetWidth + 'px' : '';
 			// "Ressurser i området" stays in the middle of the part of the map you can see
-			var left = panel.hidden ? 0 : panel.offsetWidth;
+			var left = side ? panel.offsetWidth : 0;
 			['radiusBar', 'radiusBarSmall'].forEach(function (id) { document.getElementById(id).style.left = 'calc(' + left + 'px + (100% - ' + left + 'px) / 2)'; });
 		}
 

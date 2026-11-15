@@ -1,5 +1,6 @@
 ﻿using Heimevernet_Prosjekt.DataAccess;
 using Heimevernet_Prosjekt.Models.Entities;
+using Heimevernet_Prosjekt.Models.ViewModels;
 using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 using Heimevernet_Prosjekt.Security.Authorization;
 using Heimevernet_Prosjekt.Services;
@@ -22,6 +23,7 @@ namespace Heimevernet_Prosjekt.Controllers
         private readonly IResourceTypeRepository _typeRepository;
         private readonly IResourceRequestRepository _requestRepository;
         private readonly IResourceReportRepository _reportRepository;
+        private readonly IResourceNeedRepository _needRepository; // only for the area picker on Ressurser (the number of needs per kommune)
 
         public ResourceController(
             IResourceRepository resourceRepository,
@@ -29,7 +31,8 @@ namespace Heimevernet_Prosjekt.Controllers
             UserManager<ApplicationUser> userManager,
             IResourceTypeRepository typeRepository,
             IResourceRequestRepository requestRepository,
-            IResourceReportRepository reportRepository)
+            IResourceReportRepository reportRepository,
+            IResourceNeedRepository needRepository)
         {
             _resourceRepository = resourceRepository;
             _authorizationService = authorizationService;
@@ -37,6 +40,7 @@ namespace Heimevernet_Prosjekt.Controllers
             _typeRepository = typeRepository;
             _requestRepository = requestRepository;
             _reportRepository = reportRepository;
+            _needRepository = needRepository;
         }
 
         [HttpGet]
@@ -155,8 +159,9 @@ namespace Heimevernet_Prosjekt.Controllers
         }
 
         [HttpGet]
-        // search/type/lat/lng/radius come from the search and filter in the menu, mine from "Alle | Mine" (all optional)
-        public async Task<IActionResult> List(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null, bool mine = false)
+        // search/type/lat/lng/radius come from the search and filter in the menu, mine from "Alle | Mine" (all optional).
+        // region (admin and operator): the area picker, the same as on Oversikt - ?region=Kristiansand or ?region=alle
+        public async Task<IActionResult> List(string? search = null, string? type = null, double? lat = null, double? lng = null, double? radius = null, bool mine = false, string? region = null)
         {
             var model = new List<ResourceViewModel>();
             var ownerId = mine ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
@@ -167,6 +172,8 @@ namespace Heimevernet_Prosjekt.Controllers
                 .GroupBy(t => t.Name)
                 .ToDictionary(g => g.Key, g => g.First());
             var seeOwners = User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator);
+            // The area is only for admin and operator; others only see their own resources anyway
+            region = seeOwners ? RegionList.Chosen(Request, region) : null; // the saved area first, the same as on Oversikt
             var owners = seeOwners
                 ? _userManager.Users.ToDictionary(u => u.Id, u => (Name: $"{u.FirstName} {u.LastName}".Trim(), Phone: u.PhoneNumber))
                 : new Dictionary<string, (string Name, string? Phone)>();
@@ -178,7 +185,8 @@ namespace Heimevernet_Prosjekt.Controllers
                     .AuthorizeAsync(User, resource, ResourceOperations.Read);
 
                 // Distance is filtered in resource-filter.js, so the filter can count hits for each distance (help with AI)
-                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, null, null, null, ownerId))
+                if (authorizationResult.Succeeded && PassesFilter(resource, search, type, null, null, null, ownerId)
+                    && RegionList.InRegion(RegionList.PlaceOf(resource.Municipality, resource.City), region))
                 {
                     // Same checks as in ResourceHandlerController, so Rediger/Slett only show when they work
                     var canEdit = await _authorizationService
@@ -212,6 +220,17 @@ namespace Heimevernet_Prosjekt.Controllers
                 }
             }
 
+            // Admin and operator: the area line at the top (Views/Shared/_RegionPicker.cshtml)
+            if (seeOwners)
+            {
+                ViewData["RegionPicker"] = new RegionPickerViewModel
+                {
+                    Region = region,
+                    Regions = RegionList.Build(_needRepository.GetAll(), _resourceRepository.GetAll()),
+                    Url = Url.Action(nameof(List))!,
+                    Compact = true
+                };
+            }
             return View(model);
         }
 

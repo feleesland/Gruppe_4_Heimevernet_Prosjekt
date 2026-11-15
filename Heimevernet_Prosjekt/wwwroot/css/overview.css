@@ -1,5 +1,11 @@
-﻿/* "Oversikt" (help with AI). Colours from Bootstrap variables, so light and dark mode both work
+﻿/* "Oversikt" (help with AI). Colours from Bootstrap variables, so light and dark mode both work.
+   The area line and the picker are in region-picker.css (shared with Ressurser and Behov)
    Docs: Bootstrap CSS variables - https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+
+/* Until an area is chosen the rest is dimmed, so the choice comes first */
+.ov-dim {
+    opacity: .45;
+}
 
 .ov-admin {
     display: flex;
@@ -50,7 +56,37 @@
         line-height: 1.2;
     }
 
-/* Active needs: fixed columns, so everything lines up */
+/* «Hva betyr kolonnene?» */
+.ov-help {
+    padding: .4rem .75rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .5rem;
+    background: var(--bs-tertiary-bg);
+    font-size: .875rem;
+}
+
+    .ov-help summary {
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+.ov-help-list {
+    display: grid;
+    grid-template-columns: 12rem 1fr;
+    gap: .25rem .75rem;
+    margin: .5rem 0 .25rem;
+}
+
+    .ov-help-list dt {
+        font-weight: 600;
+    }
+
+    .ov-help-list dd {
+        margin: 0;
+        color: var(--bs-secondary-color);
+    }
+
+/* Active needs: fixed columns, so everything lines up. The whole row opens the need */
 .ov-list {
     border: 1px solid var(--bs-border-color);
     border-radius: .5rem;
@@ -59,7 +95,7 @@
 
 .ov-row {
     display: grid;
-    grid-template-columns: 6rem minmax(0, 1fr) 9rem 12rem 12rem 10.5rem;
+    grid-template-columns: 6rem minmax(0, 1.2fr) minmax(0, 1.5fr) 7rem minmax(0, 1.2fr) 2.25rem 1rem;
     gap: .75rem;
     align-items: center;
     padding: .6rem .75rem;
@@ -77,12 +113,20 @@
     }
 
     .ov-row.is-hot {
-        border-left-color: var(--bs-danger);
+        border-left-color: #c62828;
     }
 
     .ov-row.is-warm {
-        border-left-color: var(--bs-warning);
+        border-left-color: #e69500;
     }
+
+    .ov-row[data-href] {
+        cursor: pointer;
+    }
+
+        .ov-row[data-href]:hover {
+            background: var(--bs-tertiary-bg);
+        }
 
 .ov-name a {
     font-weight: 600;
@@ -98,8 +142,73 @@
     height: .4rem;
 }
 
-.ov-action {
-    justify-self: end;
+/* «Mangler»: one small tag per line. Red = nothing free inside the circle and nobody asked */
+.ov-missing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+}
+
+.ov-miss {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .05rem .45rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: .35rem;
+    background: var(--bs-tertiary-bg);
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+    .ov-miss.is-none {
+        color: #c62828;
+        border-color: #e8a1a1;
+        background: #fdecec;
+    }
+
+    .ov-miss.is-ok {
+        color: var(--bs-success-text-emphasis);
+        border-color: var(--bs-success-border-subtle);
+        background: var(--bs-success-bg-subtle);
+    }
+
+[data-bs-theme="dark"] .ov-miss.is-none {
+    color: var(--bs-danger-text-emphasis);
+    border-color: var(--bs-danger-border-subtle);
+    background: var(--bs-danger-bg-subtle);
+}
+
+/* «Neste steg»: what to do on the first line, why on the second */
+.ov-next {
+    display: flex;
+    flex-direction: column;
+    font-size: .875rem;
+    line-height: 1.3;
+}
+
+    .ov-next b {
+        font-weight: 600;
+    }
+
+    .ov-next span {
+        font-size: .8rem;
+    }
+
+/* The map button: opens Kart at the need or the resource */
+.ov-map {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    font-size: 1.1rem;
+}
+
+.ov-chev {
+    color: var(--bs-secondary-color);
+    font-size: 1.2rem;
 }
 
 /* Akutt / Planlagt: only a line around, no filled box */
@@ -112,29 +221,35 @@
     white-space: nowrap;
 }
 
-.ov-tag-akutt {
-    color: var(--bs-danger-text-emphasis);
-    border-color: var(--bs-danger-border-subtle);
-}
-
 .ov-tag-plan {
     color: var(--bs-primary-text-emphasis);
     border-color: var(--bs-primary-border-subtle);
 }
 
-/* Only the problem is coloured - as text, not a box */
+/* Only the problem is coloured - as text, not a box. Clear red/orange in light mode, the softer ones in dark mode */
 .ov-text-bad {
-    color: var(--bs-danger-text-emphasis);
+    color: #c62828;
     font-weight: 600;
 }
 
 .ov-text-warn {
-    color: var(--bs-warning-text-emphasis);
+    color: #b35c00;
     font-weight: 600;
 }
 
-.ov-text-ok {
-    color: var(--bs-success-text-emphasis);
+.ov-tag-akutt {
+    color: #c62828;
+    border-color: #e8a1a1;
+}
+
+[data-bs-theme="dark"] .ov-text-bad,
+[data-bs-theme="dark"] .ov-tag-akutt {
+    color: var(--bs-danger-text-emphasis);
+    border-color: var(--bs-danger-border-subtle);
+}
+
+[data-bs-theme="dark"] .ov-text-warn {
+    color: var(--bs-warning-text-emphasis);
 }
 
 .ov-more {
@@ -149,13 +264,14 @@
         display: none;
     }
 
-/* Small labels in the "Ute nå" box */
+/* Small labels in the boxes under */
 .ov-badge {
     display: inline-block;
     padding: .1rem .45rem;
     border-radius: .35rem;
     font-size: .75rem;
     white-space: nowrap;
+    justify-self: start;
 }
 
 .ov-warn {
@@ -178,7 +294,7 @@
     border: 1px solid #7A5AF8;
 }
 
-/* The two boxes under */
+/* "Utlånt nå" and "Må følges opp": the whole row opens the need */
 .ov-box {
     height: 100%;
     padding: .75rem;
@@ -192,14 +308,6 @@
     color: var(--bs-secondary-color);
 }
 
-    .ov-group:first-of-type {
-        margin-top: .25rem;
-    }
-
-    .ov-group.is-bad {
-        color: var(--bs-danger-text-emphasis);
-    }
-
     .ov-group.is-warn {
         color: var(--bs-warning-text-emphasis);
     }
@@ -208,31 +316,41 @@
         color: #7A5AF8;
     }
 
-.ov-item {
-    display: flex;
-    flex-wrap: wrap;
+.ov-loan {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem 1rem;
+    gap: .5rem;
     align-items: center;
-    gap: .25rem .5rem;
-    padding: .4rem 0;
+    padding: .45rem .35rem;
     border-top: 1px solid var(--bs-border-color);
+    border-radius: .35rem;
     font-size: .875rem;
+    cursor: pointer;
 }
 
-.ov-group + .ov-item {
+    .ov-loan:hover {
+        background: var(--bs-tertiary-bg);
+    }
+
+.ov-group + .ov-loan {
     border-top: 0;
 }
 
-.ov-item .ov-what {
-    flex: 1 1 8rem;
+.ov-loan-what {
+    display: flex;
+    flex-direction: column;
     min-width: 0;
-    font-weight: 600;
 }
 
-.ov-item form {
-    margin: 0;
-}
+    .ov-loan-what b,
+    .ov-loan-what span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 
-/* Mobile: each need as a small card, no column titles */
+/* Mobile: each need as a card - Akutt and Dekket on top, then the name and «Mangler»,
+   and «Neste steg» with the map button at the bottom. No column titles */
 @media (max-width: 767.98px) {
     .ov-row.ov-head {
         display: none;
@@ -243,26 +361,60 @@
     }
 
     .ov-row {
-        grid-template-columns: 1fr auto;
-        gap: .35rem .75rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: .4rem .75rem;
     }
 
         .ov-row > .ov-when {
-            grid-column: 1 / -1;
-        }
-
-        .ov-row > .ov-name {
             grid-column: 1;
         }
 
-        .ov-row > .ov-action {
+        .ov-row > .ov-progress {
             grid-column: 2;
-            grid-row: 2;
+            grid-row: 1;
+            width: 6rem;
         }
 
-        .ov-row > .ov-progress,
-        .ov-row > .ov-answer,
-        .ov-row > .ov-near {
+        .ov-row > .ov-name,
+        .ov-row > .ov-missing {
             grid-column: 1 / -1;
+        }
+
+        .ov-row > .ov-next {
+            grid-column: 1;
+        }
+
+        .ov-row > .ov-map {
+            grid-column: 2;
+        }
+
+    .ov-map {
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+
+    .ov-chev {
+        display: none;
+    }
+
+    .ov-help-list {
+        grid-template-columns: 1fr;
+    }
+
+    .ov-loan {
+        grid-template-columns: 4rem minmax(0, 1fr) 2.75rem;
+    }
+
+        .ov-loan > :nth-child(3) {
+            grid-column: 2;
+        }
+
+        .ov-loan > .ov-map {
+            grid-column: 3;
+            grid-row: 1 / span 2;
+        }
+
+        .ov-loan > :last-child {
+            display: none;
         }
 }

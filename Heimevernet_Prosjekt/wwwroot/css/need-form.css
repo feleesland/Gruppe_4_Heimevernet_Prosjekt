@@ -619,3 +619,31 @@
             padding: .7rem .9rem;
         }
 }
+/* «+ Info til innbyggere» in Meld behov: a dashed box, so it is clear it is optional */
+.need-public {
+    border: 1px dashed var(--bs-border-color);
+    border-radius: .5rem;
+    padding: .5rem .75rem;
+}
+
+
+/* The radius (help with AI): the list, and the km box next to it when «Annen …» is chosen */
+.need-radius {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.need-radius-other {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+    .need-radius-other[hidden] {
+        display: none;
+    }
+
+.need-radius-input {
+    width: 5.5rem;
+}

@@ -4,16 +4,27 @@
 @{
     ViewData["Title"] = "Behov";
 
-    // Four boxes: Akutt (oldest first, it has waited longest), Planlagt (nearest date first),
+    // Four boxes like on Ressursoversikt: Akutt (oldest first, it has waited longest), Planlagt (nearest date first),
     // Lever tilbake (closed, but resources are still out; oldest first) and Løst (newest first, closed by default)
     var akutt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Akutt).OrderBy(n => n.CreatedAt).ToList();
     var planlagt = Model.Where(n => n.ClosedAt == null && n.Urgency == NeedUrgency.Planlagt).OrderBy(n => n.NeededFrom).ToList();
     var giveBack = Model.Where(n => n.Status == NeedStatus.LeverTilbake).OrderBy(n => n.ClosedAt).ToList();
     var lost = Model.Where(n => n.ClosedAt != null && n.Status != NeedStatus.LeverTilbake).OrderByDescending(n => n.ClosedAt).ToList();
 
-    // The filter: the statuses and the places, each with how many needs it has
+    // The boxes: key, title, icon, the box's colour, the round icon's colour, open from the start, and the needs (help with AI)
+    var groups = new (string Key, string Title, string Icon, string Css, string IconCss, bool Open, List<ResourceNeedViewModel> Needs)[]
+    {
+        ("akutt", "Akutt", "ti-alarm", "res-group-akutt", "list-icon-akutt", true, akutt),
+        ("planlagt", "Planlagt", "ti-calendar", "res-group-planlagt", "list-icon-planlagt", true, planlagt),
+        ("return", "Lever tilbake", "ti-arrow-back-up", "res-group-return", "list-icon-return", true, giveBack),
+        ("lost", "Løst", "ti-flag-check", "res-group-off", "list-icon-busy", false, lost)
+    };
+
+    // The filter: urgency and status, each with how many needs it has. The place is the area at the top (the same as on Oversikt)
+    var urgencies = new[] { (NeedUrgency.Akutt, "⏰ Akutt"), (NeedUrgency.Planlagt, "📅 Planlagt") };
     var statuses = new[] { (NeedStatus.Ny, "🆕 Ny"), (NeedStatus.Vurderes, "🔎 Vurderes"), (NeedStatus.Tildelt, "✅ Tildelt"), (NeedStatus.LeverTilbake, "↩︎ Lever tilbake"), (NeedStatus.Lost, "🏁 Løst") };
-    var places = Model.Select(Place).Where(p => p != "").GroupBy(p => p).OrderBy(g => g.Key).ToList();
+    var regionPicker = ViewData["RegionPicker"] as Heimevernet_Prosjekt.Models.ViewModels.RegionPickerViewModel;
+    var hidePlace = regionPicker?.Region != null && !regionPicker.AllNorway; // one kommune: the kommune on each row is hidden
 }
 
 @functions {
@@ -42,176 +53,196 @@
              : $"{(int)time.TotalDays} d";
     }
 
-    // The region as "Kristiansand": the municipality, or the post town on old needs (Kartverket writes it in capitals)
-    private static string Place(ResourceNeedViewModel n)
-    {
-        var place = string.IsNullOrWhiteSpace(n.Municipality) ? n.City : n.Municipality;
-        return string.IsNullOrWhiteSpace(place) ? "" : System.Globalization.CultureInfo.GetCultureInfo("nb-NO").TextInfo.ToTitleCase(place.Trim().ToLower());
-    }
+    // The kommune as "Kristiansand", the same as the area at the top (Services/RegionList.cs)
+    private static string Place(ResourceNeedViewModel n) => Heimevernet_Prosjekt.Services.RegionList.PlaceOf(n.Municipality, n.City);
 
-    // The grey line under the name: place, and when it was reported / is needed / was closed
-    private static string SubText(ResourceNeedViewModel n)
+    // The small line under the name: when it was reported / is needed / was closed
+    private static string When(ResourceNeedViewModel n) =>
+        n.Status == NeedStatus.LeverTilbake ? $"avsluttet {OsloDate(n.ClosedAt)} · ikke alt er levert tilbake"
+        : n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
+        : n.Urgency == NeedUrgency.Planlagt ? $"trengs {OsloDate(n.NeededFrom)}"
+        : $"meldt for {Ago(n.CreatedAt)} siden";
+
+    private static string Items(ResourceNeedViewModel n) =>
+        n.Items.Count == 0 ? n.Type : string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}"));
+    // Next to the status: how much is covered, or how much is still out
+    private static string CoverText(ResourceNeedViewModel n) => n.Status switch
     {
-        var when = n.Status == NeedStatus.LeverTilbake ? $"avsluttet {OsloDate(n.ClosedAt)} · ikke alt er levert tilbake"
-                 : n.ClosedAt != null ? $"avsluttet {OsloDate(n.ClosedAt)}"
-                 : n.Urgency == NeedUrgency.Planlagt ? $"trengs {OsloDate(n.NeededFrom)}"
-                 : $"meldt for {Ago(n.CreatedAt)} siden";
-        return Place(n) == "" ? when : $"📍 {Place(n)} · {when}";
-    }
+        NeedStatus.Lost => "",
+        NeedStatus.LeverTilbake => $"{n.OutCount} ute",
+        _ => n.Quantity == 0 ? "" : $"{n.Covered}/{n.Quantity}"
+    };
 }
 
-<h1>@ViewData["Title"]</h1>
-
-<a class="button no-print" asp-controller="ResourceNeedHandler" asp-action="Create">
-    + Opprett nytt behov
-</a>
-
-@{
-    // One box: a coloured edge, the number, and a table inside. <details> can be opened and closed without JavaScript (help with AI)
-    // async Task because it uses tag helpers (asp-action, partial) - Docs: <details> (MDN) - https://developer.mozilla.org/docs/Web/HTML/Element/details
-    async Task RenderGroup(string title, string css, List<ResourceNeedViewModel> needs, bool open)
-    {
-        <details class="need-group @css" open="@open">
-            <summary class="need-group-head">@title <span class="need-group-count">@needs.Count</span></summary>
-            @if (needs.Count == 0)
-            {
-                <p class="text-body-secondary small px-3 pb-2 mb-0">Ingen behov her.</p>
-            }
-            else
-            {
-                <div class="table-responsive">
-                    <table class="table need-table align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th scope="col" class="need-col-name">Navn</th>
-                                <th scope="col" class="need-col-status">Status</th>
-                                <th scope="col">Hva trengs</th>
-                                    <th scope="col" class="need-col-actions no-print"><span class="visually-hidden">Handlinger</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var n in needs)
-                            {
-                                @* The whole row opens the need (script below). The name is still a link, so Tab + Enter works.
-                                   data-status/-place/-text are used by the filter *@
-                                <tr class="need-row" data-status="@n.Status" data-place="@Place(n)"
-                                    data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())"
-                                    data-name="@n.Name" data-status-label="@StatusLabel(n.Status)" data-urgency="@n.Urgency"
-                                    data-items="@string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}"))" data-created="@OsloFull(n.CreatedAt)"
-                                    data-needed="@OsloFull(n.NeededFrom)" data-closed="@OsloFull(n.ClosedAt)" data-href="@Url.Action("Index", "ResourceNeed", new { id = n.Id })">
-                                    <td>
-                                        <a class="need-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
-                                        <div class="small text-body-secondary">@SubText(n)</div>
-                                    </td>
-                                    <td><partial name="_NeedStatusBadge" model="n.Status" /></td>
-                                    <td>@(n.Items.Count == 0 ? n.Type : string.Join(", ", n.Items.Select(i => $"{i.Quantity} × {i.Type}")))</td>
-                                        <td class="text-end text-nowrap no-print">
-                                        @* One small menu instead of two buttons - Docs: Bootstrap Dropdowns *@
-                                        <div class="dropdown d-inline-block">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown"
-                                                    data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Flere valg for @n.Name">
-                                                ⋯
-                                            </button>
-                                            <div class="dropdown-menu dropdown-menu-end">
-                                                <a class="dropdown-item" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@n.Id">✎ Rediger</a>
-                                                <div class="dropdown-divider"></div>
-                                                <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@n.Id" method="post">
-                                                    <button type="submit" class="dropdown-item text-danger"
-                                                            onclick="return confirm('Er du sikker på at du vil slette dette behovet?');">
-                                                        🗑 Slett
-                                                    </button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                        <span class="need-arrow ms-2" aria-hidden="true">›</span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            }
-        </details>
-    }
-}
+@* The top row: the title and «Meld behov». The area is at the start of the list bar (B) *@
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 no-print">
+    <h1 class="mb-0 me-2">@ViewData["Title"]</h1>
+    <a class="button m-0" asp-controller="ResourceNeedHandler" asp-action="Create">+ Meld behov</a>
+</div>
 
 @if (!Model.Any())
 {
-    <p>Ingen behov funnet.</p>
+    @* No needs here: the bar with the area anyway, so another area can be chosen *@
+    <div class="list-bar no-print @(regionPicker != null ? "is-region" : "")">
+        @if (regionPicker != null)
+        {
+            <partial name="_RegionPicker" model="regionPicker" />
+        }
+        <span>Ingen behov@(hidePlace ? $" i {regionPicker!.RegionName}" : "") funnet.</span>
+    </div>
 }
 else
 {
-    <div class="row g-4 mt-1">
-        @* The filter on the left: search, status and place. Rows are hidden right away, without reloading (script below) *@
-            <aside class="col-lg-3 col-xxl-2 no-print" aria-label="Filter">
-            <h2 class="h5">Filter</h2>
-            <label for="needSearch" class="form-label small">Søk</label>
-            <input id="needSearch" type="search" class="form-control mb-4" placeholder="Navn eller hva som trengs …" />
+    <div class="row g-4">
+        @* The filter on the left, in cards like on Ressursoversikt. On small screens it folds in behind the "Filter" button
+           Rows are hidden right away, without reloading (script below) - Docs: Bootstrap Collapse *@
+        <aside class="col-md-4 col-lg-3 col-xxl-2 no-print" aria-label="Filter">
+            <button type="button" class="btn btn-success w-100 d-md-none mb-2 d-flex align-items-center justify-content-center gap-2"
+                    data-bs-toggle="collapse" data-bs-target="#needFilter" aria-expanded="false" aria-controls="needFilter">
+                <i class="ti ti-filter" aria-hidden="true"></i> Filter <span id="needFilterCount" class="badge text-bg-light" hidden></span> <i class="ti ti-chevron-down" aria-hidden="true"></i>
+            </button>
+            <div id="needFilter" class="collapse d-md-block">
+                @* "Nullstill alt" at the top, next to the title, so it is easy to find. Grey while nothing is chosen *@
+                <div class="d-flex align-items-center mb-2">
+                    <h2 class="h5 mb-0 d-none d-md-block">Filter</h2>
+                    <button type="button" id="needResetTop" class="btn btn-link btn-sm rf-reset-link ms-auto" disabled><i class="ti ti-refresh" aria-hidden="true"></i> Nullstill alt</button>
+                </div>
 
-            <fieldset class="mb-4">
-                <legend class="h6">Status</legend>
-                @foreach (var (status, label) in statuses)
-                {
-                    <div class="form-check">
-                        <input class="form-check-input need-filter" type="checkbox" id="st-@status" data-group="status" value="@status" data-label="@label" />
-                        <label class="form-check-label d-flex w-100" for="st-@status">@label<span class="ms-auto text-body-secondary">@Model.Count(n => n.Status == status)</span></label>
-                    </div>
-                }
-            </fieldset>
+                <div class="rf-section">
+                    <label for="needSearch" class="visually-hidden">Søk</label>
+                    <input id="needSearch" type="search" class="form-control form-control-sm" placeholder="Navn eller hva som trengs …" />
+                </div>
 
-            @if (places.Count > 0)
-            {
-                <fieldset class="mb-4">
-                    <legend class="h6">📍 Sted</legend>
-                    @for (var i = 0; i < places.Count; i++)
+                <fieldset class="rf-section">
+                    <legend class="rf-section-title"><i class="ti ti-alarm" aria-hidden="true"></i> Hastegrad</legend>
+                    @foreach (var (urgency, label) in urgencies)
                     {
                         <div class="form-check">
-                            <input class="form-check-input need-filter" type="checkbox" id="pl-@i" data-group="place" value="@places[i].Key" data-label="📍 @places[i].Key" />
-                            <label class="form-check-label d-flex w-100" for="pl-@i">@places[i].Key<span class="ms-auto text-body-secondary">@places[i].Count()</span></label>
+                            <input class="form-check-input need-filter" type="checkbox" id="ur-@urgency" data-group="urgency" value="@urgency" data-label="@label" />
+                            <label class="form-check-label d-flex w-100" for="ur-@urgency">@label<span class="rf-pill ms-auto">@Model.Count(n => n.Urgency == urgency)</span></label>
                         </div>
                     }
                 </fieldset>
-            }
 
-            <button type="button" id="needReset" class="btn btn-outline-secondary">Nullstill alt</button>
+                <fieldset class="rf-section">
+                    <legend class="rf-section-title"><i class="ti ti-circle-check" aria-hidden="true"></i> Status</legend>
+                    @foreach (var (status, label) in statuses)
+                    {
+                        <div class="form-check">
+                            <input class="form-check-input need-filter" type="checkbox" id="st-@status" data-group="status" value="@status" data-label="@label" />
+                            <label class="form-check-label d-flex w-100" for="st-@status">@label<span class="rf-pill ms-auto">@Model.Count(n => n.Status == status)</span></label>
+                        </div>
+                    }
+                </fieldset>
+
+                <button type="button" id="needReset" class="btn rf-reset"><i class="ti ti-refresh" aria-hidden="true"></i> Nullstill alt</button>
+            </div>
         </aside>
 
-        <div class="col-lg-9 col-xxl-10">
-            @* How many needs match, and the chosen filters as chips with ✕ *@
-            <div class="d-flex flex-wrap align-items-center gap-2">
+        <div class="col-md-8 col-lg-9 col-xxl-10 need-list @(hidePlace ? "hide-place" : "")">
+            @* Only on paper: title, what is filtered and when it was printed (.print-only in site.css) *@
+            <div class="print-only mb-3">
+                <h2 class="h4 mb-1">Behov – Heimevernet</h2>
+                <div id="needPrintInfo" class="small"></div>
+            </div>
+
+            @* The bar, like on Ressursoversikt: green "Viser 2 av 16" with the chips while something is filtered away, grey "16 behov" otherwise.
+               The area first, and the bar is green (the same area as on Oversikt and Ressurser) *@
+            <div id="needBar" class="list-bar no-print @(regionPicker != null ? "is-region" : "")">
+                @if (regionPicker != null)
+                {
+                    <partial name="_RegionPicker" model="regionPicker" />
+                }
+                <i class="ti ti-filter" aria-hidden="true"></i>
                 <strong id="needCount" aria-live="polite"></strong>
                 <div id="needChips" class="rf-chips" hidden></div>
-                @* Eksporter: the needs that are shown with the filter (help with AI) *@
-                    <div class="dropdown ms-auto no-print">
-                    <button type="button" class="btn btn-sm rf-reset dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="ti ti-download" aria-hidden="true"></i> Eksporter
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><button type="button" class="dropdown-item" data-need-list-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
-                        <li><button type="button" class="dropdown-item" data-need-list-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
-                        <li><button type="button" class="dropdown-item" data-need-list-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
-                    </ul>
-                </div>
+                <span class="ms-auto d-flex gap-2">
+                    <a href="@Url.Action("Map", "Home")" class="btn btn-sm btn-light"><i class="ti ti-map" aria-hidden="true"></i> Vis på kart</a>
+                    @* Eksporter: the needs that are shown with the filter (help with AI) *@
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ti ti-download" aria-hidden="true"></i> Eksporter
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button type="button" class="dropdown-item" data-need-list-export="print"><i class="ti ti-printer" aria-hidden="true"></i> Skriv ut / PDF</button></li>
+                            <li><button type="button" class="dropdown-item" data-need-list-export="csv"><i class="ti ti-file-spreadsheet" aria-hidden="true"></i> CSV (Excel)</button></li>
+                            <li><button type="button" class="dropdown-item" data-need-list-export="json"><i class="ti ti-braces" aria-hidden="true"></i> JSON</button></li>
+                        </ul>
+                    </div>
+                </span>
             </div>
-                @* Only on paper: title, what is filtered and when it was printed (.print-only in site.css) *@
-                <div class="print-only mb-3">
-                    <h2 class="h4 mb-1">Behov – Heimevernet</h2>
-                    <div id="needPrintInfo" class="small"></div>
-                </div>
-            <p id="needNone" class="text-body-secondary mt-3" hidden>Ingen behov passer filteret.</p>
 
-            @{
-                await RenderGroup("⏰ Akutt", "need-group-akutt", akutt, true);
-            }
-            @{
-                await RenderGroup("📅 Planlagt", "need-group-planlagt", planlagt, true);
-            }
-            @if (giveBack.Count > 0)
+            <p id="needNone" class="text-body-secondary" hidden>Ingen behov passer filteret.</p>
+
+            @* One box per group (<details> folds it in and out), one row per need - the same rows as on Ressursoversikt (.res-row in site.css)
+               Lever tilbake is only shown when something must go back *@
+            @foreach (var g in groups.Where(g => g.Key != "return" || g.Needs.Count > 0))
             {
-                await RenderGroup("↩︎ Lever tilbake", "need-group-return", giveBack, true);
-            }
-            @{
-                await RenderGroup("🏁 Løst", "need-group-lost", lost, false);
+                <details class="res-group @g.Css" data-group="@g.Key" open="@g.Open">
+                    <summary class="res-group-head">
+                        <i class="ti @g.Icon" aria-hidden="true"></i> @g.Title
+                        <span class="res-group-count" data-group-count>@g.Needs.Count</span>
+                        @if (g.Key == "return")
+                        {
+                            <span class="small fw-normal opacity-75">behovet er avsluttet</span>
+                        }
+                    </summary>
+                    @if (g.Needs.Count == 0)
+                    {
+                        <p class="text-body-secondary small px-3 py-2 mb-0">Ingen behov her.</p>
+                    }
+                    <div class="res-list" role="list">
+                        @foreach (var n in g.Needs)
+                        {
+                            var place = Place(n);
+                            @* data-*: used by the filter and by Eksporter. A click anywhere on the row opens the need (script below) *@
+                            <div class="res-row need-row" role="listitem"
+                                 data-status="@n.Status" data-urgency="@n.Urgency" data-place="@place"
+                                 data-text="@((n.Name + " " + n.Type + " " + string.Join(" ", n.Items.Select(i => i.Type))).ToLower())"
+                                 data-name="@n.Name" data-status-label="@StatusLabel(n.Status)" data-items="@Items(n)"
+                                 data-created="@OsloFull(n.CreatedAt)" data-needed="@OsloFull(n.NeededFrom)" data-closed="@OsloFull(n.ClosedAt)"
+                                 data-href="@Url.Action("Index", "ResourceNeed", new { id = n.Id })">
+                                <span class="res-icon list-icon @g.IconCss"><i class="ti @g.Icon" aria-hidden="true"></i></span>
+                                <span class="res-name">
+                                    <a class="list-name" asp-action="Index" asp-route-id="@n.Id">@n.Name</a>
+                                    <span class="need-when">@When(n)</span>
+                                </span>
+                                <span class="res-sub">@Items(n)<span class="res-sub-place">@(place == "" ? "" : " · " + place)</span></span>
+                                <span class="res-place"><span class="res-place-name">@(place == "" ? "–" : place)</span></span>
+                                <span class="res-status">
+                                    <partial name="_NeedStatusBadge" model="n.Status" />
+                                    @if (CoverText(n) != "")
+                                    {
+                                        <span class="need-cover">· @CoverText(n)</span>
+                                    }
+                                </span>
+                                <span class="res-edit no-print">
+                                    @if (n.ClosedAt == null)
+                                    {
+                                        <a class="list-edit" asp-controller="ResourceNeedHandler" asp-action="Edit" asp-route-id="@n.Id" aria-label="Rediger @n.Name">
+                                            <i class="ti ti-pencil" aria-hidden="true"></i><span class="res-edit-text"> Rediger</span>
+                                        </a>
+                                    }
+                                    @* Slett in a small menu, so it isn't pressed by mistake - Docs: Bootstrap Dropdowns *@
+                                    <span class="dropdown d-inline-block ms-1">
+                                        <button type="button" class="btn btn-sm btn-link list-edit px-1" data-bs-toggle="dropdown"
+                                                data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Flere valg for @n.Name">
+                                            ⋯
+                                        </button>
+                                        <span class="dropdown-menu dropdown-menu-end">
+                                            <form asp-controller="ResourceNeedHandler" asp-action="Delete" asp-route-id="@n.Id" method="post">
+                                                <button type="submit" class="dropdown-item text-danger"
+                                                        onclick="return confirm('Er du sikker på at du vil slette dette behovet?');">
+                                                    🗑 Slett
+                                                </button>
+                                            </form>
+                                        </span>
+                                    </span>
+                                </span>
+                            </div>
+                        }
+                    </div>
+                </details>
             }
         </div>
     </div>
@@ -220,21 +251,22 @@ else
 @section Scripts {
     <script src="~/js/resource-export.js" asp-append-version="true"></script>
     <script>
-        // A click anywhere on a row opens the need, like Gmail. Not when the click is on the ⋯ menu or another link/button (help with AI)
-        document.querySelectorAll('.need-row').forEach(function (row) {
-            row.addEventListener('click', function (e) {
-                if (e.target.closest('a, button, form, .dropdown-menu')) return;
-                row.querySelector('.need-name').click();
-            });
-        });
-
-        // The filter on Behov: search, status and place hide rows right away. The choices are kept in the URL,
-        // so a link or "Tilbake" shows the same (help with AI) - Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
+        // The filter on Behov (help with AI): search, urgency and status hide rows right away (the place is the area at the top).
+        // The choices are kept in the URL,
+        // so a link or "Tilbake" shows the same - Docs: URLSearchParams (MDN) - https://developer.mozilla.org/docs/Web/API/URLSearchParams
         (function () {
             var search = document.getElementById('needSearch');
             if (!search) return; // no needs at all
             var boxes = Array.from(document.querySelectorAll('.need-filter'));
+            var rows = Array.from(document.querySelectorAll('.need-row'));
             var chips = document.getElementById('needChips');
+
+            // A click anywhere on a row opens the need, like on Ressursoversikt. Not on the links, the ⋯ menu or its buttons
+            rows.forEach(function (row) {
+                row.addEventListener('click', function (e) {
+                    if (!e.target.closest('a, button, form, .dropdown-menu')) window.location.href = row.dataset.href;
+                });
+            });
 
             function chosen(group) {
                 return boxes.filter(function (b) { return b.dataset.group === group && b.checked; }).map(function (b) { return b.value; });
@@ -257,28 +289,37 @@ else
 
             function apply() {
                 var text = search.value.trim().toLowerCase();
+                var urgency = chosen('urgency');
                 var status = chosen('status');
-                var place = chosen('place');
-                var active = text !== '' || status.length > 0 || place.length > 0;
+                var choices = (text !== '' ? 1 : 0) + urgency.length + status.length;
+                var active = choices > 0;
                 var total = 0;
 
-                document.querySelectorAll('.need-group').forEach(function (group) {
+                document.querySelectorAll('details[data-group]').forEach(function (group) {
                     var shown = 0;
                     group.querySelectorAll('.need-row').forEach(function (row) {
                         var ok = (text === '' || row.dataset.text.includes(text))
-                            && (status.length === 0 || status.includes(row.dataset.status))
-                            && (place.length === 0 || place.includes(row.dataset.place));
+                            && (urgency.length === 0 || urgency.includes(row.dataset.urgency))
+                            && (status.length === 0 || status.includes(row.dataset.status));
                         row.hidden = !ok;
                         if (ok) shown++;
                     });
-                    group.querySelector('.need-group-count').textContent = shown;
+                    group.querySelector('[data-group-count]').textContent = shown;
                     group.hidden = active && shown === 0; // boxes without hits are hidden while filtering
-                    if (active && shown > 0 && group.classList.contains('need-group-lost')) group.open = true; // e.g. Løst + Kristiansand
+                    if (active && shown > 0 && group.dataset.group === 'lost') group.open = true; // e.g. a search that only finds solved needs
                     total += shown;
                 });
 
-                document.getElementById('needCount').textContent = active ? total + ' behov passer' : '';
+                // A chosen row: bold name and a green number (the tick shows it too)
+                boxes.forEach(function (b) { b.closest('.form-check').classList.toggle('is-picked', b.checked); });
+
+                document.getElementById('needCount').textContent = active ? 'Viser ' + total + ' av ' + rows.length : rows.length + ' behov';
+                document.getElementById('needBar').classList.toggle('is-filtered', active);
                 document.getElementById('needNone').hidden = total > 0;
+                document.getElementById('needResetTop').disabled = !active;
+                var badge = document.getElementById('needFilterCount');
+                badge.textContent = choices;
+                badge.hidden = !active;
 
                 chips.replaceChildren();
                 if (text !== '') addChip('«' + search.value.trim() + '»', function () { search.value = ''; });
@@ -289,55 +330,62 @@ else
                 chips.hidden = chips.children.length === 0;
 
                 var params = new URLSearchParams();
+                var region = new URLSearchParams(location.search).get('region');
+                if (region) params.set('region', region); // the area stays in the address
                 if (text !== '') params.set('q', search.value.trim());
+                if (urgency.length > 0) params.set('haste', urgency.join(','));
                 if (status.length > 0) params.set('status', status.join(','));
-                if (place.length > 0) params.set('place', place.join('|'));
                 history.replaceState(null, '', location.pathname + (params.toString() === '' ? '' : '?' + params));
             }
 
             // Start: the choices from the URL
             var start = new URLSearchParams(location.search);
             search.value = start.get('q') || '';
-            var startStatus = (start.get('status') || '').split(',');
-            var startPlace = (start.get('place') || '').split('|');
-            boxes.forEach(function (b) {
-                b.checked = (b.dataset.group === 'status' ? startStatus : startPlace).includes(b.value);
-            });
+            var startChoices = {
+                urgency: (start.get('haste') || '').split(','),
+                status: (start.get('status') || '').split(',')
+            };
+            boxes.forEach(function (b) { b.checked = startChoices[b.dataset.group].includes(b.value); });
 
             search.addEventListener('input', apply);
             boxes.forEach(function (b) { b.addEventListener('change', apply); });
-            document.getElementById('needReset').addEventListener('click', function () { reset(); apply(); });
+            ['needReset', 'needResetTop'].forEach(function (id) {
+                document.getElementById(id).addEventListener('click', function () { reset(); apply(); });
+            });
             apply();
         })();
 
         // Eksporter on Behov (help with AI): only the rows the filter shows, also in closed boxes (Løst)
         document.querySelectorAll('[data-need-list-export]').forEach(function (button) {
             button.addEventListener('click', function () {
-                        // Skriv ut / PDF: a line with what is filtered and when, every box opened (Løst too), then the print window
-                        if (button.dataset.needListExport === 'print') {
-                            var shown = Array.from(document.querySelectorAll('.need-row')).filter(function (row) { return !row.hidden; }).length;
-                            var chipsText = Array.from(document.querySelectorAll('#needChips .rf-chip:not(.rf-chip-reset)'))
-                                .map(function (c) { return c.textContent.replace(' ✕', ''); }).join(' · ');
-                            document.getElementById('needPrintInfo').textContent = shown + ' behov'
-                                + (chipsText ? ' · ' + chipsText : '')
-                                + ' · Skrevet ut ' + new Date().toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
-                            document.querySelectorAll('.need-group').forEach(function (g) { g.open = true; });
-                            window.print();
-                            return;
-                        }
-                var rows = Array.from(document.querySelectorAll('.need-row'))
-                    .filter(function (row) { return !row.hidden && !row.closest('.need-group').hidden; })
-                    .map(function (row) {
-                        var d = row.dataset;
-                        return {
-                            Navn: d.name, Status: d.statusLabel, Hastegrad: d.urgency, Sted: d.place,
-                            'Hva trengs': d.items, Meldt: d.created, 'Trengs fra': d.needed, Avsluttet: d.closed,
-                            Lenke: location.origin + d.href
-                        };
-                    });
-                ResourceExport.download(rows, 'behov', button.dataset.needListExport);
+                var shownRows = Array.from(document.querySelectorAll('.need-row'))
+                    .filter(function (row) { return !row.hidden && !row.closest('[data-group]').hidden; });
+
+                // Skriv ut / PDF: a line with what is filtered and when, every box opened (Løst too), then the print window
+                if (button.dataset.needListExport === 'print') {
+                    var chipsList = Array.from(document.querySelectorAll('#needChips .rf-chip:not(.rf-chip-reset)'))
+                        .map(function (c) { return c.textContent.replace(' ✕', ''); });
+                    var area = new URLSearchParams(location.search).get('region');
+                    if (area && area !== 'alle') chipsList.unshift(area); // the area first on paper
+                    var chipsText = chipsList.join(' · ');
+                    document.getElementById('needPrintInfo').textContent = shownRows.length + ' behov'
+                        + (chipsText ? ' · ' + chipsText : '')
+                        + ' · Skrevet ut ' + new Date().toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' });
+                    document.querySelectorAll('details[data-group]').forEach(function (g) { g.open = true; });
+                    window.print();
+                    return;
+                }
+
+                var data = shownRows.map(function (row) {
+                    var d = row.dataset;
+                    return {
+                        Navn: d.name, Status: d.statusLabel, Hastegrad: d.urgency, Sted: d.place,
+                        'Hva trengs': d.items, Meldt: d.created, 'Trengs fra': d.needed, Avsluttet: d.closed,
+                        Lenke: location.origin + d.href
+                    };
+                });
+                ResourceExport.download(data, 'behov', button.dataset.needListExport);
             });
         });
-
     </script>
 }
