@@ -2010,7 +2010,6 @@ html:not([data-bs-theme]) #activeList .btn-outline-warning {
         overflow-y: auto;
     }
 }
-
 /* The links at the top never wrap: "Behov" stays on the same line, and the search shrinks instead (help with AI)
    Docs: https://developer.mozilla.org/docs/Web/CSS/flex-wrap */
 @media (min-width: 576px) {
