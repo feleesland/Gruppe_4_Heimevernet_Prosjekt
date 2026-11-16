@@ -18,6 +18,7 @@ public sealed class RegisterViewModel
 
     [Required]
     [EmailAddress]
+    [Display(Name = "E-post")]
     public string Email { get; set; } = string.Empty;
 
     [Required]
@@ -27,6 +28,7 @@ public sealed class RegisterViewModel
 
     [Required]
     [DataType(DataType.Password)]
+    [Display(Name = "Passord")]
     public string Password { get; set; } = string.Empty;
 
     [Required]
@@ -34,4 +36,9 @@ public sealed class RegisterViewModel
     [Compare(nameof(Password), ErrorMessage = "Passordene matcher ikke.")]
     [Display(Name = "Gjenta passord")]
     public string ConfirmPassword { get; set; } = string.Empty;
+
+    // Demo only (Auth:AllowRoleChoice): the role the visitor wants to try. The server only accepts User or Operator,
+    // and only when the switch is on - otherwise every new account is User (help with AI)
+    // Docs: https://learn.microsoft.com/aspnet/core/security/authorization/roles
+    public string? DemoRole { get; set; }
 }

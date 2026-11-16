@@ -369,18 +369,19 @@ footer.footer {
 
     /* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
    Narrower when the screen is small, so it never covers the links. On phones the menu folds up, so it stays in the flow */
-    @media (min-width: 1460px) {
-        .navbar .nav-search {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            width: clamp(300px, calc(100vw - 1160px), 640px);
-        }
-
-        .navbar .account-nav {
-            margin-left: auto;
-        }
+@media (min-width: 1600px) {
+    .navbar .nav-search {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        /* 1300px keeps the search clear of the links (Hjem … Behov) on the left (help with AI) */
+        width: clamp(300px, calc(100vw - 1300px), 640px);
     }
+
+    .navbar .account-nav {
+        margin-left: auto;
+    }
+}
     /* The status of a need (Ny, Vurderes, Tildelt, Løst): a pill with icon + text. Stronger colour the further it has come */
     .need-status {
         display: inline-block;
@@ -1829,7 +1830,7 @@ footer.footer {
    overflow-x: clip stops the page from being wider than the screen (no white stripe on the right, no sideways scroll)
    Docs: flex-basis (MDN) - https://developer.mozilla.org/docs/Web/CSS/flex-basis  ·  overflow clip (MDN) - https://developer.mozilla.org/docs/Web/CSS/overflow */
 
-@media (max-width: 1199.98px) {
+@media (max-width: 1599.98px) {
     .navbar .nav-search {
         flex: 1 1 0;
         min-width: 0;
@@ -1953,4 +1954,68 @@ html:not([data-bs-theme]) #activeList .btn-outline-warning {
     --bs-btn-hover-color: #000;
     --bs-btn-hover-bg: #ffc107;
     --bs-btn-hover-border-color: #ffc107;
+}
+/* Register: the demo role choice (only for the expo). Dashed yellow border and a label,
+   so nobody thinks you can choose your own role in the real solution (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+.demo-role {
+    border: 2px dashed var(--bs-warning);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-warning-bg-subtle);
+    padding: .75rem 1rem 1rem;
+}
+
+/* Title inside the box (not on the border), with the rest below it (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/content/reboot/#legend */
+.demo-role-title {
+    float: left;
+    width: 100%;
+    padding: 0;
+    margin: 0 0 .5rem;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--bs-warning-text-emphasis);
+}
+
+    .demo-role-title + * {
+        clear: left;
+    }
+
+/* The chosen role also gets "✓ Valgt", so it isn't shown by colour alone (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/forms/checks-radios/#toggle-buttons */
+.demo-role .btn-check:checked + label::after {
+    content: "✓ Valgt";
+    float: right;
+    font-size: .8rem;
+    font-weight: 600;
+    margin-top: -1.35rem;
+}
+/* Dark mode: the role not chosen was dark green on dark brown, so a lighter green (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/components/buttons/#variables */
+[data-bs-theme="dark"] .demo-role .btn-outline-success {
+    --bs-btn-color: #75b798;
+    --bs-btn-border-color: #75b798;
+}
+/* Phone: the ⚙ menu and the account menu hung from the button and slid off the left edge.
+   Below 576px they sit just under the header, full width with a small margin (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/components/dropdowns/#alignment-options */
+@media (max-width: 575.98px) {
+    .navbar .dropdown-menu.account-menu {
+        position: fixed;
+        top: 4.75rem;
+        left: .5rem;
+        right: .5rem;
+        width: auto;
+        max-height: calc(100vh - 6rem);
+        overflow-y: auto;
+    }
+}
+/* The links at the top never wrap: "Behov" stays on the same line, and the search shrinks instead (help with AI)
+   Docs: https://developer.mozilla.org/docs/Web/CSS/flex-wrap */
+@media (min-width: 576px) {
+    #mainNavigation > .navbar-nav:first-child {
+        flex-wrap: nowrap;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
 }

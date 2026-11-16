@@ -64,7 +64,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     options.Password.RequireNonAlphanumeric = false;
     options.Password.RequireUppercase = false;
 
-    options.SignIn.RequireConfirmedAccount = true;
+    // Email confirmation can be switched off in appsettings (off in Development, so the expo works without SendGrid) (help with AI)
+    // Docs: https://learn.microsoft.com/aspnet/core/fundamentals/configuration
+    options.SignIn.RequireConfirmedAccount = builder.Configuration.GetValue("Auth:RequireConfirmedAccount", true);
     options.User.RequireUniqueEmail = true;
     options.Lockout.AllowedForNewUsers = true;
     options.Lockout.MaxFailedAccessAttempts = 10;
@@ -104,6 +106,7 @@ using (var scope = app.Services.CreateScope())
     {
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
         await IdentitySeeder.SeedDevelopmentAdminAsync(userManager);
+        await IdentitySeeder.SeedDevelopmentOperatorAsync(userManager);
         await IdentitySeeder.SeedDevelopmentUserAsync(userManager);
 
         ResourceDbSeeder.SeedTestResources(db);

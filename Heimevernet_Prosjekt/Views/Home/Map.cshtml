@@ -1695,7 +1695,9 @@
 				closeSidePanel();
 			}
 			if (e.data.type === 'need-created') {
-				closeSidePanel();
+				// The new need opens in the panel, so you can start finding resources right away (help with AI)
+				var where = (e.data.lat != null && e.data.lng != null) ? L.latLng(e.data.lat, e.data.lng) : null;
+				openNeedPanel(e.data.url, where);
 				loadNeeds(); // the new circle shows up right away
 			}
 		});

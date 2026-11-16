@@ -98,14 +98,29 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
             Email = model.Email,
             PhoneNumber = model.PhoneNumber,
             FirstName = model.FirstName,
-            LastName = model.LastName
+            LastName = model.LastName,
+            // Without email confirmation the account is ready right away (help with AI)
+            EmailConfirmed = !userManager.Options.SignIn.RequireConfirmedAccount
         };
         var result = await userManager.CreateAsync(user, model.Password);
         if (result.Succeeded)
         {
             // New accounts always get the User role, never chosen by the user - Docs: Role-based authorization
             // https://learn.microsoft.com/aspnet/core/security/authorization/roles
-            await userManager.AddToRoleAsync(user, RoleNames.User);
+            // Demo (Auth:AllowRoleChoice, on only for the expo): the visitor may try Operator. Admin can never be chosen,
+            // and with the switch off the choice is ignored, so it can't be faked by editing the form (help with AI)
+            // Docs: https://learn.microsoft.com/aspnet/core/fundamentals/configuration
+            var allowRoleChoice = HttpContext.RequestServices.GetRequiredService<IConfiguration>().GetValue("Auth:AllowRoleChoice", false);
+            var role = allowRoleChoice && model.DemoRole == RoleNames.Operator ? RoleNames.Operator : RoleNames.User;
+            await userManager.AddToRoleAsync(user, role);
+
+            // Confirmation switched off (appsettings): log in now, no email is sent (help with AI)
+            // Docs: https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
+            if (!userManager.Options.SignIn.RequireConfirmedAccount)
+            {
+                await signInManager.SignInAsync(user, isPersistent: false);
+                return RedirectToAction("Index", "Home");
+            }
 
             // Send a link the user must click before they can log in - Docs: Account confirmation and password recovery
             // https://learn.microsoft.com/aspnet/core/security/authentication/accconfirm
@@ -130,7 +145,13 @@ public sealed class AccountController(UserManager<ApplicationUser> userManager, 
         var duplicateCodes = new[] { "DuplicateUserName", "DuplicateEmail" };
         var otherErrors = result.Errors.Where(e => !duplicateCodes.Contains(e.Code)).ToList();
         if (otherErrors.Count == 0)
-        {
+        {               
+            // Without email we can't send the warning, so say it here (help with AI)
+            if (!userManager.Options.SignIn.RequireConfirmedAccount)
+            {
+                ModelState.AddModelError(string.Empty, "Det finnes allerede en konto med denne e-posten.");
+                return View(model);
+            }
             await emailSender.SendEmailAsync(
                 model.Email,
                 "Noen prøvde å registrere seg med e-posten din",

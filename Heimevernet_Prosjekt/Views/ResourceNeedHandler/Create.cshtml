@@ -204,7 +204,12 @@
         <div class="need-bar">
             <span id="needSummary" class="small text-body-secondary"></span>
             <button type="submit" id="submitButton" class="btn btn-primary ms-auto">@(editing ? "Lagre endringer" : "Meld behov")</button>
-            @if (embed)
+            @if (embed && editing)
+            {
+                @* In the side panel, editing: back to the need, still in the panel (help with AI) *@
+                <a asp-controller="ResourceNeed" asp-action="Index" asp-route-id="@Model.EditNeedId" asp-route-embed="1" class="btn rf-reset">Avbryt</a>
+            }
+            else if (embed)
             {
                 @* In the side panel: tell the map to close the panel *@
                 <button type="button" class="btn rf-reset" onclick="parent.postMessage({ type: 'need-close' }, location.origin);">Avbryt</button>
