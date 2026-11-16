@@ -92,8 +92,6 @@
 <button type="button" id="radiusBarSmall" class="radius-bar-small" hidden></button>
 
 <style>
-
-	/* The box with the number: green, white border, big enough to read and tap */
 	.resource-cluster {
 		display: flex;
 		align-items: center;
@@ -109,12 +107,10 @@
 		box-shadow: 0 1px 4px rgba(0,0,0,.5);
 	}
 
-	
-	/* Thin black outline around the resource icons, so they stand out on the map (only images, not the need squares) */
 	.leaflet-marker-pane img.leaflet-marker-icon {
 		filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
 	}
-	/* The side panel: on the left, under the menu, like Google Maps. Colours follow light/dark mode */
+
 	.side-panel {
 		position: fixed;
 		left: 0;
@@ -129,9 +125,9 @@
 		box-shadow: 4px 0 16px rgba(0,0,0,.25);
 	}
 
-		.side-panel[hidden], .side-panel iframe[hidden], .side-panel-list[hidden] {
-			display: none;
-		}
+	.side-panel[hidden], .side-panel iframe[hidden], .side-panel-list[hidden] {
+		display: none;
+	}
 
 	.side-panel-head {
 		display: flex;
@@ -153,7 +149,6 @@
 		padding: 8px 12px;
 	}
 
-	/* The handle on the right edge of the side panel */
 	.side-panel-resize {
 		position: absolute;
 		right: -4px;
@@ -164,23 +159,23 @@
 		z-index: 1;
 	}
 
-		.side-panel-resize:hover, .side-panel-resize:focus-visible, .side-panel.resizing .side-panel-resize {
-			background: var(--hv-link);
-			outline: none;
-		}
-	/* While dragging, the page in the panel must not catch the mouse */
+	.side-panel-resize:hover, .side-panel-resize:focus-visible, .side-panel.resizing .side-panel-resize {
+		background: var(--hv-link);
+		outline: none;
+	}
+
 	.side-panel.resizing iframe {
 		pointer-events: none;
 	}
-	/* The map fills the screen under the menu, without scrolling. The footer is hidden on this page */
+
 	body:has(#map) {
 		overflow: hidden;
 		margin-bottom: 0;
 	}
 
-		body:has(#map) footer {
-			display: none;
-		}
+	body:has(#map) footer {
+		display: none;
+	}
 
 	#map {
 		width: 100vw;
@@ -223,15 +218,14 @@
 		white-space: nowrap;
 	}
 
-		.need-label.akutt {
-			color: #E24B4A;
-		}
+	.need-label.akutt {
+		color: #E24B4A;
+	}
 
-		.need-label.planlagt {
-			color: #7A5200;
-		}
+	.need-label.planlagt {
+		color: #7A5200;
+	}
 
-	/* Click on the map (help with AI): the address, three round buttons with text under, and what is near, like Google Maps */
 	.point-menu {
 		min-width: 230px;
 	}
@@ -304,7 +298,6 @@
 		text-align: center;
 	}
 
-	/* Phones: the same as a sheet from the bottom */
 	.map-sheet {
 		position: fixed;
 		left: 0;
@@ -318,9 +311,9 @@
 		box-shadow: 0 -4px 16px rgba(0,0,0,.3);
 	}
 
-		.map-sheet[hidden] {
-			display: none;
-		}
+	.map-sheet[hidden] {
+		display: none;
+	}
 
 	.map-sheet-grip {
 		width: 40px;
@@ -336,7 +329,6 @@
 		right: 12px;
 	}
 
-	/* Liste | Filter in the panel head (help with AI): the two tabs share the width, and ✕ has its own box on the right */
 	.side-panel-head.tabbed {
 		padding: 0;
 		gap: 0;
@@ -362,28 +354,28 @@
 		font-weight: 500;
 	}
 
-		.panel-tab + .panel-tab {
-			border-left: 1px solid var(--bs-border-color);
-		}
+	.panel-tab + .panel-tab {
+		border-left: 1px solid var(--bs-border-color);
+	}
 
-		.panel-tab.active {
-			color: var(--bs-body-color);
-			border-bottom-color: var(--hv-green);
-		}
+	.panel-tab.active {
+		color: var(--bs-body-color);
+		border-bottom-color: var(--hv-green);
+	}
 
-		.panel-tab:focus:not(:focus-visible) {
-			outline: none; /* no frame after a mouse click, still there with the keyboard (Tab) */
-		}
+	.panel-tab:focus:not(:focus-visible) {
+		outline: none; /* no frame after a mouse click, still there with the keyboard (Tab) */
+	}
 
-		.panel-tab .badge {
-			background: var(--bs-secondary-bg);
-			color: var(--bs-body-color);
-		}
+	.panel-tab .badge {
+		background: var(--bs-secondary-bg);
+		color: var(--bs-body-color);
+	}
 
-		.panel-tab.active .badge {
-			background: var(--hv-green);
-			color: #fff;
-		}
+	.panel-tab.active .badge {
+		background: var(--hv-green);
+		color: #fff;
+	}
 
 	.side-panel-head.tabbed .btn-close {
 		align-self: stretch;
@@ -414,9 +406,9 @@
 		color: inherit;
 	}
 
-		.hit-row:hover {
-			background: var(--bs-secondary-bg);
-		}
+	.hit-row:hover {
+		background: var(--bs-secondary-bg);
+	}
 
 	.hit-text {
 		flex: 1;
@@ -438,7 +430,7 @@
 		font-size: .85rem;
 		color: color-mix(in srgb, var(--bs-body-color) 78%, transparent);
 	}
-	/* Need mode: the top of the panel is yellow, and an info box says what to do and what the rings mean (text + icon, not only colour) */
+
 	.need-mode-info {
 		background: #ffc107;
 		color: #000;
@@ -447,9 +439,9 @@
 		font-size: .9rem;
 	}
 
-		.need-mode-info[hidden] {
-			display: none;
-		}
+	.need-mode-info[hidden] {
+		display: none;
+	}
 
 	.need-mode-legend {
 		display: flex;
@@ -472,10 +464,10 @@
 		font-weight: 700;
 	}
 
-		.ring-dot.ring-picked {
-			border-color: #378ADD;
-			background: rgba(55,138,221,.35);
-		}
+	.ring-dot.ring-picked {
+		border-color: #378ADD;
+		background: rgba(55,138,221,.35);
+	}
 
 	.side-panel.need-mode .side-panel-head {
 		background: #ffc107;
@@ -483,32 +475,31 @@
 		border-bottom-color: rgba(0,0,0,.15);
 	}
 
-	/* "Åpne på egen side": the button and ✕ sit together on the right */
 	.panel-full-btn {
 		white-space: nowrap;
 	}
 
-		.panel-full-btn:not([hidden]) + .btn-close {
-			margin-left: 0 !important;
-		}
+	.panel-full-btn:not([hidden]) + .btn-close {
+		margin-left: 0 !important;
+	}
 
 	.side-panel.need-mode .panel-full-btn {
 		border-color: rgba(0,0,0,.45);
 	}
 
-		.side-panel.need-mode .panel-full-btn:hover {
-			background: rgba(0,0,0,.1);
-			color: #000;
-		}
+	.side-panel.need-mode .panel-full-btn:hover {
+		background: rgba(0,0,0,.1);
+		color: #000;
+	}
 
 	.side-panel.need-mode .side-panel-head a, .side-panel.need-mode .side-panel-head .btn-link {
 		color: #000;
 	}
 
 	.side-panel.need-mode .side-panel-head .btn-close {
-		filter: none; /* the black ✕, also in dark mode */
+		filter: none;
 	}
-	/* The ✓ on a chosen resource in need mode */
+
 	.picked-check {
 		display: flex;
 		align-items: center;
@@ -522,7 +513,7 @@
 		font-size: 13px;
 		border: 2px solid #fff;
 	}
-	/* The short message at the bottom of the screen, like Google Maps */
+
 	.map-toast {
 		position: fixed;
 		bottom: 24px;
@@ -536,10 +527,10 @@
 		box-shadow: 0 2px 10px rgba(0,0,0,.4);
 	}
 
-		.map-toast[hidden] {
-			display: none;
-		}
-	/* "Ressurser i området" at the bottom of the map, and the small button after "Ferdig". Colours follow light/dark mode */
+	.map-toast[hidden] {
+		display: none;
+	}
+
 	.radius-bar, .radius-bar-small {
 		position: fixed;
 		bottom: 24px;
@@ -564,9 +555,9 @@
 		font-weight: 600;
 	}
 
-		.radius-bar[hidden], .radius-bar-small[hidden] {
-			display: none;
-		}
+	.radius-bar[hidden], .radius-bar-small[hidden] {
+		display: none;
+	}
 
 	.radius-chip {
 		border: 1px solid var(--bs-border-color);
@@ -576,14 +567,13 @@
 		color: inherit;
 	}
 
-		.radius-chip.active {
-			background: var(--bs-success-bg-subtle);
-			border-color: var(--bs-success-border-subtle);
-			color: var(--bs-success-text-emphasis);
-			font-weight: 600;
-		}
+	.radius-chip.active {
+		background: var(--bs-success-bg-subtle);
+		border-color: var(--bs-success-border-subtle);
+		color: var(--bs-success-text-emphasis);
+		font-weight: 600;
+	}
 
-	/* The white dot on the edge of the circle: drag it to change the distance */
 	.radius-handle {
 		width: 22px;
 		height: 22px;
@@ -593,13 +583,13 @@
 		box-shadow: 0 1px 4px rgba(0,0,0,.5);
 		cursor: ew-resize;
 	}
-	/* + −, Filter and the chips in one row at the top left, like Google Maps */
+
 	.leaflet-top.leaflet-left {
 		display: flex;
 		align-items: flex-start;
 		right: 0;
 	}
-	/* Tegnforklaring nede til høyre; colours follow light/dark mode */
+
 	.map-legend {
 		background: var(--bs-body-bg);
 		color: var(--bs-body-color);
@@ -611,10 +601,10 @@
 		max-width: 240px;
 	}
 
-		.map-legend summary {
-			cursor: pointer;
-			font-weight: 600;
-		}
+	.map-legend summary {
+		cursor: pointer;
+		font-weight: 600;
+	}
 
 	.map-legend-title {
 		margin-top: 6px;
@@ -686,7 +676,6 @@
 		border-top: 2px dashed #378ADD;
 	}
 
-	/* "Endre ressurs" in the panel, step 3: the line at the top of the map, and the other markers faded and not clickable */
 	.place-bar {
 		position: absolute;
 		top: 12px;
@@ -711,12 +700,10 @@
 		outline: none;
 	}
 
-	/* "Meld behov" in the side panel: the stripe is purple while the kontaktpunkt is chosen */
 	.place-bar.is-meeting {
 		background: #7A5AF8;
 	}
 
-	/* The resource pins (resourcePin below): green = ledig now, grey = not ledig now; the white icon is the type's own icon */
 	.resource-pin svg {
 		position: absolute;
 		inset: 0;
@@ -724,7 +711,7 @@
 		stroke: #fff;
 		stroke-width: 2;
 		filter: drop-shadow(0 1px 2px rgba(0,0,0,.5));
-		z-index: 0; /* Leaflet gives every svg on the map z-index 200; ours must stay under the icon */
+		z-index: 0;
 	}
 
 	.resource-pin-busy svg {
@@ -739,12 +726,11 @@
 		text-align: center;
 		color: #fff;
 		font-size: 18px;
-		z-index: 1; /* on top of the green shape */
+		z-index: 1;
 		display: block;
 		line-height: 1;
 	}
 
-	/* "Lever tilbake": a purple ring, a ↩︎ badge and a name tag, so it is easy to see (icon + text, not colour alone) */
 	.resource-pin-return::before {
 		content: "";
 		position: absolute;
@@ -790,7 +776,6 @@
 		box-shadow: 0 1px 3px rgba(0,0,0,.3);
 	}
 
-	/* "↩︎ 2 skal leveres tilbake" next to Filter */
 	.return-chip {
 		margin-left: 8px;
 		padding: 6px 14px;
@@ -802,11 +787,10 @@
 		box-shadow: 0 1px 6px rgba(0,0,0,.35);
 	}
 
-		.return-chip[hidden] {
-			display: none;
-		}
+	.return-chip[hidden] {
+		display: none;
+	}
 
-	/* Over "Liste" (help with AI): what the list is limited to, as chips you can remove with ✕ */
 	.hits-chips {
 		display: flex;
 		flex-wrap: wrap;
@@ -826,7 +810,6 @@
 		font-size: .85rem;
 	}
 
-	/* The grip is only used on phones */
 	.side-panel-grip {
 		display: none;
 	}
@@ -847,22 +830,22 @@
 			transition: height .2s;
 		}
 
-			.side-panel.is-full {
-				height: calc(100dvh - var(--map-top, 76px));
-				border-radius: 0;
-			}
-			/* Liten: the tabs, "Ressurser i området" and a bit of what is under, so you see that you can scroll (height set by JS) */
-			.side-panel.is-small {
-				height: var(--sheet-small, 35dvh);
-			}
+		.side-panel.is-full {
+			height: calc(100dvh - var(--map-top, 76px));
+			border-radius: 0;
+		}
 
-			.side-panel.dragging {
-				transition: none;
-			}
+		.side-panel.is-small {
+			height: var(--sheet-small, 35dvh);
+		}
 
-				.side-panel.dragging iframe {
-					pointer-events: none;
-				}
+		.side-panel.dragging {
+			transition: none;
+		}
+
+		.side-panel.dragging iframe {
+			pointer-events: none;
+		}
 
 		.side-panel-resize {
 			display: none;
@@ -876,16 +859,16 @@
 			border: 0;
 			border-radius: 16px 16px 0 0;
 			background: none;
-			touch-action: none; /* the finger drags the sheet, the page does not scroll */
+			touch-action: none;
 			cursor: grab;
 		}
 
-			.side-panel-grip span {
-				width: 40px;
-				height: 4px;
-				border-radius: 2px;
-				background: var(--bs-secondary-color);
-			}
+		.side-panel-grip span {
+			width: 40px;
+			height: 4px;
+			border-radius: 2px;
+			background: var(--bs-secondary-color);
+		}
 
 		.side-panel.need-mode .side-panel-grip {
 			background: #ffc107;
@@ -908,9 +891,9 @@
 			box-shadow: none;
 		}
 			/* The tabs are right above it, so "Vis liste" and "Ferdig" are not needed there */
-			.radius-bar.in-panel #radiusList, .radius-bar.in-panel #radiusDone {
-				display: none;
-			}
+		.radius-bar.in-panel #radiusList, .radius-bar.in-panel #radiusDone {
+			display: none;
+		}
 	}
 </style>
 
