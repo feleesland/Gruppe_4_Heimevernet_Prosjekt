@@ -1996,16 +1996,17 @@ html:not([data-bs-theme]) #activeList .btn-outline-warning {
     --bs-btn-color: #75b798;
     --bs-btn-border-color: #75b798;
 }
-/* Phone: the ⚙ menu and the account menu hung from the button and slid off the left edge.
-   Below 576px they sit just under the header, full width with a small margin (help with AI)
-   Docs: https://getbootstrap.com/docs/5.3/components/dropdowns/#alignment-options */
+/* Phone: the bell list, the ⚙ menu and the account menu hung from their buttons and slid off the left edge.
+   Below 576px they sit just under the header, full width with a small margin */
 @media (max-width: 575.98px) {
-    .navbar .dropdown-menu.account-menu {
+    .navbar .dropdown-menu.account-menu,
+    .navbar .dropdown-menu.notification-panel {
         position: fixed;
         top: 4.75rem;
         left: .5rem;
         right: .5rem;
         width: auto;
+        max-width: none;
         max-height: calc(100vh - 6rem);
         overflow-y: auto;
     }

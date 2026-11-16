@@ -38,7 +38,7 @@
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/page-background.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/^page-background.css" asp-append-version="true" /> 
     <link rel="stylesheet" href="~/Heimevernet_Prosjekt.styles.css" asp-append-version="true" />
 
     <link rel="stylesheet"
@@ -73,12 +73,7 @@
                 <div id="mainNavigation"
                      class="navbar-collapse collapse d-xl-inline-flex justify-content-between order-last order-xl-0">
                     <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-white"
-                               asp-area=""
-                               asp-controller="Home"
-                               asp-action="Index">Hjem</a>
-                        </li>
+                          
                         @* The operator's main page - only operator and admin *@
                         @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Operator))
                         {
@@ -130,8 +125,6 @@
                         <form id="globalSearchForm" asp-controller="Resource" asp-action="List" method="get" role="search" autocomplete="off"
                               data-suggest-url="@Url.Action("Index", "Suggestions")" data-map-url="@Url.Action("Map", "Home")" data-detail-url="@Url.Content("~/Resource/Index/")"
                               class="nav-search d-flex flex-grow-1 justify-content-center align-items-center gap-2 mx-2 mx-xl-3">
-                                                          @* Phones: ← closes the search again (help with AI) *@
-                            <button type="button" class="search-back d-sm-none" aria-label="Lukk søket"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
                             <div class="search-box">
                                 <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
                                 <input id="globalSearchWhat" name="search" value="@Context.Request.Query["search"]" class="form-control rounded-pill" placeholder="Søk etter ressurs eller sted ..." aria-label="Søk etter ressurs eller sted" />
@@ -148,8 +141,6 @@
                     {
                         <form id="infoSearchForm" asp-controller="Home" asp-action="Index" method="get" role="search" autocomplete="off"
                               class="nav-search d-flex flex-grow-1 justify-content-center align-items-center gap-2 mx-2 mx-xl-3">
-                                                          @* Phones: ← closes the search again (help with AI) *@
-                            <button type="button" class="search-back d-sm-none" aria-label="Lukk søket"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
                             <div class="search-box">
                                 <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0" /></svg>
                                 <input id="infoSearchText" name="q" value="@Context.Request.Query["q"]" class="form-control rounded-pill" placeholder="Søk i informasjon ..." aria-label="Søk i informasjon" />
@@ -163,12 +154,6 @@
 
                     @* Show account controls based on login status. *@
                     <ul class="navbar-nav account-nav flex-row align-items-center">
-                                                @* Phones: the search is a 🔍 button that opens it over the whole top, like YouTube and Finn (help with AI) *@
-                        <li class="nav-item d-sm-none">
-                            <button type="button" id="searchOpen" class="nav-link text-white btn btn-link search-open-btn" aria-label="Søk" aria-expanded="false">
-                                <i class="ti ti-search" aria-hidden="true"></i>
-                            </button>
-                        </li>
                         @if (SignInManager.IsSignedIn(User))
                         {
                             // Show first and last name; fall back to email for users without a name
@@ -268,7 +253,7 @@
                                          <a class="dropdown-item" asp-controller="ResourceReport" asp-action="Index">⚑ Alle varsler</a>
                                      }
                                                                         @* Innstillinger: only for the look for now, the page isn't made yet *@
-                                    <button type="button" class="dropdown-item">⚙️ Innstillinger</button>
+                                    <button type="button" class="dropdown-item">⚙️ Innstillinger (Virker ikke)</button>
                                     <partial name="_DisplaySettings" />
                                     <div class="dropdown-divider"></div>
                                     <form asp-controller="Account" asp-action="Logout" method="post" class="m-0">
@@ -339,11 +324,6 @@
                     ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
                     : choice;
                 root.setAttribute('data-bs-theme', theme);
-                                // The side panel on the map is its own page (iframe): give it the new theme too (help with AI)
-                // Docs: HTMLIFrameElement.contentDocument (MDN) - https://developer.mozilla.org/docs/Web/API/HTMLIFrameElement/contentDocument
-                document.querySelectorAll('iframe').forEach(function (frame) {
-                    try { frame.contentDocument.documentElement.setAttribute('data-bs-theme', theme); } catch (e) { }
-                });
             }
 
             // ✓ on the chosen ones
@@ -374,27 +354,6 @@
             });
 
             mark();
-        })();
-    </script>
-        <script>
-        // Phones: 🔍 opens the search over the whole top, ← or Esc closes it (help with AI)
-        // Docs: aria-expanded (MDN) - https://developer.mozilla.org/docs/Web/Accessibility/ARIA/Attributes/aria-expanded
-        (function () {
-            var header = document.querySelector('header');
-            var openButton = document.getElementById('searchOpen');
-            var form = document.querySelector('.nav-search');
-            if (!openButton || !form) return;
-            var input = form.querySelector('input');
-            function setOpen(open) {
-                header.classList.toggle('search-is-open', open);
-                openButton.setAttribute('aria-expanded', open ? 'true' : 'false');
-                if (open) input.focus(); else openButton.focus();
-            }
-            openButton.addEventListener('click', function () { setOpen(true); });
-            form.querySelector('.search-back').addEventListener('click', function () { setOpen(false); });
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && header.classList.contains('search-is-open')) setOpen(false);
-            });
         })();
     </script>
     @await RenderSectionAsync("Scripts", required: false)
