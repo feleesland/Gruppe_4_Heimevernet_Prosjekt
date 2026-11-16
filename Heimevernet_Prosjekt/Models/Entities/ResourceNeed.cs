@@ -9,6 +9,8 @@
         public string Address { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string ZipCode { get; set; } = string.Empty;
+        // The municipality from Kartverket ("KRISTIANSAND"), used as the region in the filters. Empty on old needs (then City is used)
+        public string Municipality { get; set; } = string.Empty;
         public string OwnerId { get; set; } = string.Empty;
         public bool OwnerRemoved { get; set; }
 
@@ -28,6 +30,11 @@
 
         // The circle on the map; a new need on a spot inside it is offered "Legg til i ..."
         public double RadiusKm { get; set; } = 2;
+
+        // Kontaktpunkt: where the resources are delivered or people meet. Empty = the same place as the need (help with AI)
+        public string MeetingPointName { get; set; } = string.Empty;
+        public double? MeetingLatitude { get; set; }
+        public double? MeetingLongitude { get; set; }
 
         // When it is needed. Empty NeededFrom = now (Akutt)
         public DateTime? NeededFrom { get; set; }

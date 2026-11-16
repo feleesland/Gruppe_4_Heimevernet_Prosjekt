@@ -9,29 +9,29 @@ namespace Heimevernet_Prosjekt.DataAccess;
 public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourceNeedRepository
 {
 
-    public ResourceNeed Create(ResourceNeedViewModel model)
-    {
-        ArgumentNullException.ThrowIfNull(model);
+    //public ResourceNeed Create(ResourceNeedViewModel model)
+    //{
+    //    ArgumentNullException.ThrowIfNull(model);
 
-        var resourceneed = new ResourceNeed
-        {
-            Name = model.Name,
-            Description = model.Description,
-            Type = model.Type,
-            OwnerId = model.OwnerId ?? string.Empty,
+    //    var resourceneed = new ResourceNeed
+    //    {
+    //        Name = model.Name,
+    //        Description = model.Description,
+    //        Type = model.Type,
+    //        OwnerId = model.OwnerId ?? string.Empty,
 
-            // Address and position on the map
-            Address = model.Address ?? string.Empty,
-            City = model.City ?? string.Empty,
-            ZipCode = model.ZipCode ?? string.Empty,
-            Latitude = model.Latitude,
-            Longitude = model.Longitude
-        };
+    //        // Address and position on the map
+    //        Address = model.Address ?? string.Empty,
+    //        City = model.City ?? string.Empty,
+    //        ZipCode = model.ZipCode ?? string.Empty,
+    //        Latitude = model.Latitude,
+    //        Longitude = model.Longitude
+    //    };
 
-        dbContext.ResourceNeeds.Add(resourceneed);
-        dbContext.SaveChanges();
-        return resourceneed;
-    }
+    //    dbContext.ResourceNeeds.Add(resourceneed);
+    //    dbContext.SaveChanges();
+    //    return resourceneed;
+    //}
 
     public ResourceNeed? GetById(int id)
     {
@@ -48,29 +48,29 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             .AsReadOnly();
     }
 
-    public bool Update(int id, ResourceNeedViewModel model)
-    {
-        ArgumentNullException.ThrowIfNull(model);
+    //public bool Update(int id, ResourceNeedViewModel model)
+    //{
+    //    ArgumentNullException.ThrowIfNull(model);
 
-        var resourceneed = dbContext.ResourceNeeds.Find(id);
-        if (resourceneed is null)
-        {
-            return false;
-        }
+    //    var resourceneed = dbContext.ResourceNeeds.Find(id);
+    //    if (resourceneed is null)
+    //    {
+    //        return false;
+    //    }
 
-        resourceneed.Name = model.Name;
-        resourceneed.Description = model.Description;
-        resourceneed.Type = model.Type;
+    //    resourceneed.Name = model.Name;
+    //    resourceneed.Description = model.Description;
+    //    resourceneed.Type = model.Type;
 
-        // Address and position on the map
-        resourceneed.Address = model.Address ?? string.Empty;
-        resourceneed.City = model.City ?? string.Empty;
-        resourceneed.ZipCode = model.ZipCode ?? string.Empty;
-        resourceneed.Latitude = model.Latitude;
-        resourceneed.Longitude = model.Longitude;
-        dbContext.SaveChanges();
-        return true;
-    }
+    //    // Address and position on the map
+    //    resourceneed.Address = model.Address ?? string.Empty;
+    //    resourceneed.City = model.City ?? string.Empty;
+    //    resourceneed.ZipCode = model.ZipCode ?? string.Empty;
+    //    resourceneed.Latitude = model.Latitude;
+    //    resourceneed.Longitude = model.Longitude;
+    //    dbContext.SaveChanges();
+    //    return true;
+    //}
 
     // Soft delete: the resource need is marked as deleted, but kept in the database - Docs: Global Query Filters
     // https://learn.microsoft.com/ef/core/querying/filters
@@ -139,6 +139,7 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
 
             Address = model.Address ?? string.Empty,
             City = model.City ?? string.Empty,
+            Municipality = model.Municipality ?? string.Empty,
             ZipCode = model.ZipCode ?? string.Empty,
             Latitude = model.Latitude,
             Longitude = model.Longitude,
@@ -147,6 +148,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
             RadiusKm = model.RadiusKm,
             NeededFrom = model.NeededFrom,
             NeededTo = model.NeededTo,
+            MeetingPointName = model.MeetingPointName ?? string.Empty,
+            MeetingLatitude = model.MeetingLatitude,
+            MeetingLongitude = model.MeetingLongitude,
 
             Items = model.Lines
                 .Select(line => new ResourceNeedItem { Type = line.Type, Quantity = line.Quantity })
@@ -269,6 +273,7 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.Description = model.Description?.Trim() ?? string.Empty;
         need.Address = model.Address ?? string.Empty;
         need.City = model.City ?? string.Empty;
+        need.Municipality = model.Municipality ?? string.Empty;
         need.ZipCode = model.ZipCode ?? string.Empty;
         need.Latitude = model.Latitude;
         need.Longitude = model.Longitude;
@@ -276,6 +281,9 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.RadiusKm = model.RadiusKm;
         need.NeededFrom = model.NeededFrom;
         need.NeededTo = model.NeededTo;
+        need.MeetingPointName = model.MeetingPointName ?? string.Empty;
+        need.MeetingLatitude = model.MeetingLatitude;
+        need.MeetingLongitude = model.MeetingLongitude;
 
         foreach (var item in need.Items.ToList())
         {
@@ -308,6 +316,61 @@ public class EfResourceNeedRepository(HeimevernetDbContext dbContext) : IResourc
         need.Type = need.Items.FirstOrDefault()?.Type ?? need.Type;
         dbContext.SaveChanges();
         return true;
+    }
+
+    // "Ofte brukt": count how many need lines each type has, and take the most used (help with AI)
+    // The database does the counting - Docs: Complex query operators (GroupBy) - https://learn.microsoft.com/ef/core/querying/complex-query-operators
+    public IReadOnlyList<string> GetPopularTypes(int count)
+    {
+        return dbContext.ResourceNeedItems
+            .Where(item => item.Type != null && item.Type != "")
+            .GroupBy(item => item.Type)
+            .OrderByDescending(group => group.Count())
+            .Select(group => group.Key)
+            .Take(count)
+            .ToList();
+    }
+
+    // "Info til innbyggere" (help with AI): one message per need, so the front page never shows the same need twice.
+    // A new message replaces the old one (the need's log keeps the history). Returns the old text for «Angre», or null
+    public string? SetUpdate(int needId, string userId, string userName, string text)
+    {
+        var old = dbContext.NeedUpdates
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
+        var previous = old.FirstOrDefault()?.Text;
+
+        dbContext.NeedUpdates.RemoveRange(old);
+        dbContext.NeedUpdates.Add(new NeedUpdate { ResourceNeedId = needId, UserId = userId, UserName = userName, Text = text });
+        dbContext.SaveChanges();
+        return previous;
+    }
+
+    // «Fjern»: the message is removed, so the need is no longer on the front page. Returns the removed text, or null
+    public string? RemoveUpdates(int needId)
+    {
+        var old = dbContext.NeedUpdates
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
+        if (old.Count == 0)
+        {
+            return null;
+        }
+
+        dbContext.NeedUpdates.RemoveRange(old);
+        dbContext.SaveChanges();
+        return old[0].Text;
+    }
+
+    public IReadOnlyList<NeedUpdate> GetUpdates(int needId)
+    {
+        return dbContext.NeedUpdates
+            .AsNoTracking()
+            .Where(update => update.ResourceNeedId == needId)
+            .OrderByDescending(update => update.At)
+            .ToList();
     }
 
 }

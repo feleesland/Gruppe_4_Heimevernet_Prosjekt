@@ -42,6 +42,9 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
         [Display(Name = "Poststed")]
         [MaxLength(100)]
         public string? City { get; set; }
+        // The municipality from Kartverket, filled in by location-picker.js (hidden field)
+        [MaxLength(100)]
+        public string? Municipality { get; set; }
 
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
@@ -52,6 +55,15 @@ namespace Heimevernet_Prosjekt.Models.ViewModels.ResourceNeed
 
         [Display(Name = "Til")]
         public DateTime? NeededTo { get; set; }
+
+        // Kontaktpunkt (empty = the same place as the need)
+        public string? MeetingPointName { get; set; }
+        public double? MeetingLatitude { get; set; }
+        public double? MeetingLongitude { get; set; }
+        // «+ Info til innbyggere» when the need is created: published as the first update (help with AI)
+        [MaxLength(300, ErrorMessage = "Teksten kan ikke være lengre enn 300 tegn.")]
+        [Display(Name = "Info til innbyggere")]
+        public string? PublicText { get; set; }
 
         // The lines, e.g. "2 traktorer" and "1 båt"
         public List<NeedLineInput> Lines { get; set; } = new();

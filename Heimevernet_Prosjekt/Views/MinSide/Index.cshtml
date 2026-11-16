@@ -1,0 +1,81 @@
+﻿@using Heimevernet_Prosjekt.Models.Entities
+@using Heimevernet_Prosjekt.Security.Authorization
+@model ApplicationUser
+@{
+    ViewData["Title"] = "Min side";
+}
+
+<style>
+    .home-panel {
+        max-width: 720px;
+        margin: 3rem auto;
+        padding: 2rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .home-card {
+        padding: 1.5rem;
+        border-radius: 12px;
+        background: rgba(var(--bs-body-bg-rgb), 0.88);
+        color: var(--bs-body-color);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+</style>
+
+<section class="home-panel">
+    <h1 class="h3">Min side</h1>
+
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-success" role="alert">
+            @TempData["Message"]
+        </div>
+    }
+
+    <dl class="row mb-4">
+        <dt class="col-sm-4">Navn</dt>
+        <dd class="col-sm-8">@Model.FirstName @Model.LastName</dd>
+
+        <dt class="col-sm-4">E-post</dt>
+        <dd class="col-sm-8">@Model.Email</dd>
+
+        <dt class="col-sm-4">Telefon</dt>
+        <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.PhoneNumber) ? "Ikke oppgitt" : Model.PhoneNumber)</dd>
+
+        <dt class="col-sm-4">Rolle</dt>
+        <dd class="col-sm-8">@ViewData["Roles"]</dd>
+        @if (!User.IsInRole(RoleNames.Admin))
+        {
+            <dt class="col-sm-4">@(User.IsInRole(RoleNames.Operator) ? "Etat" : "Jeg er")</dt>
+            <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorKind) ? "Ikke valgt" : Model.ActorKind)</dd>
+
+        @if (!User.IsInRole(RoleNames.Operator))
+            {
+                <dt class="col-sm-4">Kan bidra som</dt>
+                <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.ActorSkills) ? "Ikke valgt" : string.Join(", ", ActorTypes.Split(Model.ActorSkills)))</dd>
+            }
+        }
+    </dl>
+
+    <div class="d-flex flex-wrap gap-2">
+        <a asp-action="EditProfile" class="btn btn-success">Rediger profil</a>
+        <a asp-controller="Resource" asp-action="List" asp-route-mine="true" class="btn btn-outline-success">Mine ressurser</a>
+    </div>
+
+    <div class="my-4">
+        <hr />
+    <form asp-action="RequestPasswordReset" method="post" class="d-inline">
+    <button type="submit" class="btn btn-outline-success">Tilbakestill passord</button>
+    </form>
+    </div>
+
+    <hr class="my-4" />
+
+    <div class="d-flex justify-content-between align-items-center">
+        <small class="text-body-secondary">Sletting av konto kan ikke angres.</small>
+        <a asp-action="DeleteProfile" class="btn btn-sm btn-outline-danger">Slett konto …</a>
+    </div>
+</section>

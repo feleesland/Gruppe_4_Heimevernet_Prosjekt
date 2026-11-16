@@ -19,4 +19,17 @@ public class ResourceType
     [MaxLength(300)]
     [Display(Name = "Eksempler")]
     public string? Examples { get; set; }
+
+
+    // "Ny ressurs" step by step: the category (e.g. Kjøretøy), the icon and the order. Empty on the old types
+    public int? CategoryId { get; set; }
+    public ResourceCategory? Category { get; set; }
+
+    [MaxLength(50)]
+    public string? Icon { get; set; }
+
+    public int SortOrder { get; set; }
+
+    // The questions the owner answers in step 2, e.g. "Hengerfeste"
+    public List<ResourceAttribute> Attributes { get; set; } = new();
 }

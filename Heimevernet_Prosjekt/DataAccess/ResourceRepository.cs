@@ -1,93 +1,93 @@
-﻿using Heimevernet_Prosjekt.Models.Entities;
-using Heimevernet_Prosjekt.Models.ViewModels.Resource;
+﻿//using Heimevernet_Prosjekt.Models.Entities;
+//using Heimevernet_Prosjekt.Models.ViewModels.Resource;
 
 
-namespace Heimevernet_Prosjekt.DataAccess
-{
-    public class ResourceRepository : IResourceRepository
-    {
-        private readonly Dictionary<int, Resource> _resources = new();
-        private int _nextId = 1;
-        public bool SetStatus(int id, string status) => throw new NotSupportedException();
-        public bool SetUnavailable(int id, string? reason, DateTime? untilUtc) => throw new NotSupportedException();
+//namespace Heimevernet_Prosjekt.DataAccess
+//{
+//    public class ResourceRepository : IResourceRepository
+//    {
+//        private readonly Dictionary<int, Resource> _resources = new();
+//        private int _nextId = 1;
+//        public bool SetStatus(int id, string status) => throw new NotSupportedException();
+//        public bool SetUnavailable(int id, string? reason, DateTime? untilUtc) => throw new NotSupportedException();
 
-        public ResourceRepository()
-        {
-            //Add a few dummy resources for testing
-            Create(new ResourceViewModel { Name = "Resource 1", Description = "Description 1", Type = "Type A" });
-            Create(new ResourceViewModel { Name = "Resource 2", Description = "Description 2", Type = "Type B" });
-            Create(new ResourceViewModel { Name = "Resource 3", Description = "Description 3", Type = "Type C" });
-        }
+//        public ResourceRepository()
+//        {
+//            //Add a few dummy resources for testing
+//            Create(new ResourceViewModel { Name = "Resource 1", Description = "Description 1", Type = "Type A" });
+//            Create(new ResourceViewModel { Name = "Resource 2", Description = "Description 2", Type = "Type B" });
+//            Create(new ResourceViewModel { Name = "Resource 3", Description = "Description 3", Type = "Type C" });
+//        }
 
-        public Resource Create(ResourceViewModel model)
-        {
-            ArgumentNullException.ThrowIfNull(model);
+//        public Resource Create(ResourceViewModel model)
+//        {
+//            ArgumentNullException.ThrowIfNull(model);
 
-            var resource = new Resource
-            {
-                Id = _nextId++,
-                Name = model.Name,
-                Description = model.Description ?? string.Empty, // Stores empty text if no description being entered
-                Type = model.Type,
-                Status = "Ledig",
-            };
+//            var resource = new Resource
+//            {
+//                Id = _nextId++,
+//                Name = model.Name,
+//                Description = model.Description ?? string.Empty, // Stores empty text if no description being entered
+//                Type = model.Type,
+//                Status = "Ledig",
+//            };
 
-            _resources.Add(resource.Id, resource);
-            return resource;
-        }
+//            _resources.Add(resource.Id, resource);
+//            return resource;
+//        }
 
-        public Resource? GetById(int id)
-        {
-            return _resources.GetValueOrDefault(id);
-        }
+//        public Resource? GetById(int id)
+//        {
+//            return _resources.GetValueOrDefault(id);
+//        }
 
-        public IReadOnlyCollection<Resource> GetAll()
-        {
-            return _resources.Values.ToList().AsReadOnly();
-        }
+//        public IReadOnlyCollection<Resource> GetAll()
+//        {
+//            return _resources.Values.ToList().AsReadOnly();
+//        }
 
-        public bool Update(int id, ResourceViewModel model)
-        {
-            ArgumentNullException.ThrowIfNull(model);
+//        public bool Update(int id, ResourceViewModel model)
+//        {
+//            ArgumentNullException.ThrowIfNull(model);
 
-            if (!_resources.TryGetValue(id, out var resource))
-            {
-                return false;
-            }
+//            if (!_resources.TryGetValue(id, out var resource))
+//            {
+//                return false;
+//            }
 
-            resource.Name = model.Name;
-            resource.Description = model.Description ?? string.Empty;  // Stores empty text if no description being entered 
-            resource.Type = model.Type;
-            return true;
-        }
+//            resource.Name = model.Name;
+//            resource.Description = model.Description ?? string.Empty;  // Stores empty text if no description being entered 
+//            resource.Type = model.Type;
+//            return true;
+//        }
 
-        public bool Delete(int id)
-        {
-            return _resources.Remove(id);
-        }
+//        public bool Delete(int id)
+//        {
+//            return _resources.Remove(id);
+//        }
 
-        public int RemoveOwner(string ownerId)
-        {
-            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
-            foreach (var resource in resources)
-            {
-                resource.OwnerId = string.Empty;
-                resource.OwnerTelephoneNumber = string.Empty;
-                resource.OwnerRemoved = true;
-            }
-            return resources.Count;
-        }
+//        public int RemoveOwner(string ownerId)
+//        {
+//            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
+//            foreach (var resource in resources)
+//            {
+//                resource.OwnerId = string.Empty;
+//                resource.OwnerTelephoneNumber = string.Empty;
+//                resource.OwnerRemoved = true;
+//            }
+//            return resources.Count;
+//        }
 
-        public int DeleteAllByOwner(string ownerId)
-        {
-            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
-            foreach (var resource in resources)
-            {
-                resource.IsDeleted = true;
-                resource.DeletedAt = DateTime.UtcNow;
-            }
-            return resources.Count;
-        }
+//        public int DeleteAllByOwner(string ownerId)
+//        {
+//            var resources = _resources.Values.Where(r => r.OwnerId == ownerId).ToList();
+//            foreach (var resource in resources)
+//            {
+//                resource.IsDeleted = true;
+//                resource.DeletedAt = DateTime.UtcNow;
+//            }
+//            return resources.Count;
+//        }
 
-    }
-}
+//    }
+//}

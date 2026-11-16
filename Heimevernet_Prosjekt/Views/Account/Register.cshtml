@@ -1,45 +1,117 @@
-﻿@model Heimevernet_Prosjekt.Models.ViewModels.Account.RegisterViewModel
+﻿@using Heimevernet_Prosjekt.Security.Authorization
+@model Heimevernet_Prosjekt.Models.ViewModels.Account.RegisterViewModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
 
 @{
-    ViewData["Title"] = "Registrer";
+    ViewData["Title"] = "Registrer deg";
+    var returnUrl = ViewData["ReturnUrl"] as string;
+    // Demo switch in appsettings (on in Development for the expo, off in production) (help with AI)
+    // Docs: https://learn.microsoft.com/aspnet/core/mvc/views/dependency-injection
+    var allowRoleChoice = Config.GetValue("Auth:AllowRoleChoice", false);
+    var chosenRole = Model.DemoRole == RoleNames.Operator ? RoleNames.Operator : RoleNames.User;
+    // Email is not checked when confirmation is off (expo), so visitors may type made-up details (help with AI)
+    var demoMode = !Config.GetValue("Auth:RequireConfirmedAccount", true);
 }
 
-<h1>@ViewData["Title"]</h1>
-<form asp-action="Register" method="post" class="col-md-6">
-    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
-    <div class="mb-3">
-        <label asp-for="FirstName" class="form-label"></label>
-        <input asp-for="FirstName" class="form-control" autocomplete="given-name" />
-        <span asp-validation-for="FirstName" class="text-danger"></span>
+
+@* A card in the middle of the screen (.login-card in site.css). returnUrl follows along through the email link, so the user comes back to "Ny ressurs" *@
+<div class="row justify-content-center mt-5 pt-5">
+    <div class="col-11 col-sm-8 col-md-6 col-lg-4">
+        <div class="card login-card shadow-sm">
+            <div class="card-body px-4 pt-5 pb-4">
+                <h1 class="h3 text-center fw-bold mb-4">@ViewData["Title"]</h1>
+
+                @if (returnUrl?.Contains("ResourceHandler/Create", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    <div class="alert alert-info">Lag en konto for å opprette ressursen. Det du har fylt inn er tatt vare på.</div>
+                }
+                <form asp-action="Register" method="post">
+                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                    <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                    @if (demoMode)
+                    {
+                        @* Demo only: tell visitors they don't need real details (help with AI) *@
+                        <div class="demo-role mb-3" role="note">
+                            <div class="demo-role-title">
+                                <i class="ti ti-flask" aria-hidden="true"></i> Demo – bare for expoen
+                            </div>
+                            <p class="small mb-0">
+                                Du trenger ikke bruke ekte opplysninger. E-posten sjekkes ikke, så skriv gjerne noe som
+                                <strong>ola@test.no</strong> og telefon <strong>12345678</strong>.
+                            </p>
+                        </div>
+                    }
+                    <div class="mb-3">
+                        <label asp-for="FirstName" class="form-label"></label>
+                        <input asp-for="FirstName" class="form-control" autocomplete="given-name" />
+                        <span asp-validation-for="FirstName" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="LastName" class="form-label"></label>
+                        <input asp-for="LastName" class="form-control" autocomplete="family-name" />
+                        <span asp-validation-for="LastName" class="text-danger"></span>
+                    </div>
+                    @* Phone number on the account, shown on every resource the user registers *@
+                    <div class="mb-3">
+                        <label asp-for="PhoneNumber" class="form-label"></label>
+                        <input asp-for="PhoneNumber" class="form-control" type="tel" autocomplete="tel" />
+                        <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Email" class="form-label"></label>
+                        <input asp-for="Email" class="form-control" autocomplete="email" />
+                        <span asp-validation-for="Email" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Password" class="form-label"></label>
+                        <input asp-for="Password" class="form-control" autocomplete="new-password" />
+                        <span asp-validation-for="Password" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="ConfirmPassword" class="form-label"></label>
+                        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+                        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                    </div>
+
+                    @* Demo only: choose a role to try. A dashed yellow box so it is clear this is not a normal feature (help with AI)
+                       Docs: Bootstrap toggle buttons - https://getbootstrap.com/docs/5.3/forms/checks-radios/#toggle-buttons *@
+                    @if (allowRoleChoice)
+                    {
+                        <fieldset class="demo-role mb-3">
+                            <legend class="demo-role-title">
+                                <i class="ti ti-flask" aria-hidden="true"></i> Demo: velg rolle
+                            </legend>
+                            <p class="small mb-2">Velg hvilken rolle du vil prøve:</p>
+
+                            <input type="radio" class="btn-check" name="DemoRole" id="roleUser" value="@RoleNames.User" checked="@(chosenRole == RoleNames.User)" />
+                            <label class="btn btn-outline-success w-100 text-start mb-2" for="roleUser">
+                                <i class="ti ti-user" aria-hidden="true"></i> <strong>Bruker</strong>
+                                <span class="d-block small">Legg til ressurser</span>
+                            </label>
+
+                            <input type="radio" class="btn-check" name="DemoRole" id="roleOperator" value="@RoleNames.Operator" checked="@(chosenRole == RoleNames.Operator)" />
+                            <label class="btn btn-outline-success w-100 text-start" for="roleOperator">
+                                <i class="ti ti-headset" aria-hidden="true"></i> <strong>Operatør</strong>
+                                <span class="d-block small">Håndter behov på kartet, og legg til ressurser</span>
+                            </label>
+
+                            <p class="small text-body-secondary mt-2 mb-0">
+                                I den ekte løsningen blir alle nye kontoer Bruker. Bare admin kan gi operatør-tilgang.
+                            </p>
+                        </fieldset>
+                    }
+
+                    <div class="d-grid">
+                        <button type="submit" class="button">Registrer deg</button>
+                    </div>
+                </form>
+
+                <p class="text-center mt-3 mb-2">Har du allerede en konto?</p>
+                <a class="btn btn-outline-secondary w-100" asp-action="Login" asp-route-returnUrl="@returnUrl">Logg inn</a>
+            </div>
+        </div>
     </div>
-    <div class="mb-3">
-        <label asp-for="LastName" class="form-label"></label>
-        <input asp-for="LastName" class="form-control" autocomplete="family-name" />
-        <span asp-validation-for="LastName" class="text-danger"></span>
-    </div>
-    @* Phone number on the account, shown on every resource the user registers *@
-    <div class="mb-3">
-        <label asp-for="PhoneNumber" class="form-label"></label>
-        <input asp-for="PhoneNumber" class="form-control" type="tel" autocomplete="tel" />
-        <span asp-validation-for="PhoneNumber" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="Email" class="form-label"></label>
-        <input asp-for="Email" class="form-control" autocomplete="email" />
-        <span asp-validation-for="Email" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="Password" class="form-label"></label>
-        <input asp-for="Password" class="form-control" autocomplete="new-password" />
-        <span asp-validation-for="Password" class="text-danger"></span>
-    </div>
-    <div class="mb-3">
-        <label asp-for="ConfirmPassword" class="form-label"></label>
-        <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
-        <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
-    </div>
-    <button type="submit" class="button">Registrer</button>
-</form>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

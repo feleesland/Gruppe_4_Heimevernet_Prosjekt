@@ -59,6 +59,11 @@
             <p class="text-muted small mt-1 mb-3">
                 @r.NeedName@(string.IsNullOrEmpty(r.NeedPlace) ? "" : " · " + r.NeedPlace)
             </p>
+            @* Kontaktpunkt (help with AI): where to deliver, or where it is picked up. Flag + text *@
+            @if (!string.IsNullOrEmpty(r.MeetingPoint))
+            {
+                <p class="small mt-n2 mb-3"><span class="meeting-flag meeting-flag-xs"><i class="ti ti-flag" aria-hidden="true"></i></span>Kontaktpunkt: <strong>@r.MeetingPoint</strong></p>
+            }
 
             @* Three answers in one form: the button pressed is sent as "answer" *@
             <form asp-action="Answer" asp-route-id="@r.Id" method="post">
@@ -87,6 +92,10 @@
                     @if (!string.IsNullOrEmpty(r.Comment))
                     {
                         <span class="d-block small text-muted">«@r.Comment»</span>
+                    }
+                    @if (r.Status == RequestStatus.Godtatt && !string.IsNullOrEmpty(r.MeetingPoint))
+                    {
+                        <span class="d-block small"><span class="meeting-flag meeting-flag-xs"><i class="ti ti-flag" aria-hidden="true"></i></span>@(r.Delivery == DeliveryMethod.Hentes ? "Hentes ved" : "Leveres til") @r.MeetingPoint</span>
                     }
                 </span>
                 <span class="badge @status.Css align-self-center">@status.Text</span>

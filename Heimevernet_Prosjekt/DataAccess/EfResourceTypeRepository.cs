@@ -83,4 +83,26 @@ public class EfResourceTypeRepository(HeimevernetDbContext dbContext) : IResourc
         dbContext.SaveChanges();
         return true;
     }
+
+    // "Ny ressurs": the categories with their types and questions, in the order admin chose. Hidden questions are left out
+    // Docs: Eager loading (Include/ThenInclude) - https://learn.microsoft.com/ef/core/querying/related-data/eager
+    public IReadOnlyList<ResourceCategory> GetCategories()
+    {
+        var categories = dbContext.ResourceCategories
+            .Include(category => category.Types)
+            .ThenInclude(type => type.Attributes)
+            .AsNoTracking()
+            .OrderBy(category => category.SortOrder)
+            .ToList();
+
+        foreach (var category in categories)
+        {
+            category.Types = category.Types.OrderBy(type => type.SortOrder).ToList();
+            foreach (var type in category.Types)
+            {
+                type.Attributes = type.Attributes.Where(a => !a.IsHidden).OrderBy(a => a.SortOrder).ToList();
+            }
+        }
+        return categories;
+    }
 }
