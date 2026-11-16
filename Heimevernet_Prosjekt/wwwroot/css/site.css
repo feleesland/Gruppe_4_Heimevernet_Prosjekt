@@ -369,18 +369,19 @@ footer.footer {
 
     /* The search always in the middle of the screen (in line with the box on the homepage), not between the links and the buttons.
    Narrower when the screen is small, so it never covers the links. On phones the menu folds up, so it stays in the flow */
-    @media (min-width: 1460px) {
-        .navbar .nav-search {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            width: clamp(300px, calc(100vw - 1160px), 640px);
-        }
-
-        .navbar .account-nav {
-            margin-left: auto;
-        }
+@media (min-width: 1600px) {
+    .navbar .nav-search {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        /* 1300px keeps the search clear of the links (Hjem … Behov) on the left (help with AI) */
+        width: clamp(300px, calc(100vw - 1300px), 640px);
     }
+
+    .navbar .account-nav {
+        margin-left: auto;
+    }
+}
     /* The status of a need (Ny, Vurderes, Tildelt, Løst): a pill with icon + text. Stronger colour the further it has come */
     .need-status {
         display: inline-block;
@@ -1829,7 +1830,7 @@ footer.footer {
    overflow-x: clip stops the page from being wider than the screen (no white stripe on the right, no sideways scroll)
    Docs: flex-basis (MDN) - https://developer.mozilla.org/docs/Web/CSS/flex-basis  ·  overflow clip (MDN) - https://developer.mozilla.org/docs/Web/CSS/overflow */
 
-@media (max-width: 1199.98px) {
+@media (max-width: 1599.98px) {
     .navbar .nav-search {
         flex: 1 1 0;
         min-width: 0;
@@ -2007,5 +2008,15 @@ html:not([data-bs-theme]) #activeList .btn-outline-warning {
         width: auto;
         max-height: calc(100vh - 6rem);
         overflow-y: auto;
+    }
+}
+
+/* The links at the top never wrap: "Behov" stays on the same line, and the search shrinks instead (help with AI)
+   Docs: https://developer.mozilla.org/docs/Web/CSS/flex-wrap */
+@media (min-width: 576px) {
+    #mainNavigation > .navbar-nav:first-child {
+        flex-wrap: nowrap;
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 }
