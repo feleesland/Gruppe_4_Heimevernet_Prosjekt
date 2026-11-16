@@ -1954,3 +1954,58 @@ html:not([data-bs-theme]) #activeList .btn-outline-warning {
     --bs-btn-hover-bg: #ffc107;
     --bs-btn-hover-border-color: #ffc107;
 }
+/* Register: the demo role choice (only for the expo). Dashed yellow border and a label,
+   so nobody thinks you can choose your own role in the real solution (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/customize/css-variables/ */
+.demo-role {
+    border: 2px dashed var(--bs-warning);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-warning-bg-subtle);
+    padding: .75rem 1rem 1rem;
+}
+
+/* Title inside the box (not on the border), with the rest below it (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/content/reboot/#legend */
+.demo-role-title {
+    float: left;
+    width: 100%;
+    padding: 0;
+    margin: 0 0 .5rem;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--bs-warning-text-emphasis);
+}
+
+    .demo-role-title + * {
+        clear: left;
+    }
+
+/* The chosen role also gets "✓ Valgt", so it isn't shown by colour alone (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/forms/checks-radios/#toggle-buttons */
+.demo-role .btn-check:checked + label::after {
+    content: "✓ Valgt";
+    float: right;
+    font-size: .8rem;
+    font-weight: 600;
+    margin-top: -1.35rem;
+}
+/* Dark mode: the role not chosen was dark green on dark brown, so a lighter green (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/components/buttons/#variables */
+[data-bs-theme="dark"] .demo-role .btn-outline-success {
+    --bs-btn-color: #75b798;
+    --bs-btn-border-color: #75b798;
+}
+/* Phone: the ⚙ menu and the account menu hung from the button and slid off the left edge.
+   Below 576px they sit just under the header, full width with a small margin (help with AI)
+   Docs: https://getbootstrap.com/docs/5.3/components/dropdowns/#alignment-options */
+@media (max-width: 575.98px) {
+    .navbar .dropdown-menu.account-menu {
+        position: fixed;
+        top: 4.75rem;
+        left: .5rem;
+        right: .5rem;
+        width: auto;
+        max-height: calc(100vh - 6rem);
+        overflow-y: auto;
+    }
+}

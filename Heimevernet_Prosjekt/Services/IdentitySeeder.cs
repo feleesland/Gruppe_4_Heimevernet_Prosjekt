@@ -46,6 +46,20 @@ public static class IdentitySeeder
         }
     }
 
+    // The test operator: the email was defined but never created, so you could not log in as operator (help with AI)
+    // Docs: https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.identity.usermanager-1.addtoroleasync
+    public static async Task SeedDevelopmentOperatorAsync(UserManager<ApplicationUser> userManager)
+    {
+        var user = await FindOrCreateDevelopmentUserAsync(userManager, DevelopmentOperatorEmail, "Test", "Operatør");
+
+        if (!await userManager.IsInRoleAsync(user, RoleNames.Operator))
+        {
+            await EnsureSucceededAsync(
+                userManager.AddToRoleAsync(user, RoleNames.Operator),
+                $"Could not add the development operator to the {RoleNames.Operator} role.");
+        }
+    }
+
     // The test user also gets the User role
     public static async Task<ApplicationUser> SeedDevelopmentUserAsync(UserManager<ApplicationUser> userManager)
     {

@@ -713,7 +713,7 @@ namespace Heimevernet_Prosjekt.Controllers
             if (need.ClosedAt != null)
             {
                 TempData["Error"] = "Et avsluttet behov kan ikke endres.";
-                return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
+                return BackToNeed(need.Id);
             }
 
             // Same rules as "Meld behov" (name, place, time, types)
@@ -740,7 +740,7 @@ namespace Heimevernet_Prosjekt.Controllers
             }
             TempData["Message"] = "Endringene er lagret.";
             Log(need.Id, $"Endret behovet: {Summary(model.Lines)}");
-            return RedirectToAction("Index", "ResourceNeed", new { id = need.Id });
+            return BackToNeed(need.Id); // in the side panel it stays in the panel, without menu and a second map (help with AI)
         }
 
         [HttpPost]
@@ -782,7 +782,9 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 if (!string.IsNullOrWhiteSpace(model.Lines[i].Type) && !_typeRepository.Exists(model.Lines[i].Type))
                 {
-                    ModelState.AddModelError($"Lines[{i}].Type", "Velg en type fra listen.");
+                    // Shown at the top of the form (the line itself has no place for errors), with the name so you know which one (help with AI)
+                    // Docs: https://learn.microsoft.com/aspnet/core/mvc/models/validation
+                    ModelState.AddModelError(string.Empty, $"«{model.Lines[i].Type}» finnes ikke lenger som ressurstype. Fjern den med ✕ og legg til en annen.");
                 }
             }
 
@@ -873,8 +875,9 @@ namespace Heimevernet_Prosjekt.Controllers
             var name = request == null ? null : _resourceRepository.GetById(request.ResourceId)?.Name;
             return name != null ? $"«{name}»" : $"forespørsel #{requestId}";
         }
+ 
         // After saving: normally go to the need's page. From the side panel on the map (embed=1),
-        // tell the map instead, so it can close the panel and draw the new circle (help with AI)
+        // tell the map instead, so it can open the new need in the panel and draw its circle (help with AI)
         // Docs: Window.postMessage (MDN) - https://developer.mozilla.org/docs/Web/API/Window/postMessage
         private IActionResult DoneOrRedirect(int needId)
         {
@@ -882,8 +885,11 @@ namespace Heimevernet_Prosjekt.Controllers
             {
                 TempData.Remove("Message");
                 var url = Url.Action("Index", "ResourceNeed", new { id = needId });
+                var need = _resourceNeedRepository.GetById(needId);
+                var lat = need?.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null";
+                var lng = need?.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null";
                 return Content(
-                    $"<script>parent.postMessage({{ type: 'need-created', id: {needId}, url: '{url}' }}, location.origin);</script>",
+                    $"<script>parent.postMessage({{ type: 'need-created', id: {needId}, url: '{url}', lat: {lat}, lng: {lng} }}, location.origin);</script>",
                     "text/html");
             }
             return BackToNeed(needId);
